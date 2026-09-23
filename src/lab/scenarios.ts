@@ -716,6 +716,11 @@ add({
     }
     h.expect(msg.includes('replaced'), 'Old label now says it was replaced', msg);
     h.expect(h.engine.resolve(h.users.operator, h.ws, 'p-14').type === 'pallet', 'Typed code still works for damaged labels');
+    h.expect(h.fresh(p).label_needs_reprint, 'Pallet joins the reprint list');
+    h.expect(h.cmd(h.users.operator, 'label_applied', {}, h.fresh(p)).ok, 'Operator confirms the new label is on');
+    h.expect(!h.fresh(p).label_needs_reprint, 'Pallet leaves the reprint list');
+    const again = h.cmd(h.users.operator, 'label_applied', {}, h.fresh(p));
+    h.expect(!again.ok && again.code === 'INVALID_STATE', 'Confirming twice is refused', again.ok ? '' : again.message);
   },
 });
 

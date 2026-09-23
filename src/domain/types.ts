@@ -178,6 +178,7 @@ export const PALLET_COMMANDS = [
   'retire',
   'archive',
   'rotate_label',
+  'label_applied',
   'split',
 ] as const;
 export type PalletCommandKind = (typeof PALLET_COMMANDS)[number];

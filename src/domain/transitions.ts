@@ -25,6 +25,7 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   retire: 'SUPERVISOR',
   archive: 'SUPERVISOR',
   rotate_label: 'SUPERVISOR',
+  label_applied: 'OPERATOR',
   split: 'SUPERVISOR',
   create_job: 'SUPERVISOR',
   close_job: 'SUPERVISOR',
@@ -71,6 +72,7 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   retire: 'Retired',
   archive: 'Archived',
   rotate_label: 'Label replaced',
+  label_applied: 'New label applied',
   split: 'Split',
   create_job: 'Job created',
   close_job: 'Job closed',
@@ -347,6 +349,11 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
       if (!reason) return reject('INVALID_INPUT', 'Enter why the label is being replaced.');
       return { ok: true, patch: { label_needs_reprint: true }, reason, detail: {} };
     }
+    case 'label_applied': {
+      if (!pallet.label_needs_reprint) return reject('INVALID_STATE', `${pallet.code} has no pending label reprint.`);
+      if (pallet.state === 'RETIRED') return reject('INVALID_STATE', 'Retired pallets do not need labels.');
+      return { ok: true, patch: { label_needs_reprint: false }, reason: null, detail: {} };
+    }
     case 'split': {
       if (pallet.state !== 'STORED') return reject('INVALID_STATE', 'Only a stored pallet can be split.');
       if (pallet.hold) return reject('INVALID_STATE', `${pallet.code} is on hold. Clear the hold before splitting.`);
@@ -392,6 +399,7 @@ export function availableActions(pallet: Pallet, role: Role | null): PalletComma
   add('retire', s !== 'RETIRED');
   add('archive', s === 'RETIRED' && !pallet.archived_at);
   add('rotate_label', s !== 'RETIRED');
+  add('label_applied', pallet.label_needs_reprint && s !== 'RETIRED');
   add('split', s === 'STORED' && !pallet.hold);
   return out;
 }

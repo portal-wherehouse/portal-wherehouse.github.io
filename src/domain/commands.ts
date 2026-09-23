@@ -43,6 +43,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   retire: z.object({ reason }),
   archive: z.object({ reason }),
   rotate_label: z.object({ reason }),
+  label_applied: z.object({}),
   split: z.object({
     children: z.array(z.object({ description: text(400), job_id: id })).max(40),
     reason,

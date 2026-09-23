@@ -4,3 +4,4 @@ dist-artifact
 test-results
 playwright-report
 *.log
+*.tsbuildinfo
