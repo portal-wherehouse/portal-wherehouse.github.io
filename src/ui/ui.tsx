@@ -160,7 +160,7 @@ export function PageHead({ eyebrow, title, sub, actions }: { eyebrow?: ReactNode
       )}
       <div className="titles">
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1 className="page-title">{title}</h1>
+        <h1 className="page-title" data-tour="page-title">{title}</h1>
         {sub && <p className="page-sub">{sub}</p>}
       </div>
       {actions && <div className="row">{actions}</div>}

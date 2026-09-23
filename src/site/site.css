@@ -1,0 +1,303 @@
+/* Website: shared blocks (kit.tsx). The site shell and page-specific styles live in their own files.
+   Same tokens as the portal, with bigger type and more air. */
+
+.site-inner {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.site-inner.narrow {
+  max-width: 820px;
+}
+@media (min-width: 720px) {
+  .site-inner {
+    padding: 0 32px;
+  }
+}
+
+.site-eyebrow {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.site-h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+  font-size: clamp(44px, 9vw, 96px);
+  margin: 8px 0 0;
+  text-wrap: balance;
+}
+.site-h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1;
+  font-size: clamp(32px, 5.5vw, 56px);
+  margin: 6px 0 0;
+  text-wrap: balance;
+}
+.site-lede {
+  font-size: clamp(17px, 2.2vw, 20px);
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 62ch;
+  margin: 14px 0 0;
+}
+
+.site-section {
+  padding: 64px 0;
+}
+@media (min-width: 720px) {
+  .site-section {
+    padding: 96px 0;
+  }
+}
+.site-section-head {
+  margin-bottom: 32px;
+}
+.site-section.tone-surface {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.site-section.tone-ink {
+  background: #14171a;
+  color: #f4f5f1;
+  --ink: #f4f5f1;
+  --ink-2: #c3c9cf;
+  --ink-3: #9aa2a9;
+  --line: #2d3439;
+  --surface: #1d2226;
+  --surface-2: #232a30;
+  --accent: #f2b705;
+}
+.site-section.tone-hazard {
+  background: var(--hazard);
+  color: #14171a;
+  --ink: #14171a;
+  --ink-2: #2e3338;
+  --ink-3: #3d434a;
+  --accent: #14171a;
+  --line: rgba(20, 23, 26, 0.25);
+}
+
+.site-hero {
+  display: grid;
+  gap: 32px;
+  padding: 48px 0 24px;
+}
+@media (min-width: 960px) {
+  .site-hero.with-art {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: center;
+    padding: 72px 0 40px;
+  }
+}
+.site-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+  align-items: flex-end;
+}
+.site-hero-art {
+  min-width: 0;
+}
+
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font: 700 16px/1 var(--font-body);
+  cursor: pointer;
+  text-decoration: none;
+}
+.site-btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.site-btn.primary {
+  background: var(--ink);
+  color: var(--ground);
+}
+.tone-ink .site-btn.primary {
+  background: var(--hazard);
+  border-color: var(--hazard);
+  color: #14171a;
+}
+.site-btn.ghost:hover {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.site-btn:focus-visible,
+.portal-cta-btn:focus-visible,
+.site-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.site-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* "Already a customer?" + Open portal */
+.portal-cta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.portal-cta-note {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
+}
+.portal-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 20px 0 22px;
+  border-radius: 999px;
+  border: 2px solid var(--hazard);
+  background: var(--hazard);
+  color: #14171a;
+  font: 700 16px/1 var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 0 #14171a;
+}
+.portal-cta-btn:hover {
+  filter: brightness(1.05);
+}
+.portal-cta-btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.portal-cta-nav {
+  align-items: flex-end;
+  gap: 2px;
+}
+.portal-cta-nav .portal-cta-note {
+  font-size: 11px;
+}
+.portal-cta-nav .portal-cta-btn {
+  min-height: 40px;
+  padding: 0 14px 0 16px;
+  font-size: 14px;
+  box-shadow: none;
+}
+.portal-cta-inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.feature-cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 720px) {
+  .feature-cards.cols-2,
+  .feature-cards.cols-3,
+  .feature-cards.cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1040px) {
+  .feature-cards.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .feature-cards.cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+  min-width: 0;
+}
+.feature-card h3 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  text-transform: uppercase;
+  margin: 14px 0 6px;
+  line-height: 1.05;
+}
+.feature-body {
+  color: var(--ink-2);
+  font-size: 15px;
+}
+.feature-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--hazard);
+  color: #14171a;
+}
+.feature-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.site-placeholder {
+  position: relative;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  padding: 28px 18px 18px;
+  color: var(--ink-3);
+  background: repeating-linear-gradient(-45deg, transparent 0 14px, color-mix(in srgb, var(--ink) 3%, transparent) 14px 28px);
+}
+.site-placeholder-tag {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font: 700 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.cta-band-inner {
+  display: grid;
+  gap: 32px;
+  align-items: end;
+}
+@media (min-width: 900px) {
+  .cta-band-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+.tone-ink .portal-cta-note {
+  color: #c3c9cf;
+}

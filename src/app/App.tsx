@@ -1,7 +1,9 @@
-// App shell: demo strip, top bar, navigation, the current screen, and the sheets that sit above it.
+// App shell. Website pages get the site header and footer; everything else is the portal:
+// demo strip, top bar with "Take the tour", navigation, the current screen, and the sheets above it.
 
 import { useEffect, useRef, useState } from 'react';
-import { useApp, type RouteName } from './state';
+import { BRAND } from '../brand';
+import { isSiteRoute, useApp, type RouteName, type SiteRouteName } from './state';
 import { IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
 import { Avatar, Empty, ROLE_DESC, ROLE_LABEL, Sheet, Toasts, fmtTime } from '../ui/ui';
@@ -26,10 +28,41 @@ import { Receive } from '../features/receive/Receive';
 import { Settings } from '../features/settings/Settings';
 import { Sync } from '../features/sync/Sync';
 import { Tour } from '../features/tour/Tour';
-import { Welcome } from '../features/welcome/Welcome';
+import { PortalTour } from '../features/tour/PortalTour';
+import { ScanAnywhere } from '../features/scanners/ScanAnywhere';
+import { Help } from '../features/help/Help';
+import { Scanners } from '../features/scanners/Scanners';
+import { Station } from '../features/station/Station';
+import { DataStorage } from '../features/data/DataStorage';
+import { SignIn } from '../portal/SignIn';
+import { SiteShell } from '../site/SiteShell';
+import { Home } from '../site/Home';
+import { ProductPage } from '../site/pages/Product';
+import { ShowcasePage } from '../site/pages/Showcase';
+import { SimplePage } from '../site/pages/Simple';
+import { HardwarePage } from '../site/pages/Hardware';
+import { IndustriesPage } from '../site/pages/Industries';
+import { CustomersPage } from '../site/pages/Customers';
+import { PricingPage } from '../site/pages/Pricing';
+import { FounderPage } from '../site/pages/Founder';
+import { ContactPage } from '../site/pages/Contact';
+import { SecurityPage } from '../site/pages/Security';
 
-const SCREENS: Record<RouteName, () => React.ReactNode> = {
-  welcome: Welcome,
+const SITE_PAGES: Record<SiteRouteName, () => React.ReactNode> = {
+  home: Home,
+  product: ProductPage,
+  showcase: ShowcasePage,
+  simple: SimplePage,
+  hardware: HardwarePage,
+  industries: IndustriesPage,
+  customers: CustomersPage,
+  pricing: PricingPage,
+  founder: FounderPage,
+  contact: ContactPage,
+  security: SecurityPage,
+};
+
+const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.ReactNode> = {
   receive: Receive,
   move: Move,
   find: Find,
@@ -52,10 +85,11 @@ const SCREENS: Record<RouteName, () => React.ReactNode> = {
   settings: Settings,
   about: About,
   more: More,
+  help: Help,
+  scanners: Scanners,
+  station: Station,
+  data: DataStorage,
 };
-
-/** Screens that make sense before choosing an account. */
-const PUBLIC: RouteName[] = ['welcome', 'about', 'guide'];
 
 const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' }[] = [
   { route: 'receive', label: 'Receive', icon: 'receive' },
@@ -72,8 +106,33 @@ function tabFor(name: RouteName): RouteName {
 }
 
 export function App() {
+  const { route, actorId } = useApp();
+  if (isSiteRoute(route.name)) {
+    const Page = SITE_PAGES[route.name];
+    return (
+      <>
+        <SiteShell>
+          <Page key={route.name} />
+        </SiteShell>
+        <Toasts />
+        <div className="print-root" id="print-root" />
+      </>
+    );
+  }
+  if (route.name === 'signin' || !actorId) {
+    return (
+      <>
+        <SignIn />
+        <Toasts />
+      </>
+    );
+  }
+  return <Portal />;
+}
+
+function Portal() {
   const app = useApp();
-  const { route, actorId, workspaceId, role, backend, go, blockedNav, tourOpen, setTourOpen, toast, read } = app;
+  const { route, actorId, workspaceId, role, backend, go, blockedNav, toast, read } = app;
   const [account, setAccount] = useState(false);
   const signedIn = !!actorId;
   const offline = backend.network === 'offline';
@@ -99,9 +158,8 @@ export function App() {
   const pending = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).length + backend.pendingFor(actorId, workspaceId).length : 0;
   const needsDecision = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).filter((e) => e.status === 'conflict' || e.status === 'blocked').length : 0;
 
-  const name = signedIn ? route.name : PUBLIC.includes(route.name) ? route.name : 'welcome';
-  const Screen = SCREENS[name];
-  const removed = signedIn && !role && !PUBLIC.includes(route.name);
+  const Screen = SCREENS[route.name as keyof typeof SCREENS] ?? Find;
+  const removed = signedIn && !role && !['about', 'guide', 'help'].includes(route.name);
   const me = actorId ? backend.db.users[actorId] : null;
   const myWorkspaces = actorId ? backend.db.memberships.filter((m) => m.user_id === actorId && m.active) : [];
 
@@ -110,20 +168,20 @@ export function App() {
       <div className="demo-strip" role="note">
         <strong>DEMO</strong>
         <span className="grow">
-          {IS_PREVIEW ? 'Hosted preview. ' : ''}Server, sign-in and network are simulated in this browser{me && role ? `. You are ${me.name} (${ROLE_LABEL[role]})` : ''}.
+          {IS_PREVIEW ? 'Hosted preview. ' : ''}Sign-in is off while we test. Data and network are simulated in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account` : ''}.
         </span>
         {signedIn && (
           <button onClick={() => setAccount(true)} aria-label="Switch demo account">
-            Switch
+            Switch role
           </button>
         )}
-        {signedIn && !tourOpen && <button onClick={() => setTourOpen(true)}>Tour</button>}
       </div>
 
       <header className="topbar">
-        <button className="brand" onClick={() => go(signedIn ? app.prefs.startTab : 'welcome')} aria-label="Pallet Locator home">
+        <button className="brand" onClick={() => go(app.prefs.startTab)} aria-label={`${BRAND.portal} home`}>
           <BrandMark className="brand-mark" />
-          <span className="brand-name">Pallet Locator</span>
+          <span className="brand-name">{BRAND.name}</span>
+          <span className="brand-sub">Portal</span>
         </button>
         <span className="spacer" />
         {signedIn && ctx && (
@@ -140,14 +198,14 @@ export function App() {
             </button>
           </>
         )}
-        {me ? (
-          <button className="chip" onClick={() => setAccount(true)} aria-label={`Account: ${me.name}`}>
+        <button className="chip tour-chip" onClick={() => app.startGuide(0)} data-tour="take-tour" aria-label="Take the tour">
+          <Icon name="tour" />
+          <span className="tour-chip-label">Take the tour</span>
+        </button>
+        {me && (
+          <button className="chip" onClick={() => setAccount(true)} aria-label={`Account: ${me.name}`} data-tour="account">
             <Avatar name={me.name} />
-            <span className="acct-name">{me.name.split(' ')[0]}</span>
-          </button>
-        ) : (
-          <button className="chip" onClick={() => go('welcome')}>
-            <Icon name="user" /> Choose account
+            <span className="acct-name">{role ? ROLE_LABEL[role] : me.name}</span>
           </button>
         )}
       </header>
@@ -174,7 +232,7 @@ export function App() {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
                   const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
                   return (
-                    <button key={i.route} className="nav-item" aria-current={current ? 'page' : undefined} onClick={() => go(i.route)}>
+                    <button key={i.route} className="nav-item" aria-current={current ? 'page' : undefined} onClick={() => go(i.route)} data-tour={`nav-${i.route}`}>
                       <Icon name={i.icon} />
                       {i.label}
                       {!!count && <span className={`count ${i.route === 'sync' && needsDecision ? 'alert' : ''}`}>{count}</span>}
@@ -193,7 +251,7 @@ export function App() {
       {signedIn && (
         <nav className="bottom-nav" aria-label="Main">
           {TABS.map((t) => (
-            <button key={t.route} aria-current={tabFor(route.name) === t.route ? 'page' : undefined} onClick={() => go(t.route)}>
+            <button key={t.route} aria-current={tabFor(route.name) === t.route ? 'page' : undefined} onClick={() => go(t.route)} data-tour={`tab-${t.route}`}>
               <Icon name={t.icon} />
               {t.label}
               {t.route === 'more' && needsDecision > 0 && <span className="badge-count">{needsDecision}</span>}
@@ -206,7 +264,7 @@ export function App() {
         <Sheet title="Demo accounts" onClose={() => setAccount(false)}>
           <div className="stack">
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>
-              Switch to see what another role can do. In the real app, each person signs in with their own email.
+              Sign-in is turned off while {BRAND.name} is being tested. Switch roles to see what each kind of account can do. Later, each person signs in with their own email.
             </p>
             {myWorkspaces.length > 1 && (
               <div className="stack" style={{ gap: 6 }}>
@@ -250,7 +308,7 @@ export function App() {
                 <Icon name="settings" /> Settings
               </button>
               <button className="btn" onClick={() => (setAccount(false), app.signOut())}>
-                <Icon name="chevronLeft" /> Back to welcome
+                <Icon name="chevronLeft" /> Leave the portal
               </button>
             </div>
           </div>
@@ -274,6 +332,8 @@ export function App() {
       )}
 
       {signedIn && <Tour />}
+      <PortalTour />
+      <ScanAnywhere />
       <Toasts />
       <div className="print-root" id="print-root" />
     </div>
@@ -289,7 +349,7 @@ function RemovedAccess() {
           {backend.db.users[actorId ?? '']?.name ?? 'This account'} is no longer a member. The server refuses every read and change from here on, even though this device still has the app open. That is the behavior the blueprint requires.
         </p>
         <button className="btn primary" onClick={signOut}>
-          Choose another demo account
+          Back to the website
         </button>
       </Empty>
     </div>

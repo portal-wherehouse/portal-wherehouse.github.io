@@ -1,4 +1,4 @@
-/* Pallet Locator design system.
+/* Wherehouse design system (portal).
    Neutral concrete ground, dark ink, one restrained accent (rack-upright blue).
    Rack and pallet codes are set large in a condensed face, like printed warehouse labels.
    State is never color alone: every badge carries a glyph and a word. */
@@ -2691,5 +2691,36 @@ table.t td svg,
 @media (max-width: 420px) {
   .plate.lg .code {
     font-size: calc(40px * var(--text-scale));
+  }
+}
+
+/* Portal top bar: product name with a "Portal" tag, and the Take the tour button. */
+.brand-sub {
+  font: 700 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--hazard);
+  color: #14171a;
+}
+.chip.tour-chip {
+  background: var(--ink);
+  color: var(--ground);
+  border-color: var(--ink);
+  font-weight: 700;
+}
+.chip.tour-chip svg {
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 520px) {
+  .brand-sub {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .tour-chip-label {
+    display: none;
   }
 }

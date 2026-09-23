@@ -103,9 +103,9 @@ export function PalletRecord() {
     if (current.state === 'STORED') {
       const choices = Object.values(backend.db.locations).filter((l) => l.workspace_id === workspaceId && l.active && l.kind === 'RACK' && l.id !== current.current_location_id);
       const t = choices[Math.floor(Math.random() * choices.length)];
-      r = await backend.simulateOtherDevice('user-marcus', workspaceId, 'move', current, { location_id: t.id });
-    } else if (current.hold) r = await backend.simulateOtherDevice('user-marcus', workspaceId, 'clear_hold', current, { reason: 'Inspected, fine (other device)' });
-    else r = await backend.simulateOtherDevice('user-marcus', workspaceId, 'edit_details', current, { notes: `Checked by Marcus at ${new Date().toLocaleTimeString()}` });
+      r = await backend.simulateOtherDevice('user-supervisor', workspaceId, 'move', current, { location_id: t.id });
+    } else if (current.hold) r = await backend.simulateOtherDevice('user-supervisor', workspaceId, 'clear_hold', current, { reason: 'Inspected, fine (other device)' });
+    else r = await backend.simulateOtherDevice('user-supervisor', workspaceId, 'edit_details', current, { notes: `Checked by the supervisor at ${new Date().toLocaleTimeString()}` });
     toast(r.ok ? `Another phone changed ${current.code} (now v${r.new_version}). Your open screen stays; the next action will conflict if it used the old version.` : r.message, r.ok ? 'info' : 'error');
   };
 

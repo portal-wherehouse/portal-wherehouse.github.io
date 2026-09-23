@@ -21,10 +21,10 @@ export interface FixtureInfo {
 }
 
 export const DEMO_USERS: User[] = [
-  { id: 'user-dana', name: 'Dana Ortiz', email: 'dana@northfield.example' },
-  { id: 'user-marcus', name: 'Marcus Webb', email: 'marcus@northfield.example' },
-  { id: 'user-priya', name: 'Priya Nair', email: 'priya@northfield.example' },
-  { id: 'user-tom', name: 'Tom Becker', email: 'tom@northfield.example' },
+  { id: 'user-owner', name: 'Demo Owner', email: 'owner@northfield.example' },
+  { id: 'user-supervisor', name: 'Demo Supervisor', email: 'supervisor@northfield.example' },
+  { id: 'user-operator', name: 'Demo Operator', email: 'operator@northfield.example' },
+  { id: 'user-viewer', name: 'Demo Viewer', email: 'viewer@northfield.example' },
 ];
 
 const JOBS: [string, string, string][] = [
@@ -294,7 +294,7 @@ export function seedScenario(opts: { now?: number; seed?: number } = {}): Db {
   }
 
   // Workspace B reuses readable codes (J-214, A-03-02, P-000001...) under different identities.
-  const rosa: User = { id: 'user-rosa', name: 'Rosa Kim', email: 'rosa@harborline.example' };
+  const rosa: User = { id: 'user-harbor', name: 'Harborline Owner', email: 'owner@harborline.example' };
   const wsA = d.ws;
   d.jobs = new Map();
   d.locs = new Map();

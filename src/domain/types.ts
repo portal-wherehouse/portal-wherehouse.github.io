@@ -1,4 +1,4 @@
-// Core domain types for Pallet Locator (blueprint pages 7-9, 19-20).
+// Core domain types for Wherehouse (built from the Pallet Locator blueprint) (blueprint pages 7-9, 19-20).
 // UUIDs identify records; human-readable codes support physical work.
 
 export type Role = 'OWNER' | 'SUPERVISOR' | 'OPERATOR' | 'VIEWER';

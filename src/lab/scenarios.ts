@@ -530,8 +530,8 @@ add({
     await outbox.init();
     const cmd = h.envelope('move', { location_id: h.loc('A-03-02').id }, p);
     await outbox.enqueue({ command: cmd, actor_id: h.users.operator, workspace_id: h.ws, pallet_id: p.id, pallet_code: p.code, expected_version: p.version, kind: 'move', from_code: 'A-01-02', to_code: 'A-03-02', created_at: new Date(FIXED_NOW).toISOString() });
-    h.note('Queued offline by Priya', cmd.command_id.slice(0, 8));
-    h.expect(h.cmd(h.users.owner, 'remove_member', { user_id: h.users.operator, reason: 'Left the company' }).ok, 'Owner removes Priya');
+    h.note('Queued offline by the operator', cmd.command_id.slice(0, 8));
+    h.expect(h.cmd(h.users.owner, 'remove_member', { user_id: h.users.operator, reason: 'Left the company' }).ok, 'Owner removes the operator');
     await outbox.replay(h.users.operator, h.ws, async (c) => h.engine.execute(h.users.operator, c));
     const e = outbox.entries[0];
     h.equal([e.status, e.last_error?.code], ['blocked', 'FORBIDDEN'], 'Queued command blocked with FORBIDDEN');
@@ -871,7 +871,7 @@ add({
     const e = new Engine(db, { clock: () => new Date(FIXED_NOW).toISOString() });
     const owner = DEMO_USERS[0];
     const { workspace } = e.createWorkspace(owner, 'Northfield Builders', { code: 'WH-01', name: 'Main yard', timezone: 'America/Chicago' });
-    for (const u of DEMO_USERS.slice(1)) e.addMember(workspace.id, u, u.id === 'user-tom' ? 'VIEWER' : u.id === 'user-marcus' ? 'SUPERVISOR' : 'OPERATOR');
+    for (const u of DEMO_USERS.slice(1)) e.addMember(workspace.id, u, u.id === 'user-viewer' ? 'VIEWER' : u.id === 'user-supervisor' ? 'SUPERVISOR' : 'OPERATOR');
     const run = (kind: CommandKind, payload: Record<string, unknown>, p?: Pallet) =>
       e.execute(owner.id, { schema_version: 1, command_id: uuid(), workspace_id: workspace.id, kind, payload, ...(p ? { pallet_id: p.id, expected_version: p.version } : {}) });
     const locs: string[] = [];

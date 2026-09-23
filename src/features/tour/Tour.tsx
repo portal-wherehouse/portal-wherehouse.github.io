@@ -123,7 +123,7 @@ export function Tour() {
           {!canWork && (
             <div className="notice warn" style={{ padding: 10 }}>
               <Icon name="lock" />
-              <div className="n-body">You are signed in as a viewer, who can only look. Switch to Priya (Operator) from the account menu to do the tour.</div>
+              <div className="n-body">You are signed in as a viewer, who can only look. Switch to the Operator account from the account menu to do the practice shift.</div>
             </div>
           )}
           {doneCount === steps.length ? (

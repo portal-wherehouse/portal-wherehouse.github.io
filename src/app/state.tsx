@@ -6,8 +6,18 @@ import type { CommandEnvelope, CommandKind, Pallet, Role } from '../domain/types
 import type { Backend, Outcome } from '../data/backend';
 import { ReadError, type Engine } from '../demo/engine';
 
+/** Public website pages (no account needed). */
+export const SITE_ROUTES = ['home', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security'] as const;
+export type SiteRouteName = (typeof SITE_ROUTES)[number];
+
+export function isSiteRoute(name: RouteName): name is SiteRouteName {
+  return (SITE_ROUTES as readonly string[]).includes(name);
+}
+
 export type RouteName =
-  | 'welcome'
+  | SiteRouteName
+  /** The portal's front door: where "Open portal" lands before the app itself. */
+  | 'signin'
   | 'receive'
   | 'move'
   | 'find'
@@ -29,7 +39,11 @@ export type RouteName =
   | 'guide'
   | 'settings'
   | 'about'
-  | 'more';
+  | 'more'
+  | 'help'
+  | 'scanners'
+  | 'station'
+  | 'data';
 
 export interface Route {
   name: RouteName;
@@ -108,8 +122,14 @@ interface AppState {
   envelope(kind: CommandKind, payload: Record<string, unknown>, pallet?: Pallet | null, opts?: SendOptions): CommandEnvelope;
   send(kind: CommandKind, payload: Record<string, unknown>, pallet?: Pallet | null, opts?: SendOptions): Promise<Outcome>;
   sendEnvelope(cmd: CommandEnvelope): Promise<Outcome>;
+  /** The practice-shift checklist (the blueprint's example shift). */
   tourOpen: boolean;
   setTourOpen(open: boolean): void;
+  /** The portal's "Take the tour" walkthrough: which stop is showing, or null when it is closed. */
+  guideStep: number | null;
+  startGuide(step?: number): void;
+  setGuideStep(step: number): void;
+  stopGuide(): void;
   /** Warn before leaving a screen with unsaved input (page 10, navigation safety). */
   setLeaveGuard(message: string | null): void;
   blockedNav: { message: string; proceed: () => void; cancel: () => void } | null;
@@ -125,7 +145,34 @@ export function useApp(): AppState {
   return c;
 }
 
-const ROUTE_TOKENS: RouteName[] = ['receive', 'move', 'find', 'overview', 'map', 'activity', 'reconcile', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'sync', 'lab', 'guide', 'settings', 'about', 'more'];
+/** Routes that can be linked with a bare #anchor (no ids), e.g. #pricing or #find. */
+const ROUTE_TOKENS: RouteName[] = [
+  ...SITE_ROUTES.filter((r) => r !== 'home'),
+  'signin',
+  'receive',
+  'move',
+  'find',
+  'overview',
+  'map',
+  'activity',
+  'reconcile',
+  'jobs',
+  'locations',
+  'labels',
+  'import',
+  'export',
+  'people',
+  'sync',
+  'lab',
+  'guide',
+  'settings',
+  'about',
+  'more',
+  'help',
+  'scanners',
+  'station',
+  'data',
+];
 
 export function AppProvider({ backend, children }: { backend: Backend; children: ReactNode }) {
   const v = useSyncExternalStore(
@@ -138,10 +185,12 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   const [stack, setStack] = useState<Route[]>(() => {
     const hash = typeof location !== 'undefined' ? (location.hash.replace('#', '') as RouteName) : null;
     if (hash && ROUTE_TOKENS.includes(hash)) return [{ name: hash }];
-    return [{ name: readLocalRaw('pl.actor') ? readLocal('pl.prefs', DEFAULT_PREFS).startTab : 'welcome' }];
+    // Everyone lands on the website's home page; the portal is one button away.
+    return [{ name: 'home' }];
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [tourOpen, setTourOpenState] = useState<boolean>(() => readLocalRaw('pl.tour') === 'open');
+  const [guideStep, setGuideStepState] = useState<number | null>(null);
   const toastId = useRef(0);
   const guard = useRef<string | null>(null);
   const [blocked, setBlocked] = useState<{ message: string; next: Route | RouteName | 'back' } | null>(null);
@@ -189,8 +238,8 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     setStack((s) => {
       const top = s[s.length - 1];
       if (top.name === next.name && top.id === next.id && top.q === next.q) return s;
-      const primary: RouteName[] = ['receive', 'move', 'find', 'overview', 'more', 'welcome'];
-      if (primary.includes(next.name)) return [next];
+      const primary: RouteName[] = ['receive', 'move', 'find', 'overview', 'more', 'signin', 'station'];
+      if (primary.includes(next.name) || isSiteRoute(next.name)) return [next];
       return [...s.slice(-20), next];
     });
   }, []);
@@ -268,7 +317,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     guard.current = null;
     setActor(null);
     writeLocal('pl.actor', null);
-    setStack([{ name: 'welcome' }]);
+    setStack([{ name: 'home' }]);
   }, []);
 
   const setWorkspace = useCallback((id: string) => {
@@ -321,6 +370,13 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     writeLocal('pl.tour', open ? 'open' : 'closed');
   }, []);
 
+  const startGuide = useCallback((step = 0) => {
+    guard.current = null;
+    setGuideStepState(step);
+  }, []);
+  const setGuideStep = useCallback((step: number) => setGuideStepState(step), []);
+  const stopGuide = useCallback(() => setGuideStepState(null), []);
+
   const value: AppState = {
     backend,
     v,
@@ -343,6 +399,10 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     sendEnvelope,
     tourOpen,
     setTourOpen,
+    guideStep,
+    startGuide,
+    setGuideStep,
+    stopGuide,
     setLeaveGuard,
     blockedNav,
     read,

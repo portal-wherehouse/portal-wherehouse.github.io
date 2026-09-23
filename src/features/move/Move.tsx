@@ -122,9 +122,9 @@ export function Move() {
     const choices = locations.filter((l) => l.active && l.kind === 'RACK' && l.id !== current.current_location_id && l.id !== s.destination?.id);
     const target = choices[Math.floor(Math.random() * choices.length)];
     const kind = current.state === 'RECEIVED' ? 'place' : 'move';
-    const r = await backend.simulateOtherDevice('user-marcus', workspaceId, kind, current, { location_id: target.id });
+    const r = await backend.simulateOtherDevice('user-supervisor', workspaceId, kind, current, { location_id: target.id });
     setOtherBusy(false);
-    toast(r.ok ? `Another phone (Marcus) just put ${current.code} at ${target.code}. Now confirm yours.` : `Other phone could not move it: ${r.message}`, r.ok ? 'info' : 'error');
+    toast(r.ok ? `Another phone (the supervisor's) just put ${current.code} at ${target.code}. Now confirm yours.` : `Other phone could not move it: ${r.message}`, r.ok ? 'info' : 'error');
   };
 
   const stageIndex = s.stage === 'EXPECT_PALLET' ? 0 : s.stage === 'EXPECT_LOCATION' ? 1 : 2;

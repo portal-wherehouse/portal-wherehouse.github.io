@@ -11,6 +11,7 @@
 // MOCKED: authentication (the actor ID is trusted from the demo account switcher), network,
 // and database locks (JavaScript runs one command at a time; the store adds a cross-tab lock).
 
+import { BRAND } from '../brand';
 import { canonicalJson, formatPalletCode, generateToken, hashString, normalizeCode, parseLabelPayload, parsePalletCode, rackFields, uuid } from '../domain/codes';
 import { validateEnvelope } from '../domain/commands';
 import { searchRows, type SearchFilters, type SearchRow } from '../domain/search';
@@ -43,7 +44,7 @@ import type {
 } from '../domain/types';
 import { LOCATION_KINDS } from '../domain/types';
 
-export const DB_SCHEMA_VERSION = 1;
+export const DB_SCHEMA_VERSION = 2;
 
 export interface Db {
   schema: number;
@@ -963,7 +964,7 @@ export class Engine {
     this.requireMember(actorId, workspaceId);
     const raw = text.trim();
     if (!raw) throw new ReadError('INVALID_INPUT', 'Scan a label or type the printed code.');
-    if (raw.length > 128) throw new ReadError('INVALID_INPUT', 'That is not a Pallet Locator label.');
+    if (raw.length > 128) throw new ReadError('INVALID_INPUT', `That is not a ${BRAND.name} label.`);
     const label = parseLabelPayload(raw);
     if (label) {
       const t = this.db.labels[label.token];
@@ -975,7 +976,7 @@ export class Engine {
       if (wh && loc.warehouse_id !== wh.id) throw new ReadError('INVALID_INPUT', 'That rack label belongs to a different warehouse.');
       return { type: 'location', location: loc };
     }
-    if (/^PL\d*:/i.test(raw) || /^[a-z]+:\/\//i.test(raw)) throw new ReadError('INVALID_INPUT', 'That is not a Pallet Locator label.');
+    if (/^PL\d*:/i.test(raw) || /^[a-z]+:\/\//i.test(raw)) throw new ReadError('INVALID_INPUT', `That is not a ${BRAND.name} label.`);
     const palletCode = parsePalletCode(raw);
     if (palletCode) {
       const p = Object.values(this.db.pallets).find((x) => x.workspace_id === workspaceId && x.code === palletCode);
