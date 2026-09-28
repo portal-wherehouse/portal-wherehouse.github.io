@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// DRAFT. NOT DEPLOYED. Cloud Storage security rules for pallet photos.
+// Design and reasoning: docs/data-storage.md, section 7.
+//
+// Layout: workspaces/{ws}/photos/{attachmentId}.jpg and {attachmentId}.thumb.jpg
+//
+// The model:
+//   - Membership is read from the same Firestore documents the Firestore rules use
+//     (cross-service rules: firestore.get / firestore.exists, each a billed Firestore read).
+//   - Members of the workspace may view a photo. Nobody may list a folder.
+//   - Operators and above may upload a new photo: image types only, 5 MB at most (the same limit the
+//     command engine enforces), tagged with who uploaded it. A photo only appears in the app once the
+//     `add_photo` command accepts it and writes the attachment document and history entry.
+//   - No client may overwrite or delete a file. Removing a photo is a command that marks it removed,
+//     so history keeps it. Files never attached to a pallet are cleaned up by a scheduled function.
+//   - The app views photos with getBlob(), which checks these rules on every request. It never hands
+//     out getDownloadURL() links, because those work for anyone who has the link.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function memberDoc(ws) {
+      return /databases/(default)/documents/workspaces/$(ws)/members/$(request.auth.uid);
+    }
+
+    function isMember(ws) {
+      return request.auth != null
+        && firestore.exists(memberDoc(ws))
+        && firestore.get(memberDoc(ws)).data.active == true;
+    }
+
+    function canAddPhotos(ws) {
+      return isMember(ws)
+        && firestore.get(memberDoc(ws)).data.role in ['OWNER', 'SUPERVISOR', 'OPERATOR'];
+    }
+
+    match /workspaces/{ws}/photos/{fileName} {
+      allow get: if isMember(ws);
+      allow list: if false;
+      allow create: if canAddPhotos(ws)
+        && fileName.matches('^[A-Za-z0-9-]+([.]thumb)?[.](jpg|png|webp)$')
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)')
+        && request.resource.metadata.uploadedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Everything else, including backup exports if they share this bucket, is closed to clients.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

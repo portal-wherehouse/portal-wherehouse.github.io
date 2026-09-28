@@ -83,7 +83,7 @@ export function Import() {
         <p>Imported pallets start as received with no location. The app never invents a rack for them. Staff confirm each one by placing it with a scan.</p>
       </Explain>
 
-      <div className="seg" role="group" aria-label="What to import">
+      <div className="seg" role="group" aria-label="What to import" data-tour="import-kind">
         {(Object.keys(IMPORT_TEMPLATES) as ImportKind[]).map((k) => (
           <button key={k} aria-pressed={kind === k} onClick={() => (setKind(k), cmd.reset())}>
             {KIND_LABEL[k]}
@@ -91,7 +91,7 @@ export function Import() {
         ))}
       </div>
 
-      <div className="grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid-2" style={{ alignItems: 'start' }} data-tour="import-steps">
         <div className="panel stack">
           <div className="panel-title">1 · Get the template</div>
           <p style={{ margin: 0 }}>{t.policy}</p>

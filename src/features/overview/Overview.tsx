@@ -46,7 +46,7 @@ export function Overview() {
     <div className="stack">
       <PageHead eyebrow={`${data.ctx.workspace.name} · ${data.ctx.warehouse?.code}`} title="Overview" sub={`${data.ctx.warehouse?.name} · times shown in your timezone; the warehouse runs on ${data.ctx.warehouse?.timezone}.`} />
 
-      <div className="grid-2">
+      <div className="grid-2" data-tour="overview-summary">
         <div className="panel stack">
           <div className="panel-title">Pallets on hand</div>
           <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>

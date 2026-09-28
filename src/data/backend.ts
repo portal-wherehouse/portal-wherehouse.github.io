@@ -4,9 +4,10 @@
 // Simulated:        the network (latency, lost responses, offline), other devices, and sign-in.
 // See docs/architecture.md for what Stage B replaces.
 
-import { createStore, del, get, set, type UseStore } from 'idb-keyval';
-import { uuid } from '../domain/codes';
-import type { CommandEnvelope, CommandKind, CommandResult, Pallet } from '../domain/types';
+import { createStore, del, get, set, setMany, type UseStore } from 'idb-keyval';
+import { BRAND } from '../brand';
+import { canonicalJson, hashString, uuid } from '../domain/codes';
+import { PALLET_STATES, type CommandEnvelope, type CommandKind, type CommandResult, type Pallet } from '../domain/types';
 import { Engine, type Db, DB_SCHEMA_VERSION } from '../demo/engine';
 import { seedFixture, type FixtureName } from '../demo/seed';
 import { Outbox, type OutboxEntry, type OutboxStorage } from './outbox';
@@ -42,6 +43,8 @@ const OUTBOX_KEY = 'outbox';
 interface Meta {
   fixture: FixtureName;
   created_at: string;
+  /** Set when the data came from a backup file (Data and storage screen). */
+  restored_from?: { exported_at: string; restored_at: string };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -334,4 +337,208 @@ export class Backend {
       return 0;
     }
   }
+
+  // ---------------------------------------------------------------- backup and restore
+
+  /** A whole-device backup: every table this browser holds, as plain JSON, with a checksum. */
+  exportSnapshot(): Snapshot {
+    const db = structuredClone(this.db);
+    return {
+      format: SNAPSHOT_FORMAT,
+      snapshot_version: SNAPSHOT_VERSION,
+      db_schema: db.schema,
+      app: BRAND.name,
+      exported_at: new Date().toISOString(),
+      fixture: this.meta.fixture,
+      source_created_at: this.meta.created_at,
+      counts: snapshotCounts(db),
+      checksum: dbChecksum(db),
+      db,
+    };
+  }
+
+  /**
+   * Replace everything on this device with a validated backup. Like a reset, it clears unsent
+   * requests and the offline queue, because they were made against the data being replaced.
+   * The database, meta, pending list and queue are written in one storage transaction first,
+   * so a failed write changes nothing.
+   */
+  async importSnapshot(input: unknown): Promise<SnapshotImport> {
+    const check = validateSnapshot(input);
+    if (!check.ok) return check;
+    return this.withLock(async () => {
+      const now = new Date().toISOString();
+      const db = structuredClone(check.snapshot.db);
+      const meta: Meta = {
+        fixture: check.snapshot.fixture === 'scenario' ? 'scenario' : 'tiny',
+        created_at: check.snapshot.source_created_at || now,
+        restored_from: { exported_at: check.snapshot.exported_at, restored_at: now },
+      };
+      let persisted = false;
+      if (this.store) {
+        try {
+          await setMany([[DB_KEY, db], [META_KEY, meta], [PENDING_KEY, []], [OUTBOX_KEY, []]], this.store);
+          persisted = true;
+        } catch (err) {
+          const why = err instanceof Error ? err.message : 'storage write failed';
+          return { ok: false as const, problems: [`This browser could not save the backup (${why}). Nothing was changed.`] };
+        }
+      }
+      this.db = db;
+      this.meta = meta;
+      this.engine = new Engine(this.db);
+      this.pending = [];
+      this.cache = null;
+      this.network = 'online';
+      if (this.outbox) await this.outbox.clearAll();
+      this.lastSync = now;
+      this.bump(true);
+      return { ok: true as const, counts: check.counts, persisted, warnings: check.warnings };
+    });
+  }
+}
+
+// ---------------------------------------------------------------- snapshot format
+
+/** Stable file identifier. Deliberately not the brand name, so a rename never breaks old backups. */
+export const SNAPSHOT_FORMAT = 'pallet-locator.snapshot';
+export const SNAPSHOT_VERSION = 1;
+
+export interface SnapshotCounts {
+  workspaces: number;
+  users: number;
+  pallets: number;
+  events: number;
+  jobs: number;
+  locations: number;
+  photos: number;
+  receipts: number;
+}
+
+export interface Snapshot {
+  format: typeof SNAPSHOT_FORMAT;
+  snapshot_version: typeof SNAPSHOT_VERSION;
+  db_schema: number;
+  /** For people reading the file; not checked. */
+  app: string;
+  exported_at: string;
+  fixture: FixtureName;
+  source_created_at: string;
+  counts: SnapshotCounts;
+  /** Hash of the canonical database JSON, so a damaged or edited file is caught before restore. */
+  checksum: string;
+  db: Db;
+}
+
+export type SnapshotCheck =
+  | { ok: true; snapshot: Snapshot; counts: SnapshotCounts; workspaces: string[]; warnings: string[] }
+  | { ok: false; problems: string[] };
+
+export type SnapshotImport = { ok: true; counts: SnapshotCounts; persisted: boolean; warnings: string[] } | { ok: false; problems: string[] };
+
+export function snapshotCounts(db: Db): SnapshotCounts {
+  return {
+    workspaces: Object.keys(db.workspaces).length,
+    users: Object.keys(db.users).length,
+    pallets: Object.keys(db.pallets).length,
+    events: Object.values(db.events).reduce((n, l) => n + l.length, 0),
+    jobs: Object.keys(db.jobs).length,
+    locations: Object.keys(db.locations).length,
+    photos: Object.values(db.attachments).filter((a) => a.state === 'ready').length,
+    receipts: Object.keys(db.receipts).length,
+  };
+}
+
+export function dbChecksum(db: Db): string {
+  return hashString(canonicalJson(db));
+}
+
+const RECORD_TABLES = ['users', 'workspaces', 'warehouses', 'locations', 'jobs', 'pallets', 'events', 'receipts', 'labels', 'attachments', 'imports', 'counters'] as const;
+const LIST_TABLES = ['memberships', 'audit', 'lineage'] as const;
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * Check a parsed backup file before anything is replaced: the format and versions, every table's
+ * shape, ids that match their keys, references between tables, history that ends at each pallet's
+ * version, at least one active owner per company, and the checksum. Returns readable problems.
+ */
+export function validateSnapshot(input: unknown): SnapshotCheck {
+  const problems: string[] = [];
+  const warnings: string[] = [];
+  const fail = (...p: string[]): SnapshotCheck => ({ ok: false, problems: p });
+  if (!isObj(input)) return fail('This is not a backup file. Expected a JSON object.');
+  if (input.format !== SNAPSHOT_FORMAT) return fail(`This is not a ${BRAND.name} backup file (its format is ${input.format === undefined ? 'missing' : JSON.stringify(input.format)}).`);
+  if (input.snapshot_version !== SNAPSHOT_VERSION) return fail(`This backup uses file version ${String(input.snapshot_version)}. This app reads version ${SNAPSHOT_VERSION}.`);
+  const db = input.db;
+  if (!isObj(db)) return fail('The backup has no database section.');
+  if (input.db_schema !== DB_SCHEMA_VERSION || db.schema !== DB_SCHEMA_VERSION) {
+    return fail(`This backup was made with data schema ${String(db.schema ?? input.db_schema)}. This app uses schema ${DB_SCHEMA_VERSION}, and there is no automatic upgrade between them yet.`);
+  }
+  for (const t of RECORD_TABLES) if (!isObj(db[t])) problems.push(`The ${t} table is missing or is not a set of records.`);
+  for (const t of LIST_TABLES) if (!Array.isArray(db[t])) problems.push(`The ${t} table is missing or is not a list.`);
+  if (!(db.seed === null || typeof db.seed === 'number')) problems.push('The seed value is not a number.');
+  if (problems.length) return { ok: false, problems };
+  const d = db as unknown as Db;
+
+  const keyed = (table: 'users' | 'workspaces' | 'warehouses' | 'locations' | 'jobs' | 'pallets' | 'attachments' | 'imports') => {
+    for (const [k, v] of Object.entries(d[table])) {
+      if (!isObj(v) || v.id !== k) problems.push(`A record in ${table} (${k.slice(0, 12)}) does not match its key.`);
+    }
+  };
+  (['users', 'workspaces', 'warehouses', 'locations', 'jobs', 'pallets', 'attachments', 'imports'] as const).forEach(keyed);
+  for (const [k, v] of Object.entries(d.labels)) if (!isObj(v) || v.token !== k) problems.push(`Label ${k.slice(0, 12)} does not match its key.`);
+  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !d.workspaces[k]) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
+  if (problems.length) return { ok: false, problems: cap(problems) };
+
+  const ws = (id: unknown) => typeof id === 'string' && !!d.workspaces[id];
+  for (const m of d.memberships) {
+    if (!isObj(m) || !ws(m.workspace_id) || !d.users[m.user_id]) problems.push('A membership points at a company or person that is not in the file.');
+  }
+  for (const w of Object.values(d.warehouses)) if (!ws(w.workspace_id)) problems.push(`Warehouse ${w.code} belongs to a company that is not in the file.`);
+  for (const l of Object.values(d.locations)) if (!ws(l.workspace_id) || !d.warehouses[l.warehouse_id]) problems.push(`Location ${l.code} points at a missing company or warehouse.`);
+  for (const j of Object.values(d.jobs)) if (!ws(j.workspace_id)) problems.push(`Job ${j.code} belongs to a company that is not in the file.`);
+  for (const p of Object.values(d.pallets)) {
+    const code = typeof p.code === 'string' ? p.code : p.id;
+    if (!ws(p.workspace_id)) problems.push(`Pallet ${code} belongs to a company that is not in the file.`);
+    if (!d.jobs[p.job_id]) problems.push(`Pallet ${code} points at a job that is not in the file.`);
+    if (p.current_location_id !== null && !d.locations[p.current_location_id]) problems.push(`Pallet ${code} points at a location that is not in the file.`);
+    if (!PALLET_STATES.includes(p.state)) problems.push(`Pallet ${code} has an unknown state.`);
+    if (typeof p.version !== 'number') problems.push(`Pallet ${code} has no version number.`);
+    const ev = d.events[p.id];
+    if (!Array.isArray(ev) || ev.length === 0) problems.push(`Pallet ${code} has no history.`);
+    else if (ev.some((e, i) => !isObj(e) || e.pallet_id !== p.id || (i > 0 && e.revision !== ev[i - 1].revision + 1)) || ev[ev.length - 1].revision !== p.version) {
+      problems.push(`Pallet ${code} has history that does not line up with its version.`);
+    }
+  }
+  for (const k of Object.keys(d.events)) if (!d.pallets[k]) problems.push('History exists for a pallet that is not in the file.');
+  for (const a of Object.values(d.attachments)) if (!d.pallets[a.pallet_id]) problems.push('A photo belongs to a pallet that is not in the file.');
+  const names = Object.values(d.workspaces).map((w) => (typeof w.name === 'string' ? w.name : w.id));
+  if (names.length === 0) problems.push('The backup has no companies in it.');
+  for (const w of Object.values(d.workspaces)) {
+    if (!d.memberships.some((m) => m.workspace_id === w.id && m.role === 'OWNER' && m.active)) problems.push(`${w.name} has no active owner.`);
+  }
+  if (problems.length) return { ok: false, problems: cap(problems) };
+
+  if (typeof input.checksum === 'string') {
+    if (input.checksum !== dbChecksum(d)) return fail('The file was changed or damaged after it was made: its checksum does not match. Restore from an unedited backup.');
+  } else warnings.push('This file has no checksum, so edits to it cannot be detected.');
+
+  const snapshot: Snapshot = {
+    format: SNAPSHOT_FORMAT,
+    snapshot_version: SNAPSHOT_VERSION,
+    db_schema: DB_SCHEMA_VERSION,
+    app: typeof input.app === 'string' ? input.app : BRAND.name,
+    exported_at: typeof input.exported_at === 'string' ? input.exported_at : '',
+    fixture: input.fixture === 'scenario' ? 'scenario' : 'tiny',
+    source_created_at: typeof input.source_created_at === 'string' ? input.source_created_at : '',
+    counts: snapshotCounts(d),
+    checksum: typeof input.checksum === 'string' ? input.checksum : dbChecksum(d),
+    db: d,
+  };
+  return { ok: true, snapshot, counts: snapshot.counts, workspaces: names, warnings };
+}
+
+function cap(problems: string[], max = 8): string[] {
+  const unique = [...new Set(problems)];
+  return unique.length > max ? [...unique.slice(0, max), `And ${unique.length - max} more problems.`] : unique;
 }

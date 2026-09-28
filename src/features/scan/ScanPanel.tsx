@@ -1,13 +1,38 @@
-// Every way to identify a label: live camera, a photo of the label, typing the printed code,
-// or (in the demo) tapping a pretend label. Manual entry is always available (page 16).
+// Every way to identify a label: a hardware scanner (keyboard or serial mode), live camera, a photo of the label,
+// typing the printed code, or (in the demo) tapping a pretend label. Manual entry is always available (page 16).
 
 import { useEffect, useRef, useState } from 'react';
 import type { Location, Pallet } from '../../domain/types';
 import { ReadError } from '../../demo/engine';
 import { cameraSupported, decodeImageFile, startCamera, type CameraSession } from '../../device/scanner';
+import { parseScanCommand } from '../../device/scanCommands';
+import { useScanRouter, useScanTarget, type ScanSource } from '../../device/scanRouter';
+import { useSerialStatus } from '../../device/serial';
+import { createTypingMeter } from '../../device/wedge';
 import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
 import { Notice } from '../../ui/ui';
+import '../scanners/scanners.css';
+
+const SOURCE_VIA: Record<ScanSource, string> = {
+  wedge: 'by scanner',
+  serial: 'by serial scanner',
+  camera: 'by camera',
+  photo: 'from a photo',
+  typed: 'typed in',
+  demo: 'sample label',
+};
+
+interface LastScan {
+  text: string;
+  source: ScanSource;
+  ok: boolean;
+  at: number;
+}
+
+// Shared by every panel, so the next step's panel (Move's rack step) still shows the scan that got you there.
+let lastPanelScan: LastScan | null = null;
+const LAST_SCAN_SHOWN_MS = 5 * 60_000;
 
 export type Resolved = { type: 'pallet'; pallet: Pallet } | { type: 'location'; location: Location };
 
@@ -32,26 +57,58 @@ export function ScanPanel({
   placeholder?: string;
   autoFocusInput?: boolean;
 }) {
-  const { backend, actorId, workspaceId } = useApp();
+  const { backend, actorId, workspaceId, go } = useApp();
+  const { settings, beep } = useScanRouter();
+  const serial = useSerialStatus();
   const [camOn, setCamOn] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
   const [decoder, setDecoder] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [last, setLastState] = useState<LastScan | null>(() => (lastPanelScan && Date.now() - lastPanelScan.at < LAST_SCAN_SHOWN_MS ? lastPanelScan : null));
+  const setLast = (l: LastScan) => {
+    lastPanelScan = l;
+    setLastState(l);
+  };
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<CameraSession | null>(null);
   const handler = useRef<(t: string) => void>(() => {});
+  const meter = useRef(createTypingMeter());
 
-  const resolve = (raw: string) => {
-    if (!actorId || !workspaceId) return;
+  /** Look the code up and report it. Returns false when it is not a label here. `quiet` skips the last-scan line. */
+  const resolve = (raw: string, source: ScanSource = 'typed', quiet = false): boolean => {
+    if (!actorId || !workspaceId) return false;
+    const text = raw.trim();
     try {
       const r = backend.reader.resolve(actorId, workspaceId, raw);
-      onResolved(r, raw.trim());
+      if (!quiet) setLast({ text, source, ok: true, at: Date.now() });
+      onResolved(r, text);
+      return true;
     } catch (e) {
-      onError(e instanceof ReadError ? e.message : 'Could not read that label.', raw.trim());
+      if (!quiet) setLast({ text, source, ok: false, at: Date.now() });
+      onError(e instanceof ReadError ? e.message : 'Could not read that label.', text);
+      return false;
     }
   };
-  handler.current = resolve;
+  // Scans this panel reads itself (camera, photo, the box, sample labels) beep here; hardware scans beep in the router.
+  const resolveOwn = (raw: string, source: ScanSource) => beep(resolve(raw, source) ? 'good' : 'bad');
+  // The camera reports the label in view several times a second. Only a new label (or the same one after a pause)
+  // beeps and updates the last-scan line; repeats still pass through, and the screen ignores them as before.
+  const camSeen = useRef<{ text: string; at: number } | null>(null);
+  handler.current = (t) => {
+    const now = Date.now();
+    const seen = camSeen.current;
+    camSeen.current = { text: t, at: now };
+    if (seen && seen.text === t && now - seen.at < 2500) resolve(t, 'camera', true);
+    else resolveOwn(t, 'camera');
+  };
+
+  // Hardware scanners reach this panel through the scan router while it is on screen.
+  // Command barcodes pass through to whoever handles them (the Scan station, or Scan anywhere).
+  useScanTarget('scan-panel', (e) => {
+    if (parseScanCommand(e.text)) return false;
+    return resolve(e.text, e.source) ? true : 'error';
+  });
 
   useEffect(() => {
     if (!camOn || !video.current) return;
@@ -85,8 +142,11 @@ export function ScanPanel({
     setPhotoBusy(true);
     try {
       const text = await decodeImageFile(file);
-      if (text) resolve(text);
-      else onError('No QR code found in that photo. Hold the phone closer and keep the label flat, or type the printed code.', `photo:${file.name}:${file.size}`);
+      if (text) resolveOwn(text, 'photo');
+      else {
+        beep('bad');
+        onError('No QR code found in that photo. Hold the phone closer and keep the label flat, or type the printed code.', `photo:${file.name}:${file.size}`);
+      }
     } catch {
       onError('That photo could not be read.', `photo:${file.name}`);
     } finally {
@@ -131,7 +191,10 @@ export function ScanPanel({
         onSubmit={(e) => {
           e.preventDefault();
           if (code.trim()) {
-            resolve(code);
+            // A scanner typing into this box (it had focus) still counts as a scanner.
+            const timing = meter.current.result(code, settings);
+            resolveOwn(code, timing.fromScanner ? 'wedge' : 'typed');
+            meter.current.reset();
             setCode('');
           }
         }}
@@ -144,6 +207,9 @@ export function ScanPanel({
           className="input code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) meter.current.key(e.timeStamp || performance.now(), code === '');
+          }}
           placeholder={placeholder}
           autoComplete="off"
           autoCapitalize="characters"
@@ -155,6 +221,34 @@ export function ScanPanel({
           <Icon name="keyboard" /> Enter
         </button>
       </form>
+      <div className="scn-ready" role="status">
+        {settings.wedge || serial.state === 'connected' ? (
+          <span className="scn-ready-on">
+            <span className="scn-dot" aria-hidden="true" />
+            <Icon name="scanner" width={16} height={16} />
+            <span>
+              <strong>Scanner ready.</strong> {serial.state === 'connected' ? 'Scan with your serial or keyboard scanner.' : 'Scan a label with a USB or Bluetooth scanner.'}
+            </span>
+          </span>
+        ) : (
+          <span className="scn-ready-off">
+            <Icon name="scanner" width={16} height={16} />
+            <span>Hardware scanners are turned off.</span>
+            <button type="button" className="btn ghost small" onClick={() => go('scanners')}>
+              Scanner setup
+            </button>
+          </span>
+        )}
+        {last && (
+          <span className={`scn-last ${last.ok ? 'ok' : 'bad'}`}>
+            <Icon name={last.ok ? 'checkCircle' : 'alertCircle'} width={15} height={15} />
+            <span>
+              Last scan <span className="mono">{last.text.length > 28 ? `${last.text.slice(0, 27)}…` : last.text}</span>, {SOURCE_VIA[last.source]}
+              {last.ok ? '' : ': not recognized'}
+            </span>
+          </span>
+        )}
+      </div>
       {demoTargets && demoTargets.length > 0 && (
         <div className="stack" style={{ gap: 6 }}>
           <div className="eyebrow" style={{ margin: 0 }}>
@@ -162,7 +256,7 @@ export function ScanPanel({
           </div>
           <div className="demo-labels">
             {demoTargets.map((t) => (
-              <button key={t.text + t.label} type="button" className="demo-label" onClick={() => resolve(t.text)} title={`Simulated scan of ${t.text}`}>
+              <button key={t.text + t.label} type="button" className="demo-label" onClick={() => resolveOwn(t.text, 'demo')} title={`Simulated scan of ${t.text}`}>
                 <Icon name="qr" width={16} height={16} />
                 {t.label}
                 {t.sub && <small>{t.sub}</small>}

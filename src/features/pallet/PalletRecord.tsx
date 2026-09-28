@@ -137,7 +137,7 @@ export function PalletRecord() {
       )}
 
       <div className="grid-2">
-        <div className="panel stack">
+        <div className="panel stack" data-tour="pallet-where">
           <div className="panel-title">
             <Icon name="pin" width={16} height={16} /> Location
           </div>
@@ -171,7 +171,7 @@ export function PalletRecord() {
           {role === 'VIEWER' && <p className="faint" style={{ fontSize: 13 }}>Viewers can look but not change records.</p>}
         </div>
 
-        <div className="panel stack">
+        <div className="panel stack" data-tour="pallet-details">
           <div className="panel-title">
             <Icon name="box" width={16} height={16} /> Details
           </div>
@@ -295,7 +295,7 @@ export function PalletRecord() {
         </ul>
       </Explain>
 
-      <div className="panel">
+      <div className="panel" data-tour="pallet-history">
         <div className="panel-title">
           <Icon name="history" width={16} height={16} /> History <span className="grow" />
           <span className="faint" style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>

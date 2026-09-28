@@ -48,7 +48,7 @@ export function Lab() {
         <p>These exact scenarios also run as the automated test suite, so what you see here is what the build checks.</p>
       </Explain>
 
-      <div className="row">
+      <div className="row" data-tour="lab-progress">
         <div className="progress grow" style={{ minWidth: 200 }} aria-label={`${done.length} of ${list.length} run`}>
           <div style={{ width: `${(done.length / Math.max(1, list.length)) * 100}%`, background: failed ? 'var(--bad)' : 'var(--ok)' }} />
         </div>

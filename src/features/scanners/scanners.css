@@ -1,0 +1,773 @@
+/* Scanner setup page, the test pad, the command sheet (screen and print), and the "Scanner ready" line in scan panels. */
+
+/* ------------------------------------------------------------------ shared bits */
+
+.scn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: none;
+  display: inline-block;
+}
+
+.scn-live.on .scn-dot,
+.scn-stat.is-ok .scn-dot,
+.scn-serial-state.on .scn-dot,
+.scn-ready-on .scn-dot {
+  background: var(--ok);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent);
+  animation: scn-pulse 2s ease-out infinite;
+}
+
+@keyframes scn-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--ok) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scn-live.on .scn-dot,
+  .scn-stat.is-ok .scn-dot,
+  .scn-serial-state.on .scn-dot,
+  .scn-ready-on .scn-dot {
+    animation: none;
+  }
+}
+
+.scn-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  white-space: nowrap;
+  flex: none;
+}
+
+.scn-kind.small {
+  font-size: 11px;
+  padding: 2px 7px;
+}
+
+.scn-kind.tone-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.scn-kind.tone-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.scn-kind.tone-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+/* ------------------------------------------------------------------ page */
+
+.scn-page .toggle {
+  align-items: flex-start;
+}
+
+.scn-page .toggle input {
+  flex: none;
+  margin-top: 1px;
+}
+
+.scn-toggle-hint {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.scn-hint {
+  font-size: 13.5px;
+}
+
+.scn-saved {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.scn-invalid {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.scn-cols {
+  align-items: start;
+}
+
+.scn-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* status tiles */
+
+.scn-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr));
+  gap: 10px;
+}
+
+.scn-stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.scn-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.scn-stat-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.scn-stat .scn-stat-code {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.scn-stat-note {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* ------------------------------------------------------------------ test pad */
+
+.panel.scn-pad {
+  padding: 18px;
+  border-width: 1.5px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.panel.scn-pad.is-on {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 10%, transparent);
+}
+
+.scn-pad-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.scn-pad-titles {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.scn-pad-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: clamp(30px, 6vw, 40px);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.scn-pad-sub {
+  margin: 6px 0 0;
+  font-size: 14.5px;
+  max-width: 62ch;
+}
+
+.scn-pad-actions {
+  gap: 8px;
+}
+
+.scn-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 11px;
+  min-height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.scn-live.on {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--line));
+}
+
+.scn-pad-stage {
+  margin-top: 14px;
+  min-height: 210px;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.scn-pad.is-off .scn-pad-stage {
+  opacity: 0.7;
+}
+
+.scn-pad-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  max-width: 44ch;
+}
+
+.scn-pad-empty strong {
+  font-size: 17px;
+}
+
+.scn-pad-icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.scn-pad-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.scn-hit-hero {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-self: stretch;
+  animation: scn-in 0.18s ease-out;
+}
+
+@keyframes scn-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scn-hit-hero {
+    animation: none;
+  }
+}
+
+.scn-hit-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.scn-hit-time {
+  font-size: 13px;
+}
+
+.scn-hit-hero .scn-hit-code {
+  font-family: var(--font-mono);
+  font-size: clamp(24px, 6vw, 42px);
+  font-weight: 600;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.scn-hit-meaning {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.scn-hit-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 10px 18px;
+  margin: 2px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.scn-hit-meta dt {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.scn-hit-meta dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.scn-hit-foot {
+  justify-content: space-between;
+}
+
+.scn-elsewhere {
+  font-size: 13.5px;
+  flex: 1 1 240px;
+}
+
+.scn-hit-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.scn-hit-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--line);
+}
+
+.scn-hit-list .scn-hit-small {
+  font-family: var(--font-mono);
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.scn-hit-src {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.scn-pad-tools {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.scn-type {
+  max-width: 520px;
+}
+
+.scn-type .input {
+  min-width: 0;
+}
+
+.scn-samples {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chip.scn-sample {
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.chip.scn-sample:hover:not(:disabled) {
+  border-color: var(--ink-3);
+}
+
+.chip.scn-sample:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ settings */
+
+.scn-num-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 520px) {
+  .scn-num-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.scn-num .input {
+  max-width: 120px;
+}
+
+/* ------------------------------------------------------------------ serial */
+
+.scn-serial-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.scn-serial-err {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ guides (accordions) */
+
+.scn-reco {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+
+.scn-reco-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.scn-reco-head strong {
+  color: var(--ink);
+}
+
+.kv.scn-reco-kv {
+  font-size: 14px;
+  gap: 6px 14px;
+}
+
+.scn-kv-row {
+  display: contents;
+}
+
+@media (max-width: 560px) {
+  .kv.scn-reco-kv {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .scn-reco-kv dd {
+    margin-bottom: 8px;
+  }
+}
+
+.input.scn-prefix {
+  font-family: var(--font-mono);
+  max-width: 220px;
+  font-size: 16px;
+}
+
+.scn-accs {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.scn-acc + .scn-acc {
+  border-top: 1px solid var(--line);
+}
+
+.scn-acc > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  min-height: var(--tap);
+}
+
+.scn-acc > summary::-webkit-details-marker {
+  display: none;
+}
+
+.scn-acc > summary:hover {
+  background: var(--surface-2);
+}
+
+.scn-acc > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.scn-acc-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  flex: none;
+}
+
+.scn-acc-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.scn-acc-title strong {
+  font-size: 15px;
+}
+
+.scn-acc-title .muted {
+  font-size: 13px;
+}
+
+.scn-acc .chev {
+  flex: none;
+  color: var(--ink-3);
+  transition: transform 0.15s;
+}
+
+.scn-acc[open] .chev {
+  transform: rotate(180deg);
+}
+
+.scn-acc[open] > summary {
+  background: var(--surface-2);
+}
+
+.scn-acc-body {
+  padding: 4px 16px 14px 60px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.scn-acc-body ol,
+.scn-acc-body ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 560px) {
+  .scn-acc-body {
+    padding-left: 16px;
+  }
+}
+
+/* ------------------------------------------------------------------ command sheet */
+
+.scn-cmd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  gap: 12px;
+}
+
+.scn-cmd-card {
+  background: #fff;
+  color: #000;
+  border: 1px solid #c8cbc6;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.scn-cmd-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.scn-cmd-words {
+  min-width: 0;
+}
+
+.scn-cmd-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 28px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.scn-cmd-hint {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #3a3f44;
+  margin-top: 5px;
+}
+
+.scn-cmd-qr {
+  width: 76px;
+  height: 76px;
+  flex: none;
+}
+
+.scn-cmd-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The printed copy (only ever shown in print, inside the print area). */
+.scn-cmd-print {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.12in;
+  width: 100%;
+  color: #000;
+}
+
+.scn-cmd-print-head {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.03in;
+  margin-bottom: 0.04in;
+  font-size: 10pt;
+}
+
+.scn-cmd-print-head strong {
+  font-family: var(--font-display);
+  font-size: 22pt;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.scn-cmd-print .scn-cmd-card {
+  box-shadow: none;
+  border: 1px dashed #999;
+  border-radius: 0;
+  padding: 0.16in;
+  height: 2.25in;
+  gap: 0.08in;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.scn-cmd-print .scn-cmd-label {
+  font-size: 24pt;
+}
+
+.scn-cmd-print .scn-cmd-hint {
+  font-size: 9pt;
+  color: #000;
+}
+
+.scn-cmd-print .scn-cmd-qr {
+  width: 0.9in;
+  height: 0.9in;
+}
+
+.scn-cmd-print .bc128-text {
+  font-size: 9pt;
+}
+
+/* ------------------------------------------------------------------ "Scanner ready" line in scan panels */
+
+.scn-ready {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.scn-ready-on,
+.scn-ready-off,
+.scn-last {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.scn-ready-on svg,
+.scn-ready-off svg {
+  color: var(--ink-3);
+  flex: none;
+}
+
+.scn-ready-off .btn {
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+.scn-last svg {
+  flex: none;
+}
+
+.scn-last.ok svg {
+  color: var(--ok);
+}
+
+.scn-last.bad svg {
+  color: var(--bad);
+}
+
+.scn-last .mono {
+  font-weight: 600;
+  color: var(--ink);
+}

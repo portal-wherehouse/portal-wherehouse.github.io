@@ -76,7 +76,7 @@ export function Locations() {
       {list.length === 0 ? (
         <Empty icon="locations" title="No locations match" />
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" data-tour="locations-table">
           <table className="t">
             <thead>
               <tr>

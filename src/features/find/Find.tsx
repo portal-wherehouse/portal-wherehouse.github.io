@@ -88,7 +88,7 @@ export function Find() {
           Showing what this device had at {fmtTime(backend.cache.at)} ({fmtAgo(backend.cache.at)}). Pallets moved since then will not show their new location until you reconnect.
         </Notice>
       )}
-      <div className="search-bar">
+      <div className="search-bar" data-tour="find-search">
         <Icon name="find" />
         <label htmlFor="find-q" className="sr-only">
           Search
@@ -106,7 +106,7 @@ export function Find() {
           enterKeyHint="search"
         />
       </div>
-      <div className="filter-row" role="group" aria-label="Filter by state">
+      <div className="filter-row" role="group" aria-label="Filter by state" data-tour="find-filters">
         {PALLET_STATES.map((s) => (
           <button key={s} className="pill-toggle" aria-pressed={states.includes(s)} onClick={() => toggleState(s)}>
             {STATE_LABEL[s]}
@@ -116,7 +116,7 @@ export function Find() {
           On hold
         </button>
       </div>
-      <div className="filter-row">
+      <div className="filter-row" data-tour="find-filters">
         <label className="sr-only" htmlFor="find-job">
           Job
         </label>

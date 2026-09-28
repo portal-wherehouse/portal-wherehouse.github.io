@@ -55,7 +55,7 @@ export function Activity() {
       <Explain refs="pages 13, 21">
         <p>Each line is one accepted command, written in the same transaction as the change itself. The log is append-only. A mistake is fixed by a later correction entry, so the original stays visible.</p>
       </Explain>
-      <div className="filter-row">
+      <div className="filter-row" data-tour="activity-filters">
         <select className="select" value={group} onChange={(e) => setGroup(e.target.value)} aria-label="Kind of change">
           {GROUPS.map((x) => (
             <option key={x.id} value={x.id}>

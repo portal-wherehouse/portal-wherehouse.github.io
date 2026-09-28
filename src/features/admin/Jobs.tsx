@@ -50,7 +50,7 @@ export function Jobs() {
       {jobs.length === 0 ? (
         <Empty icon="jobs" title="No jobs here" />
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" data-tour="jobs-table">
           <table className="t">
             <thead>
               <tr>
@@ -169,7 +169,7 @@ export function JobDetail() {
         <StatTile label="Dispatched" icon="truck" value={data.dispatched.length} />
       </div>
 
-      <div className="panel stack">
+      <div className="panel stack" data-tour="pick-list">
         <div className="panel-title">
           Pick list: on hand, sorted by rack <span className="grow" />
           {data.onHand.length > 0 && (

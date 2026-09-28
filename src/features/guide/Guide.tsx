@@ -32,7 +32,7 @@ export function Guide() {
           </button>
         }
       />
-      <div className="tabs" role="tablist" style={{ flexWrap: 'wrap' }}>
+      <div className="tabs" role="tablist" style={{ flexWrap: 'wrap' }} data-tour="guide-sections">
         {SECTIONS.map((s) => (
           <button key={s.id} role="tab" aria-selected={section === s.id} onClick={() => setSection(s.id)}>
             {s.label}

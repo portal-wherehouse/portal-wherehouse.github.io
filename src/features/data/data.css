@@ -1,0 +1,494 @@
+/* Data and storage screen (DataStorage.tsx) and its diagram (Diagram.tsx). Tokens only. */
+
+.ds .ds-small {
+  font-size: 13.5px;
+}
+
+.ds-now {
+  container-type: inline-size;
+}
+.ds-tiles {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@container (min-width: 480px) {
+  .ds-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container (min-width: 1040px) {
+  .ds-tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.ds-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.ds-tile-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+  line-height: 1.2;
+  min-width: 0;
+}
+.ds-tile-label svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.ds-tile-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  margin-top: auto;
+}
+.ds-tile-note {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.ds .ds-kv {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.ds .ds-kv dd {
+  margin-bottom: 10px;
+}
+@media (min-width: 640px) {
+  .ds .ds-kv {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 10px 18px;
+  }
+  .ds .ds-kv dd {
+    margin-bottom: 0;
+  }
+}
+
+.ds .ds-title {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.ds-state {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--ink-2);
+}
+.ds-state svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+}
+.ds-state.ok svg {
+  color: var(--ok);
+}
+.ds-state.warn svg {
+  color: var(--warn);
+}
+.ds-state.bad {
+  color: var(--ink);
+}
+.ds-state.bad svg {
+  color: var(--bad);
+}
+
+.ds-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 14px;
+  min-width: 0;
+}
+.ds-h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+}
+.ds-h3 svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex: none;
+}
+
+.ds-file:focus-within {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ds .ds-json {
+  width: 100%;
+  min-height: 220px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.ds-paste {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.ds-paste > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--ink-2);
+  min-height: 32px;
+  list-style: none;
+}
+.ds-paste > summary::-webkit-details-marker {
+  display: none;
+}
+.ds-paste > summary svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.ds-paste > summary .chev {
+  margin-left: auto;
+  transition: transform 0.15s;
+}
+.ds-paste[open] > summary .chev {
+  transform: rotate(180deg);
+}
+.ds .ds-paste-box {
+  width: 100%;
+  min-height: 140px;
+  font-size: 12px;
+}
+
+table.t th.ds-rowhead {
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+}
+table.t tr:last-child th.ds-rowhead {
+  border-bottom: 0;
+}
+
+.ds-problems {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.ds-problems li + li {
+  margin-top: 2px;
+}
+
+.ds-check {
+  border: 1px solid var(--ok);
+  background: var(--ok-soft);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.ds-check-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--ok);
+  flex: none;
+  margin-top: 1px;
+}
+.ds-countline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ds-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .ds-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 22px;
+  }
+}
+.ds-flow li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.ds-flow strong {
+  color: var(--ink);
+}
+.ds-num {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.ds-ticks {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14.5px;
+}
+.ds-ticks li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.ds-ticks svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 3px;
+  color: var(--ink-3);
+}
+
+.ds-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ds-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.ds-step:hover {
+  border-color: var(--ink-3);
+}
+.ds-step input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  margin: 1px 0 0;
+  accent-color: var(--ok);
+}
+.ds-step input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.ds-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.ds-step-title {
+  font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.ds-step-detail {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.ds-steps li.done .ds-step {
+  background: var(--ok-soft);
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+}
+.ds-steps li.done .ds-step-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: var(--ink-2);
+}
+
+.ds-send {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.ds-send > div {
+  display: grid;
+  gap: 2px 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 720px) {
+  .ds-send > div {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+}
+.ds-send dt {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.ds-send dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.ds-reset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.ds-reset > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--ink-3);
+  flex: none;
+}
+.ds-reset .grow {
+  min-width: 200px;
+}
+
+/* ------------------------------------------------------------------ diagram */
+
+.dg-figure {
+  container-type: inline-size;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.dg-figure figcaption {
+  font-size: 13px;
+  margin-top: 8px;
+}
+.dg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-body);
+}
+.dg-wide {
+  display: none;
+}
+.dg-tall {
+  max-width: 360px;
+  margin: 0 auto;
+}
+@media (max-width: 480px) {
+  .dg-figure {
+    padding: 8px;
+  }
+}
+@container (min-width: 620px) {
+  .dg-wide {
+    display: block;
+  }
+  .dg-tall {
+    display: none;
+  }
+}
+.dg-box {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.dg-box.device {
+  stroke: var(--ink-3);
+}
+.dg-box.engine {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.dg-box.small {
+  fill: var(--surface-3);
+}
+.dg-group {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 6;
+}
+.dg-group-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  fill: var(--ink-3);
+}
+.dg-title {
+  font-size: 17px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+.dg-small {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+.dg-line {
+  font-size: 14px;
+  fill: var(--ink-2);
+}
+.dg-arrow {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.dg-head {
+  fill: var(--ink-3);
+}
+.dg-badge {
+  fill: var(--accent);
+  stroke: var(--surface-2);
+  stroke-width: 3;
+}
+.dg-badge-text {
+  font-size: 12.5px;
+  font-weight: 700;
+  fill: var(--accent-ink);
+}
+.dg-glyph rect,
+.dg-glyph line,
+.dg-glyph path {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.dg-tall .dg-glyph rect,
+.dg-tall .dg-glyph line,
+.dg-tall .dg-glyph path {
+  stroke-width: 4;
+}

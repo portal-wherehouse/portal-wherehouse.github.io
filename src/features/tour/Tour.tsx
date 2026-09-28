@@ -1,5 +1,5 @@
-// Guided tour: the blueprint's example shift (page 6) as a checklist that ticks itself off
-// as you actually do each step in the app.
+// Practice shift: the blueprint's example shift (page 6) as a checklist that ticks itself off
+// as you actually do each step in the app. Hidden while the portal walkthrough is running.
 
 import { useEffect, useMemo, useState } from 'react';
 import { roleAllows } from '../../domain/transitions';
@@ -34,7 +34,7 @@ interface Step {
 }
 
 export function Tour() {
-  const { tourOpen, setTourOpen, backend, actorId, workspaceId, role, route, go, v } = useApp();
+  const { tourOpen, setTourOpen, backend, actorId, workspaceId, role, route, go, v, guideStep } = useApp();
   const [start, setStart] = useState<string>(() => readKey(START_KEY) ?? new Date().toISOString());
   const [found, setFound] = useState<boolean>(() => readKey(FOUND_KEY) === '1');
   const [min, setMin] = useState(() => typeof window !== 'undefined' && window.innerWidth < 700);
@@ -69,7 +69,7 @@ export function Tour() {
     }
   }, [route, state, found]);
 
-  if (!tourOpen || !state) return null;
+  if (!tourOpen || !state || guideStep !== null) return null;
   const p = state.pallet;
   const code = p?.code ?? 'your new pallet';
   const steps: Step[] = [
@@ -94,14 +94,14 @@ export function Tour() {
   };
 
   return (
-    <aside className="tour" aria-label="Guided tour">
+    <aside className="tour" aria-label="Practice shift">
       <div className="tour-head">
         <Icon name="tour" />
-        <h3>Example shift · {doneCount}/{steps.length}</h3>
-        <button onClick={() => setMin((m) => !m)} aria-label={min ? 'Expand tour' : 'Minimize tour'}>
+        <h3>Practice shift · {doneCount}/{steps.length}</h3>
+        <button onClick={() => setMin((m) => !m)} aria-label={min ? 'Expand practice shift' : 'Minimize practice shift'}>
           <Icon name={min ? 'chevronDown' : 'chevronRight'} style={{ transform: min ? 'rotate(180deg)' : 'rotate(90deg)' }} />
         </button>
-        <button onClick={() => setTourOpen(false)} aria-label="Close tour">
+        <button onClick={() => setTourOpen(false)} aria-label="Close practice shift">
           <Icon name="x" />
         </button>
       </div>
@@ -161,7 +161,7 @@ export function Tour() {
           )}
           {doneCount > 0 && doneCount < steps.length && (
             <button className="btn ghost small" style={{ alignSelf: 'flex-start' }} onClick={restart}>
-              <Icon name="refresh" /> Restart the tour
+              <Icon name="refresh" /> Restart the practice shift
             </button>
           )}
         </div>

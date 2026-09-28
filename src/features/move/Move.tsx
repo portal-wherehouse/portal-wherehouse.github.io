@@ -165,7 +165,7 @@ export function Move() {
         </Notice>
       )}
 
-      <div className="steps">
+      <div className="steps" data-tour="move-steps">
         {/* Step 1: pallet */}
         <div className={`step ${stageIndex === 0 ? 'active' : 'done'}`}>
           <span className="num-badge">{stageIndex > 0 ? <Icon name="check" width={18} height={18} /> : 1}</span>

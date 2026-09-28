@@ -140,6 +140,22 @@
   border-color: var(--hazard);
   color: #14171a;
 }
+.tone-hazard .site-btn.primary {
+  background: #14171a;
+  border-color: #14171a;
+  color: #f4f5f1;
+}
+.site-btn {
+  transition:
+    background-color 0.15s,
+    transform 0.15s;
+}
+.site-btn.primary:hover {
+  transform: translateY(-1px);
+}
+.site-btn:active {
+  transform: translateY(1px);
+}
 .site-btn.ghost:hover {
   background: color-mix(in srgb, var(--ink) 8%, transparent);
 }

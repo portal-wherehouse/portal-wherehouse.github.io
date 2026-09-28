@@ -58,7 +58,7 @@ export function LabelStudio() {
     <div className="stack">
       <PageHead title="Labels" sub="Print pallet and rack labels in batches, at the right size, with a calibration check." />
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        <div className="panel stack">
+        <div className="panel stack" data-tour="labels-source">
           <div className="panel-title">1 · What to print</div>
           <div className="stack" style={{ gap: 6 }}>
             {SOURCES.map((s) => (
@@ -97,7 +97,7 @@ export function LabelStudio() {
             <Icon name="print" /> Preview {count} {count === 1 ? 'label' : 'labels'}
           </button>
         </div>
-        <div className="panel stack">
+        <div className="panel stack" data-tour="labels-anatomy">
           <div className="panel-title">What is on a label</div>
           <div className="row nowrap" style={{ alignItems: 'flex-start', gap: 16 }}>
             <div style={{ width: 120, flex: 'none', background: '#fff', padding: 6, borderRadius: 6, border: '1px solid var(--line)' }}>

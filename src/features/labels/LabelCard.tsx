@@ -1,11 +1,13 @@
-// Printable labels (blueprint page 16). Pallet labels: big code, job, short description, QR.
-// Rack labels: the readable rack code first. Job and description stay outside the QR, so edits
-// never change the identity token.
+// Printable labels (blueprint page 16). Pallet labels: big code, job, short description, QR, and a Code 128
+// barcode of the printed code for laser scanners. Rack labels: the readable rack code first. Job and description
+// stay outside the QR, so edits never change the identity token.
 
 import { useEffect, useState } from 'react';
 import { makeLabelPayload } from '../../domain/codes';
 import type { Job, Location, Pallet } from '../../domain/types';
 import { qrSvg } from '../../device/output';
+import { Barcode128 } from './Barcode128';
+import './barcode.css';
 
 export type LabelFormat = '4x6' | 'sheet';
 
@@ -29,26 +31,28 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
         <FitCode text={pallet.code} className="l-code" maxHeight="0.56in" />
         <div className="l-row">
           <Qr payload={payload} className="l-qr" />
-          <div style={{ minWidth: 0 }}>
+          <div className="l-side">
             <div className="l-job">{job.code}</div>
-            <div className="l-desc">{pallet.description}</div>
+            <div className="l-desc l-clamp">{pallet.description}</div>
+            <Barcode128 value={pallet.code} className="l-bc" height="0.42in" />
           </div>
         </div>
       </div>
     );
   }
   return (
-    <div className="label-card label-4x6">
+    <div className="label-card label-4x6 has-bc">
       <FitCode text={pallet.code} className="l-code" maxHeight="0.95in" />
       <div className="l-job">JOB {job.code}</div>
-      <div className="l-desc">{pallet.description}</div>
-      <div className="l-desc" style={{ fontWeight: 400, fontSize: '0.14in' }}>
+      <div className="l-desc l-clamp">{pallet.description}</div>
+      <div className="l-desc l-one" style={{ fontWeight: 400, fontSize: '0.14in' }}>
         {job.name}
       </div>
       <Qr payload={payload} className="l-qr" />
+      <Barcode128 value={pallet.code} className="l-bc" height="0.5in" />
       <div className="l-foot">
         <span>{warehouse}</span>
-        <span>If the QR is damaged, type {pallet.code}</span>
+        <span>If both codes are damaged, type {pallet.code}</span>
       </div>
     </div>
   );
@@ -58,9 +62,10 @@ export function RackLabel({ location, token, warehouse }: { location: Location; 
   return (
     <div className="label-card label-rack">
       <Qr payload={makeLabelPayload('L', token)} className="l-qr" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.08in', minWidth: 0 }}>
+      <div className="l-side">
         <div className="l-kind">{location.kind === 'RACK' ? 'Rack location' : location.kind.toLowerCase()}</div>
-        <FitCode text={location.code} className="l-code" maxHeight="1.1in" />
+        <FitCode text={location.code} className="l-code" maxHeight="0.95in" />
+        <Barcode128 value={location.code} className="l-bc" height="0.42in" />
         <div className="l-foot" style={{ gap: '0.2in' }}>
           <span>{warehouse}</span>
           <span>Scan the pallet first, then this label</span>

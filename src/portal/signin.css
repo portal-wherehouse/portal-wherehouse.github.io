@@ -1,0 +1,605 @@
+/* Portal front door (SignIn.tsx): redirect moment, dark side panel, role picker, disabled sign-in card. */
+
+.door-stripe {
+  height: 10px;
+  flex: none;
+  background: repeating-linear-gradient(-45deg, #f2b705 0 14px, #14171a 14px 28px);
+}
+
+/* ---------------------------------------------------------------- redirect */
+
+.door-redirect {
+  --ink: #f4f5f1;
+  --surface: #14171a;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: #14171a;
+  color: #f4f5f1;
+}
+.door-redirect-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 24px;
+  text-align: center;
+  animation: door-rise 0.25s ease-out;
+}
+@keyframes door-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.door-redirect-mark {
+  width: 76px;
+  height: 76px;
+}
+.door-redirect-text {
+  font: 700 clamp(30px, 6.5vw, 50px) / 1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+.door-redirect-bar {
+  width: min(320px, 72vw);
+  height: 6px;
+  border-radius: 99px;
+  background: #2d3439;
+  overflow: hidden;
+}
+.door-redirect-bar span {
+  display: block;
+  height: 100%;
+  background: #f2b705;
+  transform-origin: left center;
+  animation: door-fill linear forwards;
+}
+@keyframes door-fill {
+  from {
+    transform: scaleX(0.04);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.door-redirect .door-stripe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.door {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--ground);
+}
+@media (min-width: 960px) {
+  .door {
+    grid-template-columns: minmax(380px, 0.85fr) minmax(0, 1.15fr);
+  }
+}
+
+.door-side {
+  --ink: #f4f5f1;
+  --ink-2: #c3c9cf;
+  --ink-3: #9aa2a9;
+  --surface: #14171a;
+  --line: #2d3439;
+  --accent: #f2b705;
+  display: flex;
+  flex-direction: column;
+  background: #14171a;
+  color: var(--ink);
+  min-width: 0;
+}
+@media (min-width: 960px) {
+  .door-side {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+  }
+}
+.door-side-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+@media (min-width: 960px) {
+  .door-side-top {
+    padding: 28px 40px;
+  }
+}
+.door-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 4px 4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  min-width: 0;
+}
+.door-brand-mark {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+.door-brand-name {
+  font: 700 25px/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.door-brand-sub {
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: #f2b705;
+  color: #14171a;
+  font: 700 11px/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.door-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px 0 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font: 600 14px/1 var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.door-back svg {
+  width: 18px;
+  height: 18px;
+}
+.door-back:hover {
+  border-color: var(--ink-3);
+}
+.door-back-short {
+  display: none;
+}
+@media (max-width: 480px) {
+  .door-back-full {
+    display: none;
+  }
+  .door-back-short {
+    display: inline;
+  }
+}
+
+.door-side-body {
+  padding: 6px 16px 26px;
+}
+@media (min-width: 960px) {
+  .door-side-body {
+    margin: auto 0;
+    padding: 0 40px 48px;
+  }
+}
+.door-eyebrow {
+  font: 700 13px/1 var(--font-body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f2b705;
+}
+.door-title {
+  margin-top: 10px;
+  font: 700 clamp(38px, 10vw, 84px) / 0.92 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+}
+.door .door-title:focus,
+.door .door-title:focus-visible {
+  outline: none;
+}
+@media (min-width: 960px) {
+  .door-title {
+    font-size: clamp(60px, 5.6vw, 88px);
+  }
+}
+.door-lede {
+  margin-top: 14px;
+  max-width: 42ch;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+@media (min-width: 960px) {
+  .door-lede {
+    font-size: 18px;
+  }
+}
+.door-facts {
+  display: none;
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  gap: 14px;
+  max-width: 44ch;
+}
+@media (min-width: 960px) {
+  .door-facts {
+    display: grid;
+  }
+}
+.door-facts li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+.door-facts svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: #f2b705;
+}
+
+.door-main {
+  min-width: 0;
+  padding: 20px 16px 40px;
+}
+@media (min-width: 960px) {
+  .door-main {
+    display: flex;
+    align-items: center;
+    padding: 56px 48px;
+  }
+}
+.door-main-inner {
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.door-card {
+  position: relative;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+@media (min-width: 720px) {
+  .door-card {
+    padding: 28px;
+  }
+}
+.door-card h2 {
+  font: 700 28px/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+}
+
+.door-resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  box-shadow: none;
+}
+.door-resume h2 {
+  font-size: 22px;
+}
+.door-resume p {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.door-resume-text {
+  min-width: 0;
+}
+
+.door-test {
+  padding-top: 30px;
+  box-shadow: var(--shadow-lift);
+  border-color: var(--ink-3);
+  /* Hazard tape along the top edge, clipped by the card's rounded corners. */
+  background:
+    repeating-linear-gradient(-45deg, #f2b705 0 12px, #14171a 12px 24px) top left / 100% 8px no-repeat,
+    var(--surface);
+}
+@media (min-width: 720px) {
+  .door-test {
+    padding-top: 38px;
+  }
+}
+.door-test-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 14px;
+  margin-bottom: 20px;
+}
+.door-test-head p {
+  grid-column: 1 / -1;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+@media (min-width: 720px) {
+  .door-test-head {
+    align-items: start;
+    row-gap: 8px;
+  }
+  .door-test-head .door-test-icon {
+    grid-row: span 2;
+  }
+  .door-test-head p {
+    grid-column: 2;
+  }
+}
+.door-test-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--hazard);
+  color: #14171a;
+}
+.door-test-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.door-roles {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.door-roles legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font: 700 12.5px/1.4 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.door-roles-second {
+  margin-top: 20px;
+}
+
+.door-role {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    background-color 0.12s;
+}
+.door-role:hover {
+  border-color: var(--ink-3);
+}
+.door-role[data-checked] {
+  border-color: var(--ink);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.door-role:has(.door-role-input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.door-role-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+.door-role-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--ink);
+  transition: background-color 0.12s;
+}
+.door-role-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.door-role[data-checked] .door-role-icon {
+  background: var(--hazard);
+  color: #14171a;
+}
+.door-role-text {
+  min-width: 0;
+}
+.door-role-name {
+  display: block;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.3;
+}
+.door-role-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.door-role-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 700 11px/1.1 var(--font-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+.door-role-check {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  color: transparent;
+}
+.door-role-check svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 3;
+}
+.door-role[data-checked] .door-role-check {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--ground);
+}
+
+.door-go {
+  margin-top: 20px;
+}
+/* On phones the role list is long, so the button stays in reach while it scrolls. */
+@media (max-width: 959px) {
+  .door-go {
+    position: sticky;
+    bottom: 12px;
+    z-index: 2;
+    box-shadow: 0 6px 20px color-mix(in srgb, #000 28%, transparent);
+  }
+}
+.door-go svg {
+  width: 20px;
+  height: 20px;
+}
+.door-then {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.door-signin {
+  box-shadow: none;
+  background: var(--surface-2);
+}
+.door-signin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.door-signin h2 {
+  font-size: 24px;
+}
+.door-signin-form {
+  display: grid;
+  gap: 12px;
+}
+.door-field {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.door-field .input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.door-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.door-or::before,
+.door-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.door-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 16px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.door-note svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+.door-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+}
+.door-new {
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.door-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.door-brand:focus-visible,
+.door-back:focus-visible,
+.door-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}

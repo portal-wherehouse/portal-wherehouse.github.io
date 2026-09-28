@@ -1,14 +1,14 @@
 // Installable shell (blueprint page 18). The app opens with no connection because its files are cached here.
-// A new version waits until every Pallet Locator tab is closed, so an update never lands mid-scan or while
+// A new version waits until every Wherehouse tab is closed, so an update never lands mid-scan or while
 // queued moves are pending (page 38). Data never passes through this cache; it lives in IndexedDB.
-const CACHE = 'pallet-locator-shell-v1';
+const CACHE = 'wherehouse-shell-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icon.svg', './icon-192.png'])));
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('pallet-locator-shell-') && k !== CACHE).map((k) => caches.delete(k)))));
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => (k.startsWith('pallet-locator-shell-') || k.startsWith('wherehouse-shell-')) && k !== CACHE).map((k) => caches.delete(k)))));
 });
 
 self.addEventListener('fetch', (event) => {

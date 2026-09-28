@@ -94,7 +94,7 @@ export function WarehouseMap() {
       </Explain>
 
       <div className="grid-2" style={{ gridTemplateColumns: sel ? 'minmax(0, 1.4fr) minmax(0, 1fr)' : '1fr', alignItems: 'start' }}>
-        <div className="panel stack">
+        <div className="panel stack" data-tour="map-zones">
           {zones.length === 0 && areas.length === 0 && <Empty icon="map" title="No locations yet">A supervisor adds locations under Locations.</Empty>}
           {zones.map((z) => (
             <div key={z.zone} className="map-zone">

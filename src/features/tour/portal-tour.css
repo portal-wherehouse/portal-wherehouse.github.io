@@ -1,0 +1,456 @@
+/* Portal tour: the dimmed overlay, the spotlight cut-out, and the tour card.
+   Colors come from the design tokens; the scrim is the only literal, like the sheet backdrop. */
+
+.ptour {
+  --ptour-scrim: rgba(10, 12, 14, 0.56);
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .ptour {
+    --ptour-scrim: rgba(0, 0, 0, 0.68);
+  }
+}
+
+:root[data-theme='dark'] .ptour {
+  --ptour-scrim: rgba(0, 0, 0, 0.68);
+}
+
+/* Lengthens short screens while the tour runs, so any target can scroll up clear of the card. */
+.ptour-spacer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Catches clicks on the page while the tour runs. Scrolling still reaches the page. */
+.ptour-shield {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.ptour-dim {
+  position: absolute;
+  inset: 0;
+  background: var(--ptour-scrim);
+}
+
+.ptour-spot {
+  position: absolute;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 3px var(--hazard),
+    0 0 0 9999px var(--ptour-scrim);
+  pointer-events: none;
+}
+
+.ptour-spot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  border: 3px solid var(--hazard);
+  opacity: 0;
+  animation: ptour-ring 0.7s ease-out 1;
+}
+
+@keyframes ptour-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+/* ------------------------------------------------------------------ card */
+
+.ptour-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  width: min(400px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--hazard);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lift);
+  padding: 14px 18px 14px;
+}
+
+.ptour-card:focus {
+  outline: none;
+}
+
+.ptour-card.is-wide {
+  width: min(520px, calc(100vw - 24px));
+  padding: 18px 22px 16px;
+}
+
+.ptour-card.is-under {
+  width: min(600px, calc(100vw - 24px));
+}
+
+.ptour-card.is-measuring {
+  opacity: 0;
+}
+
+.ptour-card.is-sheet-bottom,
+.ptour-card.is-sheet-top {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  max-height: calc(100vh - 16px);
+  max-height: calc(100dvh - 16px);
+}
+
+.ptour-card.is-sheet-bottom {
+  top: auto;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+.ptour-card.is-sheet-top {
+  top: calc(8px + env(safe-area-inset-top, 0px));
+}
+
+.ptour-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ptour-in 0.18s ease-out;
+}
+
+@keyframes ptour-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.ptour-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font: 700 11px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.ptour-chapter {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ptour-count {
+  flex: none;
+  color: var(--ink-2);
+}
+
+.ptour-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin-top: -4px;
+}
+
+.ptour-bar > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.25s ease-out;
+}
+
+.ptour-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ptour-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--hazard);
+  color: var(--hazard-ink);
+}
+
+.ptour-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.ptour-head h2 {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: calc(27px * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.ptour-card.is-wide .ptour-head h2 {
+  font-size: calc(36px * var(--text-scale));
+}
+
+.ptour-kicker {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  color: var(--ink-2);
+}
+
+.ptour-card.is-wide .ptour-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.ptour-card.is-wide .ptour-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.ptour-body {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.97em;
+  line-height: 1.5;
+}
+
+.ptour-code {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ptour-tip {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--hazard);
+  border-radius: 0 6px 6px 0;
+  background: var(--surface-2);
+  font-size: 0.9em;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.ptour-note {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 0.88em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ptour-note svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+
+.ptour-where {
+  margin: 0;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 0.84em;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+.ptour-where svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+}
+
+.ptour-where-label {
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.ptour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.ptour-actions .grow {
+  flex: 1;
+}
+
+.ptour-actions .btn {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.ptour-actions .btn.ghost {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.ptour-end {
+  color: var(--ink-2);
+}
+
+.ptour-end:hover {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ intro and finish */
+
+.ptour-chapters {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ptour-chapters button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ptour-chapters button:hover {
+  border-color: var(--ink-3);
+}
+
+.ptour-chapters svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  color: var(--ink-2);
+}
+
+.ptour-ch-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.ptour-ch-count {
+  flex: none;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.ptour-keys {
+  margin: 0;
+  font-size: 0.84em;
+  color: var(--ink-3);
+}
+
+@media (hover: none) {
+  .ptour-keys {
+    display: none;
+  }
+}
+
+.ptour-finish {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ptour-finish .btn {
+  flex: 1 1 200px;
+}
+
+/* ------------------------------------------------------------------ phones */
+
+@media (max-width: 639px) {
+  .ptour-card {
+    padding: 12px 14px 12px;
+    border-radius: 16px;
+  }
+  .ptour-card.is-wide {
+    padding: 16px 16px 14px;
+  }
+  .ptour-content {
+    gap: 8px;
+  }
+  .ptour-head h2 {
+    font-size: calc(24px * var(--text-scale));
+  }
+  .ptour-card.is-wide .ptour-head h2 {
+    font-size: calc(28px * var(--text-scale));
+  }
+  .ptour-body {
+    font-size: 0.93em;
+    line-height: 1.45;
+  }
+  .ptour-actions {
+    gap: 6px;
+    padding-top: 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  .ptour-chapters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

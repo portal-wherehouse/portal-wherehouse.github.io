@@ -67,7 +67,7 @@ export function Sync() {
         <p>When the connection returns, queued moves are sent in order with their original request IDs, so a retry can never double-apply. If someone else changed the pallet in the meantime, the server refuses with a conflict and the app asks you to decide. It never overwrites their change silently.</p>
       </Explain>
 
-      <div className="panel stack">
+      <div className="panel stack" data-tour="sync-lab">
         <div className="panel-title">Network lab</div>
         <div className="seg" role="group" aria-label="Connection">
           <button aria-pressed={!offline} onClick={() => backend.setNetwork('online')}>

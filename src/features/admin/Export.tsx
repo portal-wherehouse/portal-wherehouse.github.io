@@ -57,7 +57,7 @@ export function Export() {
           This hosted preview cannot save files, so each button copies the file to your clipboard instead. You can also open it below and select the text.
         </Notice>
       )}
-      <div className="stack">
+      <div className="stack" data-tour="export-files">
         {FILES.map((f) => (
           <div key={f.id} className="panel row" style={{ alignItems: 'center' }}>
             <Icon name={f.id === 'manifest' ? 'database' : 'download'} />

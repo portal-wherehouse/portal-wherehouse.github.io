@@ -1,0 +1,143 @@
+rules_version = '2';
+
+// DRAFT. NOT DEPLOYED. Cloud Firestore security rules for the planned Firebase backend.
+// Design and reasoning: docs/data-storage.md, section 5.
+//
+// The model:
+//   - Deny by default (the last match block).
+//   - Clients NEVER write records. Every change goes through the `command` Cloud Function, which uses
+//     the Admin SDK (not subject to these rules) and runs the command engine in one transaction.
+//   - Clients may READ only the workspaces they are an active member of. Membership lives in
+//     workspaces/{ws}/members/{uid}, written only by the function, and is re-read on every request,
+//     so removing someone takes effect on their very next read.
+//   - Where the local engine limits a read by role (audit log, imports, invitations), so do these rules.
+//
+// Each get()/exists() below is a billed document read, cached within one request.
+// Before deploying: run the rules unit tests in the Firebase Emulator Suite (two workspaces that reuse
+// the same job and rack codes, every role, removed members).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function memberPath(ws) {
+      return /databases/$(database)/documents/workspaces/$(ws)/members/$(request.auth.uid);
+    }
+
+    // An active member of this workspace, any role.
+    function isMember(ws) {
+      return signedIn()
+        && exists(memberPath(ws))
+        && get(memberPath(ws)).data.active == true;
+    }
+
+    function hasRole(ws, roles) {
+      return isMember(ws) && get(memberPath(ws)).data.role in roles;
+    }
+
+    // Supervisor or Owner: matches Engine.auditLog and the Supervisor-only admin screens.
+    function isSupervisor(ws) {
+      return hasRole(ws, ['OWNER', 'SUPERVISOR']);
+    }
+
+    // A person's own profile, including the list of workspaces they belong to (kept by the function).
+    match /users/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow write: if false;
+    }
+
+    match /workspaces/{ws} {
+      // The company document (name, created_at).
+      allow get: if isMember(ws);
+      allow list: if false;
+      allow write: if false;
+
+      // Coworkers' names, emails and roles. The same data the People screen shows every role today.
+      match /members/{uid} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      // Pending invitations: admin screens only.
+      match /invites/{email} {
+        allow read: if isSupervisor(ws);
+        allow write: if false;
+      }
+
+      match /warehouses/{id} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      match /locations/{id} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      match /jobs/{id} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      match /pallets/{id} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      // Append-only history. IDs are {palletId}_{revision}; the function creates, never updates.
+      match /events/{id} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      // Label tokens, so a scanned QR resolves with one get() and the Labels screen can reprint.
+      match /labels/{token} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      // Photo metadata. The image files are in Cloud Storage, guarded by storage.rules.
+      match /attachments/{id} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      // Split parent and child links.
+      match /lineage/{childId} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
+
+      // Admin audit log and import batches: Supervisor or Owner, as in the local engine.
+      match /audit/{id} {
+        allow read: if isSupervisor(ws);
+        allow write: if false;
+      }
+
+      match /imports/{id} {
+        allow read: if isSupervisor(ws);
+        allow write: if false;
+      }
+
+      // Command receipts (request ID, payload hash, stored result). Only the function reads them:
+      // a retry resends the same command and the function answers from the receipt.
+      match /receipts/{commandId} {
+        allow read, write: if false;
+      }
+
+      // Counters and anything else server-only.
+      match /private/{doc} {
+        allow read, write: if false;
+      }
+    }
+
+    // Everything not listed above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -100,7 +100,7 @@ export function Placeholder({ label = 'Placeholder', children, minHeight }: { la
 }
 
 /** The closing band on most pages: a sales ask for new visitors and the portal button for customers. */
-export function CtaBand({ title = 'Know where every pallet is.', body = 'See it with your own racks and your own labels. Setup takes an afternoon.' }: { title?: ReactNode; body?: ReactNode }) {
+export function CtaBand({ title = BRAND.tagline, body = 'See it with your own racks and your own labels. Book a walkthrough, or open the portal and try it now.' }: { title?: ReactNode; body?: ReactNode }) {
   const { go } = useApp();
   return (
     <section className="site-section tone-ink cta-band">

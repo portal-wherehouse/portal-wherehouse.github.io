@@ -51,7 +51,7 @@ export function People() {
         <p>In this demo you can sign in as anyone below to see exactly what their role allows.</p>
       </Explain>
 
-      <div className="stack">
+      <div className="stack" data-tour="people-list">
         {members.map((m) => (
           <div key={m.user_id} className="panel row" style={{ alignItems: 'center' }}>
             <Avatar name={m.user.name} />

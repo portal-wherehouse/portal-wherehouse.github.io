@@ -35,7 +35,7 @@ export function Settings() {
     <div className="stack">
       <PageHead title="Settings" sub="Display choices are saved on this device only." />
 
-      <div className="panel stack">
+      <div className="panel stack" data-tour="settings-display">
         <div className="panel-title">Display</div>
         <Setting label="Theme">
           <Seg<Prefs['theme']> value={prefs.theme} options={[['system', 'Match device'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => setPrefs({ theme })} />

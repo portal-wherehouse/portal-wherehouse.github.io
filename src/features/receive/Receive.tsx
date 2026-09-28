@@ -206,6 +206,7 @@ export function Receive() {
       </Explain>
       <form
         className="panel stack"
+        data-tour="receive-form"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();

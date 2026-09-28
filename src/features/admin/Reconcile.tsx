@@ -50,14 +50,14 @@ export function Reconcile() {
       <Explain refs="pages 6, 15">
         <p>These lists are how records stay honest. The app never guesses where a pallet is: it shows the last confirmed rack and when. Each list links to the one workflow that fixes it, and every fix is recorded in the pallet's history.</p>
       </Explain>
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" data-tour="reconcile-lists">
         {LISTS.map((l) => (
           <button key={l.id} role="tab" aria-selected={tab === l.id} onClick={() => setTab(l.id)}>
             <Icon name={l.icon} /> {l.title} <span className="tag">{data[l.id].length}</span>
           </button>
         ))}
       </div>
-      <div className="notice info">
+      <div className="notice info" data-tour="reconcile-fix">
         <Icon name={meta.icon} />
         <div>
           <div className="n-title">{meta.what}</div>

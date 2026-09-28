@@ -24,7 +24,7 @@ export function About() {
   return (
     <div className="stack">
       <PageHead title="About" />
-      <div className="credit-card">
+      <div className="credit-card" data-tour="about-credit">
         <div className="eyebrow">Created by</div>
         <div className="c-name">{CREATOR.name}</div>
         <p style={{ margin: 0, fontSize: 17, maxWidth: '60ch' }}>Pallet Locator was conceived and specified by {CREATOR.name}. It answers one question for a construction material warehouse: where is this pallet right now, and how do we know?</p>

@@ -1,0 +1,44 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pallet_id", "order": "ASCENDING" },
+        { "fieldPath": "revision", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "updated_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "job_id", "order": "ASCENDING" },
+        { "fieldPath": "code", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "current_location_id", "order": "ASCENDING" },
+        { "fieldPath": "code", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "events", "fieldPath": "before_state", "indexes": [] },
+    { "collectionGroup": "events", "fieldPath": "after_state", "indexes": [] },
+    { "collectionGroup": "events", "fieldPath": "detail", "indexes": [] },
+    { "collectionGroup": "receipts", "fieldPath": "result", "indexes": [] },
+    { "collectionGroup": "audit", "fieldPath": "before", "indexes": [] },
+    { "collectionGroup": "audit", "fieldPath": "after", "indexes": [] }
+  ]
+}
