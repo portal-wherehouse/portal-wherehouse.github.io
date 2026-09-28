@@ -6,6 +6,7 @@ import { BRAND } from '../../brand';
 import { qrSvg } from '../../device/output';
 import { BrandMark, Icon, type IconName } from '../../ui/icons';
 import { HoldBadge, Plate, StateBadge } from '../../ui/ui';
+import { encodeCode128 } from '../../device/code128';
 
 /** What a sample pallet label's QR carries. The format is real; the token is made up, so it matches no pallet. */
 export const SAMPLE_PALLET_PAYLOAD = 'PL1:P:SAMPLE2LABEL7XYZ';
@@ -13,26 +14,9 @@ export const SAMPLE_RACK_PAYLOAD = 'PL1:L:SAMPLERACK2A3B4C';
 
 // ------------------------------------------------------------------ barcodes
 
-/** Code 128 bar and space widths for values 0-105, then the stop pattern (106). */
-const C128 = [
-  '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213', '221312', '231212', '112232', '122132', '122231', '113222',
-  '123122', '123221', '223211', '221132', '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211', '212123', '212321',
-  '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313', '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121',
-  '313121', '211331', '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111', '314111', '221411', '431111', '111224',
-  '111422', '121124', '121421', '141122', '141221', '112214', '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111',
-  '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141', '214121', '412121', '111143', '111341', '131141', '114113',
-  '114311', '411113', '411311', '113141', '114131', '311141', '411131', '211412', '211214', '211232', '2331112',
-];
-
-/** Module widths (bar, space, bar...) for text in Code 128 set B, with its check symbol. */
+/** Module widths (bar, space, bar...) for text, from the same encoder the printed labels use. */
 export function code128(text: string): number[] {
-  const values = [104];
-  for (const ch of text) {
-    const v = ch.charCodeAt(0) - 32;
-    values.push(v >= 0 && v < 95 ? v : 31);
-  }
-  const check = values.reduce((sum, v, i) => sum + v * Math.max(1, i), 0) % 103;
-  return [...values, check, 106].flatMap((v) => [...C128[v]].map(Number));
+  return encodeCode128(text).widths.slice();
 }
 
 /** A real, scannable Code 128 barcode with a quiet zone on each side. */

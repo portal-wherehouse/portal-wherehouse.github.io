@@ -91,7 +91,7 @@ describe('Scan station: modes and roles', () => {
   });
 
   it('keeps Mark missing and Record found for supervisors and owners', () => {
-    expect(canMarkMissing('OPERATOR')).toBe(false);
+    expect(canMarkMissing('OPERATOR')).toBe(true);
     expect(canMarkMissing('SUPERVISOR')).toBe(true);
     expect(canMarkMissing('OWNER')).toBe(true);
     expect(canMarkMissing('VIEWER')).toBe(false);

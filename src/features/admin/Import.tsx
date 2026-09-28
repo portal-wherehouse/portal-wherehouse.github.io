@@ -61,7 +61,7 @@ export function Import() {
   };
   const template = async () => {
     const csv = templateCsv(kind);
-    if (canDownload()) downloadText(`pallet-locator-${kind}-template.csv`, csv);
+    if (canDownload()) downloadText(`wherehouse-${kind}-template.csv`, csv);
     else if (await copyText(csv)) toast('Template copied. Paste it into a spreadsheet, or straight into the box below.', 'info');
   };
   const commit = async () => {

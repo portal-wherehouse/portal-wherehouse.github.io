@@ -10,6 +10,7 @@ import { Plate, StateBadge } from '../ui/ui';
 import { CtaBand, FeatureCards, Placeholder, PortalCTA, Section, SiteLink } from './kit';
 import { TryIt } from './TryIt';
 import './home.css';
+import { encodeCode128 } from '../device/code128';
 
 export function Home() {
   return (
@@ -216,14 +217,9 @@ function HeroArt() {
   );
 }
 
-/** A decorative linear barcode. The bar pattern is derived from the text so it stays the same. */
+/** The pallet's Code 128 barcode, drawn by the same encoder as the printed labels. */
 function Barcode({ text }: { text: string }) {
-  const widths = [2, 1, 1, 2, 1, 1];
-  for (const ch of text) {
-    const c = ch.charCodeAt(0);
-    widths.push(1 + (c % 3), 1 + ((c >> 2) % 2), 1 + ((c >> 1) % 3), 1 + ((c >> 3) % 2));
-  }
-  widths.push(2, 3, 1, 1, 2);
+  const widths = encodeCode128(text).widths;
   const bars: { x: number; w: number }[] = [];
   let x = 0;
   widths.forEach((w, i) => {
@@ -447,7 +443,7 @@ function Customers() {
 const PLANS: { name: string; fit: string; points: string[] }[] = [
   { name: 'Starter', fit: 'One yard getting its first racks labeled.', points: ['Receive, Move and Find', 'Pallet and rack labels', 'Works with your scanners'] },
   { name: 'Team', fit: 'A busy yard with a crew on every shift.', points: ['Everything in Starter', 'Owner, supervisor, operator and viewer roles', 'Reconcile and full history'] },
-  { name: 'Company', fit: 'Several yards or companies, one login.', points: ['Everything in Team', 'More than one company per account', 'Export your records any time'] },
+  { name: 'Company', fit: 'Several yards or companies, one login.', points: ['Everything in Team', 'More than one company per account', 'Priority help'] },
 ];
 
 function Pricing() {

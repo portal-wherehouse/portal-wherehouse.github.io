@@ -65,7 +65,7 @@ export function HardwarePage() {
               <strong>QR code.</strong> Read by phone cameras and 2D scanners. It holds a random token, not the job or description, so editing a pallet never breaks its label.
             </li>
             <li>
-              <strong>Code 128 barcode.</strong> The same code as the QR, for scanners that only read straight-line barcodes.
+              <strong>Code 128 barcode.</strong> The printed code (like P-000042), for laser scanners that only read straight-line barcodes. Scanning it works just like typing the code.
             </li>
             <li>
               <strong>The job line.</strong> The job number and name in heavy type, so the crew can sort by eye.

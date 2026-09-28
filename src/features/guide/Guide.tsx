@@ -2,6 +2,7 @@
 // and an honest list of what this build simulates.
 
 import { useState } from 'react';
+import { BRAND } from '../../brand';
 import { useApp } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
@@ -25,10 +26,10 @@ export function Guide() {
     <div className="stack">
       <PageHead
         title="Guide"
-        sub="How Pallet Locator works, why it works that way, and what is real in this build."
+        sub={`How ${BRAND.name} works, why it works that way, and what is real in this build.`}
         actions={
           <button className="btn primary" onClick={() => setTourOpen(true)}>
-            <Icon name="tour" /> Start the tour
+            <Icon name="tour" /> Start the practice shift
           </button>
         }
       />
@@ -336,13 +337,13 @@ const FAQ: [string, string][] = [
 ];
 
 const REAL: [string, string, string][] = [
-  ['Rules and history', 'Real: the full command engine with roles, versions, receipts and append-only history, running in your browser.', 'The same rules as Postgres functions with row-level security (Supabase).'],
-  ['Data storage', 'Your browser (IndexedDB). Shared across tabs of this browser only.', 'Hosted Postgres, shared by the whole team.'],
-  ['Sign-in', 'Pick a demo account. No passwords.', 'Email magic link or SSO, with workspace invitations.'],
+  ['Rules and history', 'Real: the full command engine with roles, versions, receipts and append-only history, running in your browser.', 'The same rules in one Cloud Function that saves each change in a Firestore transaction, with security rules for reads (Firebase, planned).'],
+  ['Data storage', 'Your browser (IndexedDB). Shared across tabs of this browser only.', 'Cloud Firestore (Firebase), shared by the whole team, with an offline copy on each device.'],
+  ['Sign-in', 'Off while we test. Pick a role on the way in. No passwords.', 'Firebase Authentication: email link, password or Google, with workspace invitations.'],
   ['Network', 'Simulated, with switches for offline, lost responses and latency.', 'Real network, with the same retry and recovery behavior.'],
   ['Offline moves', 'Real queue stored on the device, replayed in order.', 'Same, plus background sync.'],
-  ['Scanning', 'Camera where the browser allows it, “scan from a photo” everywhere, typed codes, and demo tap-labels.', 'Camera scanning on phones, plus hardware scanners that type.'],
-  ['Photos', 'Resized and stored in the browser.', 'Private object storage with signed links.'],
-  ['Labels and printing', 'Real QR labels. Printing works when run locally.', 'Same, on thermal label printers.'],
+  ['Scanning', 'USB and Bluetooth scanners in keyboard mode, serial scanners in Chrome, the camera where the browser allows it, “scan from a photo”, typed codes, and demo tap-labels.', 'The same, on real phones and rugged handhelds.'],
+  ['Photos', 'Resized and stored in the browser.', 'Private Cloud Storage (Firebase), checked against membership on every view.'],
+  ['Labels and printing', 'Real labels with a QR code and a Code 128 barcode. Printing works when run locally.', 'Same, on thermal label printers.'],
   ['Import and export', 'Real CSV parsing, validation and formula protection.', 'Same, with larger batches processed on the server.'],
 ];

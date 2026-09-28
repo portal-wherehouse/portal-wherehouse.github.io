@@ -2,7 +2,7 @@
 // the planned Firebase design as a diagram, and the project owner's Firebase setup checklist.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { BRAND, CREATOR } from '../../brand';
+import { BRAND } from '../../brand';
 import { useApp } from '../../app/state';
 import { snapshotCounts, validateSnapshot, type Snapshot, type SnapshotCheck, type SnapshotCounts } from '../../data/backend';
 import { IS_PREVIEW, canDownload, copyText, downloadText } from '../../device/output';
@@ -12,7 +12,6 @@ import { Explain, Field, Notice, PageHead, Sheet, Spinner, fmtAgo, fmtFull } fro
 import { ArchitectureDiagram } from './Diagram';
 import './data.css';
 
-const FIRST_NAME = CREATOR.name.split(' ')[0];
 
 export function DataStorage() {
   const { go } = useApp();
@@ -708,7 +707,7 @@ function SetupChecklist() {
     <section className="panel stack" aria-labelledby="ds-setup" data-tour="data-setup">
       <div className="panel-title ds-title" id="ds-setup">
         <Icon name="checklist" />
-        <span>What {FIRST_NAME} needs to set up</span>
+        <span>Before accounts go live: Firebase setup</span>
         <span className="grow" />
         <span className="tag">
           {count} of {STEPS.length} ticked

@@ -1,11 +1,13 @@
 // Move: two scans and a confirmation (blueprint page 12).
 
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { makeLabelPayload, uuid } from '../../domain/codes';
 import { roleAllows } from '../../domain/transitions';
 import type { Location, Pallet } from '../../domain/types';
 import { eligibility } from '../../data/outbox';
 import { buzz } from '../../device/scanner';
+import { parseScanCommand } from '../../device/scanCommands';
+import { useScanRouter, useScanTarget } from '../../device/scanRouter';
 import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
 import { Explain, HoldBadge, Notice, PageHead, PermissionDenied, Plate, Spinner, StateBadge, WhereCell, fmtTime } from '../../ui/ui';
@@ -53,6 +55,45 @@ export function Move() {
         .sort((a, b) => a.code.localeCompare(b.code))
         .map((l) => ({ label: l.code, sub: l.kind === 'RACK' ? undefined : l.kind.toLowerCase(), text: makeLabelPayload('L', e.activeLabel(l.id)?.token ?? '') })),
     [locations, e],
+  );
+
+  // At the review and result steps a hardware scan acts on the move instead of opening a record:
+  // scanning the same rack again (or CMD:CONFIRM) saves, CMD:CANCEL changes the rack,
+  // and after a save the next pallet label starts the next move.
+  const confirmRef = useRef<() => void>(() => {});
+  const { settings: scanSettings } = useScanRouter();
+  useScanTarget(
+    'move-review',
+    (ev) => {
+      if (!actorId || !workspaceId) return false;
+      const cmd = parseScanCommand(ev.text);
+      if (s.stage === 'REVIEW') {
+        if (cmd === 'CONFIRM') return confirmRef.current(), true;
+        if (cmd === 'CANCEL') return dispatch({ type: 'CANCEL_REVIEW' }), true;
+        if (cmd) return false;
+        try {
+          const r = backend.reader.resolve(actorId, workspaceId, ev.text);
+          if (r.type === 'location' && r.location.id === s.destination?.id && scanSettings.confirmByRescan) return confirmRef.current(), true;
+        } catch {
+          /* not a label we know; the hint below covers it */
+        }
+        toast(scanSettings.confirmByRescan ? `Scan ${s.destination?.code} again or scan Confirm to save. Scan Cancel to pick another rack.` : 'Tap Confirm to save, or scan Cancel to pick another rack.', 'info');
+        return 'error';
+      }
+      if (s.stage === 'RESULT' && !cmd) {
+        try {
+          const r = backend.reader.resolve(actorId, workspaceId, ev.text);
+          if (r.type !== 'pallet') return false;
+          dispatch({ type: 'RESET' });
+          dispatch({ type: 'SCAN_PALLET', pallet: r.pallet, raw: ev.text, at: Date.now() });
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    },
+    s.stage === 'REVIEW' || s.stage === 'RESULT',
   );
 
   if (!roleAllows(role, 'move')) {
@@ -106,6 +147,8 @@ export function Move() {
     } else if (outcome.status === 'unknown') dispatch({ type: 'LOST' });
     else if (outcome.status === 'offline') dispatch({ type: 'REJECTED', result: { ok: false, command_id: commandId, kind: s.intent, code: 'TEMPORARY_FAILURE', message: outcome.message, correlation_id: '-' } });
   };
+
+  confirmRef.current = () => void confirm();
 
   const recover = async () => {
     if (!s.commandId || !actorId || !workspaceId) return;

@@ -401,7 +401,7 @@ export class Backend {
 // ---------------------------------------------------------------- snapshot format
 
 /** Stable file identifier. Deliberately not the brand name, so a rename never breaks old backups. */
-export const SNAPSHOT_FORMAT = 'pallet-locator.snapshot';
+export const SNAPSHOT_FORMAT = 'wherehouse.snapshot';
 export const SNAPSHOT_VERSION = 1;
 
 export interface SnapshotCounts {

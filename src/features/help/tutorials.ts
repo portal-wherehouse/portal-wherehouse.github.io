@@ -109,7 +109,7 @@ export const TUTORIALS: Tutorial[] = [
       'Open **Scan station** and choose **Put-away**, or scan the Put-away command barcode.',
       'Scan the **rack label** once.',
       'Scan each **pallet** going onto that rack. Each scan’s result shows on the screen as you go.',
-      'Scan the **Finish** command barcode, or press Finish, and review what was saved.',
+      'Scan the **Finish** command barcode, or press **Finish and review**, to check the list. Then scan **Confirm** or press **Save all** to save every placement at once.',
     ],
     tip: 'Keep the command barcode sheet from the Scanners page on the cart, so you can switch modes and confirm without putting the scanner down.',
     target: { route: 'station' },

@@ -132,6 +132,12 @@ export function LabelStudio() {
                 </td>
                 <td>Random token (A–Z, 2–7). 80 bits, so it cannot be guessed.</td>
               </tr>
+              <tr>
+                <td>
+                  <span className="mono">Barcode</span>
+                </td>
+                <td>A Code 128 barcode of the printed code (like P-000042 or A-03-02), for laser scanners that cannot read QR codes. It works just like typing the code.</td>
+              </tr>
             </tbody>
           </table>
         </div>

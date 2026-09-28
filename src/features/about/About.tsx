@@ -1,17 +1,13 @@
 // About and credits.
 
 import { useState } from 'react';
+import { BRAND, CREATOR } from '../../brand';
 import { useApp } from '../../app/state';
 import { copyText } from '../../device/output';
 import { SCENARIOS } from '../../lab/scenarios';
 import { BrandMark, Icon } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
 
-export const CREATOR = {
-  name: 'John Henry Mims',
-  email: 'johnhenry.mims@gmail.com',
-  linkedin: 'https://www.linkedin.com/in/john-henry-mims-3161a9237/',
-};
 
 export function About() {
   const { toast, go } = useApp();
@@ -27,12 +23,12 @@ export function About() {
       <div className="credit-card" data-tour="about-credit">
         <div className="eyebrow">Created by</div>
         <div className="c-name">{CREATOR.name}</div>
-        <p style={{ margin: 0, fontSize: 17, maxWidth: '60ch' }}>Pallet Locator was conceived and specified by {CREATOR.name}. It answers one question for a construction material warehouse: where is this pallet right now, and how do we know?</p>
+        <p style={{ margin: 0, fontSize: 17, maxWidth: '60ch' }}>{BRAND.name} was conceived and specified by {CREATOR.name}. It answers one question for a construction material warehouse: where is this pallet right now, and how do we know?</p>
         <div className="credit-links">
           <a className="btn primary big" href={CREATOR.linkedin} target="_blank" rel="noopener noreferrer">
             <Icon name="linkedin" /> LinkedIn
           </a>
-          <a className="btn big" href={`mailto:${CREATOR.email}?subject=${encodeURIComponent('Pallet Locator')}`}>
+          <a className="btn big" href={`mailto:${CREATOR.email}?subject=${encodeURIComponent(BRAND.name)}`}>
             <Icon name="mail" /> Email
           </a>
           <button className="btn big" onClick={() => void copy()}>
@@ -49,7 +45,7 @@ export function About() {
           <div className="row nowrap" style={{ gap: 12 }}>
             <BrandMark width={44} height={44} style={{ flex: 'none' }} />
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, textTransform: 'uppercase' }}>Pallet Locator</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, textTransform: 'uppercase' }}>{BRAND.name}</div>
               <div className="muted">Built from the Pallet Locator Complete Build Blueprint, Draft 0.1</div>
             </div>
           </div>

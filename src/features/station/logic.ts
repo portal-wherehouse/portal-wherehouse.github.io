@@ -5,7 +5,7 @@ import { parseScanCommand, type ScanCommand } from '../../device/scanCommands';
 import type { ScanSource } from '../../device/scanRouter';
 import type { Outcome } from '../../data/backend';
 import type { Db } from '../../demo/engine';
-import { moveBlocker, roleAllows, ROLE_RANK } from '../../domain/transitions';
+import { moveBlocker, roleAllows } from '../../domain/transitions';
 import type { CommandKind, Location, Pallet, Role } from '../../domain/types';
 
 // ------------------------------------------------------------------ modes and roles
@@ -49,12 +49,9 @@ export function modeAccess(role: Role | null | undefined, mode: StationMode): { 
   return { ok: false, reason: `${MODE_LABEL[mode]} changes records, so it needs Operator access or higher. Viewers can look things up but not change anything.` };
 }
 
-/**
- * Marking a pallet missing after a count is a supervisor decision: one missed scan should not
- * take a pallet off the books. The engine allows it for operators elsewhere, so the station is stricter.
- */
+/** Marking a pallet missing follows the same rule as the pallet record: operators and up, always with a reason. */
 export function canMarkMissing(role: Role | null | undefined): boolean {
-  return !!role && roleAllows(role, 'mark_missing') && ROLE_RANK[role] >= ROLE_RANK.SUPERVISOR;
+  return !!role && roleAllows(role, 'mark_missing');
 }
 
 /** Recording a missing pallet as found needs a supervisor (the `locate` command). */

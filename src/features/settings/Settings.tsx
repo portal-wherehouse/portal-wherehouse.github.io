@@ -60,7 +60,7 @@ export function Settings() {
         </label>
         <div className="row">
           <button className="btn" onClick={() => setTourOpen(true)}>
-            <Icon name="tour" /> Open the guided tour
+            <Icon name="tour" /> Start the practice shift
           </button>
           <button className="btn" onClick={signOut}>
             <Icon name="user" /> Choose another demo account

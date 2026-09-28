@@ -40,7 +40,7 @@ export function Export() {
   const rows = (id: FileId) => (id === 'manifest' ? 1 : data[id].length);
   const stamp = data.manifest.generated_at.slice(0, 16).replace(/[:T]/g, '-');
   const save = async (id: FileId) => {
-    const name = `pallet-locator-${stamp}-${FILES.find((f) => f.id === id)!.title}`;
+    const name = `wherehouse-${stamp}-${FILES.find((f) => f.id === id)!.title}`;
     if (canDownload()) downloadText(name, content(id), id === 'manifest' ? 'application/json' : 'text/csv;charset=utf-8');
     else if (await copyText(content(id))) toast(`${FILES.find((f) => f.id === id)!.title} copied to the clipboard`, 'info');
     else setView(id);

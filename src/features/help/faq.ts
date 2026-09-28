@@ -272,7 +272,10 @@ export const FAQ: FaqCategory[] = [
       {
         id: 'backup',
         q: 'How do I back up or take my data with me?',
-        a: ['A Supervisor or Owner can open Export and save every pallet, the full history, locations and jobs as spreadsheet files, plus a manifest that records when the export was made. Keep them somewhere your company controls.'],
+        a: [
+          'A Supervisor or Owner can open Export and save every pallet, the full history, locations and jobs as spreadsheet files, plus a manifest that records when the export was made. Keep them somewhere your company controls.',
+          'For a complete copy you can put back later, open Data and storage and download a backup file. The same page restores it. Restoring replaces what is in this browser, so it asks you to confirm first.',
+        ],
         links: [
           { label: 'Open Export', to: { route: 'export' } },
           { label: 'Open Data and storage', to: { route: 'data' } },

@@ -711,7 +711,7 @@ export function CountView({
         {r.missing.length > 0 && (
           <p className="muted st-section-note">
             On record here, but not scanned. Look again first: a pallet can hide behind another.{' '}
-            {supervisor ? 'If it is really gone, mark it missing with a reason.' : 'Only a supervisor or owner can mark a pallet missing, so tell a supervisor, or skip it for now.'}
+            {supervisor ? 'If it is really gone, mark it missing with a reason.' : 'Viewers cannot mark a pallet missing, so tell an operator or supervisor, or skip it for now.'}
           </p>
         )}
         <ol className="st-lines">
