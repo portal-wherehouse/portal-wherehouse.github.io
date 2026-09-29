@@ -76,11 +76,13 @@
 /* ------------------------------------------------------------------ card */
 
 .ptour-card {
+  /* The card's width before it is ever narrowed to fit beside a spotlight (read by PortalTour). */
+  --ptour-w: 400px;
   position: absolute;
   top: 0;
   left: 0;
   pointer-events: auto;
-  width: min(400px, calc(100vw - 24px));
+  width: min(var(--ptour-w), calc(100vw - 24px));
   max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
@@ -99,12 +101,12 @@
 }
 
 .ptour-card.is-wide {
-  width: min(520px, calc(100vw - 24px));
+  --ptour-w: 520px;
   padding: 18px 22px 16px;
 }
 
 .ptour-card.is-under {
-  width: min(600px, calc(100vw - 24px));
+  --ptour-w: 600px;
 }
 
 .ptour-card.is-measuring {

@@ -28,6 +28,9 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose }: { pall
         <p className="muted" style={{ fontSize: 13.5 }}>
           Reprinting uses the same identity token, so an old copy keeps working. Replacing a compromised label is a separate supervisor action (“Replace label”).
         </p>
+      </div>
+      {/* Stays in view at the bottom of the sheet, however many labels are above it. */}
+      <div className="sheet-foot">
         {IS_PREVIEW ? (
           <Notice tone="info" icon="print">
             This hosted preview cannot open a print dialog. Run the app from its source folder (see the Guide) to print on paper, or test scanning by pointing “Scan from a photo” at these labels on another screen.

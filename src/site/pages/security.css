@@ -270,16 +270,6 @@
   height: 15px;
   flex: none;
 }
-.sec-tag-corrected {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #fbe4e2;
-  color: #b3261e;
-}
 .sec-mock figcaption {
   margin-top: 12px;
   font-size: 12.5px;

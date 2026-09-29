@@ -7,6 +7,7 @@ import { makeLabelPayload, uuid } from '../../src/domain/codes';
 import type { CommandEnvelope, Location, Pallet, Role } from '../../src/domain/types';
 import {
   agoLong,
+  asSentence,
   canMarkMissing,
   canRecordFound,
   classifyCount,
@@ -537,5 +538,60 @@ describe('Scan station: save outcomes', () => {
       status: 'failed',
       message: 'A-01-01 is inactive.',
     });
+  });
+});
+
+describe('Scan station: after a save, and shortcuts from Look up', () => {
+  it('shows the saved record on the card, and says the result once without internal version wording', () => {
+    const { scan, act, exec, pallet, loc, engine } = setup();
+    const p = pallet((x) => x.state === 'RECEIVED' && !x.hold);
+    let s = act(initialStation(), { type: 'MODE', mode: 'move' }).state;
+    s = scan(scan(s, p.code).state, 'B-02-02').state;
+    const result = exec(commandFor(s.move.intent!, s.move.pallet!, s.move.rack!));
+    s = act(act(s, { type: 'MOVE_SAVING', commandId: 'c1' }).state, { type: 'MOVE_RESULT', result, pallet: engine.db.pallets[p.id] }).state;
+    expect(s.move.phase).toBe('done');
+    expect(s.move.pallet?.state).toBe('STORED');
+    expect(s.move.pallet?.current_location_id).toBe(loc('B-02-02').id);
+    expect(s.move.note?.text).toBe('Placed at B-02-02.');
+    expect(s.flash?.text).toBe(`${p.code}: Placed at B-02-02.`);
+    expect(promptFor(s, { confirmByRescan: true })).toMatchObject({ text: 'Saved. Scan the next pallet', sub: '' });
+  });
+
+  it('never replaces a move whose result is unknown, or a save in progress, from Look up', () => {
+    const { scan, act, byCode, loc } = setup();
+    let s = act(initialStation(), { type: 'MODE', mode: 'move' }).state;
+    s = scan(scan(s, byCode('P-000016').code).state, 'B-02-02').state;
+    s = act(s, { type: 'MOVE_SAVING', commandId: 'cmd-1' }).state;
+    s = act(s, { type: 'MOVE_RESULT', result: { status: 'unknown', commandId: 'cmd-1', message: 'Lost.' } }).state;
+    s = act(s, { type: 'MODE', mode: 'lookup' }).state;
+    const start = act(s, { type: 'START_MOVE', pallet: byCode('P-000017') });
+    expect(start.verdict).toBe('error');
+    expect(start.state.mode).toBe('move');
+    expect(start.state.move.phase).toBe('unknown');
+    expect(start.state.move.commandId).toBe('cmd-1');
+    expect(start.state.flash?.text).toMatch(/Check the result first/);
+
+    let p = act(initialStation(), { type: 'START_RACK', mode: 'putaway', rack: loc('B-02-02') }).state;
+    p = scan(p, byCode('P-000016').code).state;
+    p = act(scan(p, 'CMD:FINISH').state, { type: 'PUTAWAY_PHASE', phase: 'saving' }).state;
+    const again = act(act(p, { type: 'MODE', mode: 'lookup' }).state, { type: 'START_RACK', mode: 'putaway', rack: loc('A-01-01') });
+    expect(again.verdict).toBe('error');
+    expect(again.state.putaway.rack?.code).toBe('B-02-02');
+    expect(again.state.putaway.lines).toHaveLength(1);
+
+    const busy = act(act(initialStation(), { type: 'START_RACK', mode: 'count', rack: loc('A-03-01') }).state, { type: 'COUNT_BUSY', busy: true }).state;
+    const recount = act(busy, { type: 'START_RACK', mode: 'count', rack: loc('A-01-01') });
+    expect(recount.verdict).toBe('error');
+    expect(recount.state.count.rack?.code).toBe('A-03-01');
+  });
+
+  it('ends a typed hold reason as a sentence before the next one', () => {
+    expect(asSentence('Damaged corner')).toBe('Damaged corner.');
+    expect(asSentence('Inspection pending. ')).toBe('Inspection pending.');
+    expect(asSentence('Why?')).toBe('Why?');
+    const { pallet, loc, ctx } = setup();
+    const held = pallet((p) => p.state === 'STORED' && !!p.hold);
+    const line = planLine({ ...held, hold: { ...held.hold!, reason: 'Damaged corner' } }, loc('A-01-01'), ctx().codeOf);
+    expect(line.detail).toBe('On hold: Damaged corner. The hold stays on.');
   });
 });

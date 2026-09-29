@@ -61,12 +61,12 @@ const FOCUS_TARGET: Record<FieldId, string> = {
   name: 'ct-name',
   email: 'ct-email',
   company: 'ct-company',
-  phone: 'ct-phone',
   role: 'ct-role',
   size: 'ct-size-0',
   topics: 'ct-topic-0',
+  phone: 'ct-phone',
 };
-const ORDER: FieldId[] = ['name', 'email', 'company', 'role', 'size', 'phone', 'topics'];
+const ORDER: FieldId[] = ['name', 'email', 'company', 'role', 'size', 'topics', 'phone'];
 
 /** Scrolls a field clear of the sticky header, then focuses it. */
 function focusField(id: string) {

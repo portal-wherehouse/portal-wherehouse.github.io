@@ -102,16 +102,21 @@ export function Overview() {
             {data.activity.slice(0, 8).map((ev) => {
               const p = backend.db.pallets[ev.pallet_id];
               return (
-                <button key={ev.id} className="row nowrap" style={{ background: 'none', border: 0, padding: '4px 0', cursor: 'pointer', textAlign: 'left', color: 'var(--ink)' }} onClick={() => go({ name: 'pallet', id: ev.pallet_id })}>
+                <button key={ev.id} className="row nowrap ov-act" style={{ background: 'none', border: 0, padding: '4px 0', cursor: 'pointer', textAlign: 'left', color: 'var(--ink)' }} onClick={() => go({ name: 'pallet', id: ev.pallet_id })}>
                   <span className="pcode" style={{ minWidth: 86 }}>
                     {p?.code}
                   </span>
                   <span className="grow">
                     <strong>{EVENT_LABEL[ev.type]}</strong>
-                    {ev.after_state.current_location_code && ev.type !== 'receive' ? ` → ${ev.after_state.current_location_code}` : ''}
+                    {ev.after_state.current_location_code && ev.type !== 'receive' ? (
+                      <>
+                        {' → '}
+                        <span className="code-nw">{ev.after_state.current_location_code}</span>
+                      </>
+                    ) : null}
                     <span className="muted"> · {users[ev.actor_id]?.name}</span>
                   </span>
-                  <span className="faint" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                  <span className="faint ov-act-time" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
                     {fmtTime(ev.accepted_at)}
                   </span>
                 </button>
@@ -123,8 +128,8 @@ export function Overview() {
           <div className="panel-title" style={{ padding: '14px 16px 0' }}>
             Jobs
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="t">
+          <div className="table-wrap" style={{ border: 0, borderRadius: 0 }}>
+            <table className="t cards-sm">
               <thead>
                 <tr>
                   <th>Job</th>
@@ -139,13 +144,22 @@ export function Overview() {
                   const c = data.jobCounts[j.id] ?? {};
                   return (
                     <tr key={j.id} className="click" onClick={() => go({ name: 'job', id: j.id })}>
-                      <td>
-                        <span className="jcode">{j.code}</span> <span className="muted">{j.name}</span> {j.status === 'CLOSED' && <span className="tag">closed</span>}
+                      <td className="lead">
+                        <span className="jcode">{j.code}</span> {j.status === 'CLOSED' && <span className="tag">closed</span>}
+                        <span className="muted job-name">{j.name}</span>
                       </td>
-                      <td className="n">{(c.STORED ?? 0) + (c.RECEIVED ?? 0)}</td>
-                      <td className="n">{c.MISSING ?? 0}</td>
-                      <td className="n">{c.HOLD ?? 0}</td>
-                      <td className="n">{c.DISPATCHED ?? 0}</td>
+                      <td className="n" data-label="On hand">
+                        {(c.STORED ?? 0) + (c.RECEIVED ?? 0)}
+                      </td>
+                      <td className="n" data-label="Missing">
+                        {c.MISSING ?? 0}
+                      </td>
+                      <td className="n" data-label="Holds">
+                        {c.HOLD ?? 0}
+                      </td>
+                      <td className="n" data-label="Dispatched">
+                        {c.DISPATCHED ?? 0}
+                      </td>
                     </tr>
                   );
                 })}

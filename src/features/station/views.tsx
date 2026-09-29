@@ -2,11 +2,13 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { useApp } from '../../app/state';
+import { STATE_LABEL } from '../../domain/transitions';
 import type { Job, Location, Pallet } from '../../domain/types';
 import { Icon, type IconName } from '../../ui/icons';
 import { Field, HoldBadge, Notice, Plate, Sheet, Spinner, StateBadge } from '../../ui/ui';
 import {
   agoLong,
+  asSentence,
   canMarkMissing,
   canRecordFound,
   countSummary,
@@ -219,7 +221,7 @@ export function LookupView({
         </div>
         {p.hold && (
           <Notice tone="warn" icon="hold" title="On hold">
-            {p.hold.reason} Placed {agoLong(p.hold.applied_at)}.
+            {asSentence(p.hold.reason)} Placed {agoLong(p.hold.applied_at)}.
           </Notice>
         )}
         <div className="row">
@@ -382,7 +384,7 @@ export function MoveView({
         </div>
       )}
       {m.phase === 'confirm' && !confirmByRescan && (
-        <p className="st-hint">Scanning the rack again does not confirm here: that is turned off in Scanner setup. Scan the Confirm barcode or press Enter.</p>
+        <p className="st-hint">Scanning the rack again does not confirm here: that is turned off on the Scanners page. Scan the Confirm barcode or press Enter.</p>
       )}
       {m.phase === 'rack' && (
         <div className="row">
@@ -612,7 +614,7 @@ export function CountView({
       <div className="panel st-work" data-tour="station-card">
         {head}
         {rack && c.scanned.length === 0 && c.unknown.length === 0 && (
-          <Placeholder icon="pallet">Scan every pallet physically on {rack.code}. The records are compared when you finish, not before, so the count stays honest.</Placeholder>
+          <Placeholder icon="pallet">Scan every pallet physically on {rack.code}. Each scan shows what the records say about that pallet, and Finish shows what is on record here but was not scanned.</Placeholder>
         )}
         {(c.scanned.length > 0 || c.unknown.length > 0) && (
           <ol className="st-lines" aria-label="Scanned so far">
@@ -636,7 +638,7 @@ export function CountView({
                   ) : (
                     <span className="tag warn">
                       <Icon name="alert" width={14} height={14} />{' '}
-                      {p.state === 'STORED' ? `Recorded at ${codeOf(p.current_location_id)}` : p.state === 'RECEIVED' ? 'Not placed' : p.state.toLowerCase()}
+                      {p.state === 'STORED' ? `Recorded at ${codeOf(p.current_location_id)}` : p.state === 'RECEIVED' ? 'Not placed' : STATE_LABEL[p.state]}
                     </span>
                   )}
                 </div>

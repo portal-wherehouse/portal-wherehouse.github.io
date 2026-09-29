@@ -1,12 +1,12 @@
 // App shell. Website pages get the site header and footer; everything else is the portal:
 // demo strip, top bar with "Take the tour", navigation, the current screen, and the sheets above it.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { BRAND } from '../brand';
 import { isSiteRoute, useApp, type RouteName, type SiteRouteName } from './state';
 import { IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
-import { Avatar, Empty, ROLE_DESC, ROLE_LABEL, Sheet, Toasts, fmtTime } from '../ui/ui';
+import { Avatar, Empty, ROLE_DESC, ROLE_LABEL, ROLE_SHORT, Sheet, Toasts, fmtTime } from '../ui/ui';
 import { About } from '../features/about/About';
 import { Activity } from '../features/activity/Activity';
 import { Export } from '../features/admin/Export';
@@ -132,8 +132,7 @@ export function App() {
 
 function Portal() {
   const app = useApp();
-  const { route, actorId, workspaceId, role, backend, go, blockedNav, toast, read } = app;
-  const [account, setAccount] = useState(false);
+  const { route, actorId, workspaceId, role, backend, go, blockedNav, toast, read, accountsOpen: account, setAccountsOpen: setAccount } = app;
   const signedIn = !!actorId;
   const offline = backend.network === 'offline';
 
@@ -162,13 +161,15 @@ function Portal() {
   const removed = signedIn && !role && !['about', 'guide', 'help'].includes(route.name);
   const me = actorId ? backend.db.users[actorId] : null;
   const myWorkspaces = actorId ? backend.db.memberships.filter((m) => m.user_id === actorId && m.active) : [];
+  const multiCompany = Object.keys(backend.db.workspaces).length > 1;
+  const companyName = workspaceId ? backend.db.workspaces[workspaceId]?.name : null;
 
   return (
     <div className="shell">
       <div className="demo-strip" role="note">
         <strong>DEMO</strong>
         <span className="grow">
-          {IS_PREVIEW ? 'Hosted preview. ' : ''}Sign-in is off while we test. Data and network are simulated in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account` : ''}.
+          {IS_PREVIEW ? 'Hosted preview. ' : ''}Sign-in is off while we test. Data and network are simulated in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account${multiCompany && companyName ? ` at ${companyName}` : ''}` : ''}.
         </span>
         {signedIn && (
           <button onClick={() => setAccount(true)} aria-label="Switch demo account">
@@ -191,7 +192,12 @@ function Portal() {
                 <Icon name="locations" /> {ctx.warehouse.code}
               </span>
             )}
-            <button className={`chip ${offline ? 'offline' : ''}`} onClick={() => go('sync')} title={offline ? `Offline. Showing what this device cached at ${fmtTime(backend.cache?.at)}` : 'Online'}>
+            <button
+              className={`chip net-chip ${offline ? 'offline' : ''}`}
+              onClick={() => go('sync')}
+              title={offline ? `Offline. Showing what this device cached at ${fmtTime(backend.cache?.at)}` : 'Online'}
+              aria-label={`${offline ? 'Offline' : 'Online'}${pending > 0 ? `, ${pending} waiting to be confirmed` : ''}. Open Sync and offline`}
+            >
               {offline ? <Icon name="wifiOff" /> : <span className="dot" />}
               <span className="net-label">{offline ? 'Offline' : 'Online'}</span>
               {pending > 0 && <span className="tag warn" style={{ marginLeft: 2 }}>{pending}</span>}
@@ -203,8 +209,14 @@ function Portal() {
           <span className="tour-chip-label">Take the tour</span>
         </button>
         {me && (
-          <button className="chip" onClick={() => setAccount(true)} aria-label={`Account: ${me.name}`} data-tour="account">
+          <button className="chip acct-chip" onClick={() => setAccount(true)} aria-label={`Account: ${role ? `${ROLE_LABEL[role]}, ` : ''}${me.name}`} data-tour="account">
             <Avatar name={me.name} />
+            {/* Phones have no room for the role's name, so a short role badge stands in for the initials. */}
+            {role && (
+              <span className="acct-role" aria-hidden="true">
+                {ROLE_SHORT[role]}
+              </span>
+            )}
             <span className="acct-name">{role ? ROLE_LABEL[role] : me.name}</span>
           </button>
         )}
@@ -296,8 +308,8 @@ function Portal() {
                       }}
                     >
                       <span className="p-role">{ROLE_LABEL[m.role]}</span>
+                      {multiCompany && <span className="p-where">at {backend.db.workspaces[m.workspace_id]?.name}</span>}
                       <span className="p-name">{u?.name}</span>
-                      {Object.keys(backend.db.workspaces).length > 1 && <span className="tag">{backend.db.workspaces[m.workspace_id]?.name}</span>}
                       <span className="p-desc">{ROLE_DESC[m.role]}</span>
                     </button>
                   );
@@ -346,7 +358,7 @@ function RemovedAccess() {
     <div className="panel">
       <Empty icon="lock" title="Your access to this company was removed">
         <p>
-          {backend.db.users[actorId ?? '']?.name ?? 'This account'} is no longer a member. The server refuses every read and change from here on, even though this device still has the app open. That is the behavior the blueprint requires.
+          {backend.db.users[actorId ?? '']?.name ?? 'This account'} is no longer a member. The server refuses every read and change from here on, even though this device still has the app open. That is how access is meant to work.
         </p>
         <button className="btn primary" onClick={signOut}>
           Back to the website

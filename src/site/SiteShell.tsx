@@ -32,6 +32,15 @@ export function SiteShell({ children }: { children: ReactNode }) {
     if (navFits) setMenuOpen(false);
   }, [navFits]);
 
+  // A tab title per page, so tabs, history and bookmarks can be told apart. Leaving the website restores the plain name.
+  useEffect(() => {
+    const before = document.title;
+    document.title = route.name === 'home' ? `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, '')}` : `${label(route.name as SiteRouteName)} · ${BRAND.name}`;
+    return () => {
+      document.title = before;
+    };
+  }, [route.name]);
+
   const open = (to: SiteRouteName) => {
     setMenuOpen(false);
     go(to);

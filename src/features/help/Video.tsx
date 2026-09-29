@@ -63,7 +63,7 @@ export function VideoSection({
             <Notice
               tone="info"
               icon="video"
-              title="This video is being recorded"
+              title="This video is not recorded yet"
               actions={
                 <>
                   <button
@@ -113,7 +113,7 @@ export function VideoSection({
           <dl className="help-facts">
             <div>
               <dt>Status</dt>
-              <dd>Being recorded</dd>
+              <dd>Not recorded yet</dd>
             </div>
             <div>
               <dt>Planned length</dt>
@@ -121,7 +121,7 @@ export function VideoSection({
             </div>
             <div>
               <dt>Chapters</dt>
-              <dd>{VIDEO_CHAPTERS.length}, covering every screen</dd>
+              <dd>{VIDEO_CHAPTERS.length} planned</dd>
             </div>
             <div>
               <dt>Shown on</dt>

@@ -219,7 +219,7 @@ export class Engine {
   private requireMember(actorId: string | null | undefined, workspaceId: string, min: Role = 'VIEWER'): Membership {
     if (!actorId) throw new ReadError('AUTH_REQUIRED', 'Sign in to continue.');
     const m = this.membership(actorId, workspaceId);
-    if (!m) throw new ReadError('FORBIDDEN', 'You do not have access to this workspace.');
+    if (!m) throw new ReadError('FORBIDDEN', 'You do not have access to this company.');
     const rank = { VIEWER: 0, OPERATOR: 1, SUPERVISOR: 2, OWNER: 3 };
     if (rank[m.role] < rank[min]) throw new ReadError('FORBIDDEN', 'Your role does not allow this.');
     return m;
@@ -254,7 +254,7 @@ export class Engine {
     if (!m) return;
     if (!active && m.role === 'OWNER') {
       const owners = this.db.memberships.filter((x) => x.workspace_id === workspaceId && x.role === 'OWNER' && x.active);
-      if (owners.length <= 1) throw new Error('A workspace must keep at least one active owner.');
+      if (owners.length <= 1) throw new Error('A company must keep at least one active owner.');
     }
     m.active = active;
   }
@@ -282,7 +282,7 @@ export class Engine {
 
     // 1. Current membership and role, checked when the command is accepted.
     const member = this.membership(actorId, cmd.workspace_id);
-    if (!member) return fail('FORBIDDEN', 'You do not have access to this workspace.');
+    if (!member) return fail('FORBIDDEN', 'You do not have access to this company.');
     if (!roleAllows(member.role, cmd.kind)) return fail('FORBIDDEN', `Your role (${member.role.toLowerCase()}) cannot do this.`);
 
     // 2. Reserve the command key with a canonical payload hash.
@@ -523,7 +523,7 @@ export class Engine {
   private receive(tx: Tx, actorId: string, cmd: CommandEnvelope, now: string, reject: (c: ErrorCode, m: string) => CommandRejected): CommandResult {
     const p = cmd.payload as { job_id: string; description: string; notes?: string; supplier_ref?: string };
     const wh = this.activeWarehouse(cmd.workspace_id);
-    if (!wh) return reject('INVALID_STATE', 'This workspace has no active warehouse.');
+    if (!wh) return reject('INVALID_STATE', 'This company has no active warehouse.');
     const job = this.db.jobs[p.job_id];
     if (!job || job.workspace_id !== cmd.workspace_id) return reject('NOT_FOUND', 'Job not found.');
     if (job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed. Choose an open job.`);
@@ -590,7 +590,7 @@ export class Engine {
       return a;
     };
     const wh = this.activeWarehouse(ws);
-    if (!wh) return reject('INVALID_STATE', 'This workspace has no active warehouse.');
+    if (!wh) return reject('INVALID_STATE', 'This company has no active warehouse.');
 
     const findJob = () => {
       const j = this.db.jobs[p.job_id ?? ''];
@@ -719,7 +719,7 @@ export class Engine {
         const leavesOwner = target.role === 'OWNER' && (cmd.kind === 'remove_member' || newRole !== 'OWNER');
         if (leavesOwner) {
           const owners = this.db.memberships.filter((m) => m.workspace_id === ws && m.role === 'OWNER' && m.active);
-          if (owners.length <= 1) return reject('INVALID_STATE', 'A workspace must keep at least one active owner.');
+          if (owners.length <= 1) return reject('INVALID_STATE', 'A company must keep at least one active owner.');
         }
         if (newRole === target.role) return reject('INVALID_INPUT', 'That is already their role.');
         const before = { role: target.role, active: target.active };
@@ -756,7 +756,7 @@ export class Engine {
     let skipped = 0;
 
     if (p.import_kind === 'jobs' || p.import_kind === 'locations') {
-      if (member.role !== 'OWNER' && member.role !== 'SUPERVISOR') return reject('FORBIDDEN', 'Only admins can import jobs or locations.');
+      if (member.role !== 'OWNER' && member.role !== 'SUPERVISOR') return reject('FORBIDDEN', 'Only supervisors and owners can import jobs or locations.');
     }
 
     if (p.import_kind === 'jobs') {
@@ -968,7 +968,7 @@ export class Engine {
     const label = parseLabelPayload(raw);
     if (label) {
       const t = this.db.labels[label.token];
-      if (!t || t.workspace_id !== workspaceId || t.kind !== label.kind) throw new ReadError('NOT_FOUND', 'This label is not recognized in this workspace.');
+      if (!t || t.workspace_id !== workspaceId || t.kind !== label.kind) throw new ReadError('NOT_FOUND', 'This label is not recognized in this company.');
       if (t.revoked_at) throw new ReadError('INVALID_STATE', 'This label was replaced. Use the new label or type the printed code.');
       if (t.kind === 'P') return { type: 'pallet', pallet: this.db.pallets[t.target_id] };
       const loc = this.db.locations[t.target_id];

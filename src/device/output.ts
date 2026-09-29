@@ -29,7 +29,8 @@ export function canDownload(): boolean {
 }
 
 export function downloadText(filename: string, text: string, type = 'text/csv;charset=utf-8') {
-  const blob = new Blob(['﻿', text], { type });
+  // Spreadsheets need the byte-order mark to read UTF-8 CSV; JSON parsers reject it.
+  const blob = new Blob(type.startsWith('text/csv') ? ['﻿', text] : [text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

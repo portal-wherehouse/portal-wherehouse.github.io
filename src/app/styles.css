@@ -10,7 +10,7 @@
   --surface-3: #e7eae4;
   --ink: #14171a;
   --ink-2: #4c535a;
-  --ink-3: #6b7279;
+  --ink-3: #61686f;
   --line: #d5d9d2;
   --line-strong: #14171a;
   --accent: #1d4e9e;
@@ -31,6 +31,8 @@
   --plate-ink: #14171a;
   --shadow: 0 1px 2px rgba(20, 23, 26, 0.06), 0 4px 16px rgba(20, 23, 26, 0.06);
   --shadow-lift: 0 8px 32px rgba(20, 23, 26, 0.18);
+  /* The edge shadow that shows a box scrolls further (sidebar, wide tables, tab rows). */
+  --scroll-shade: rgba(20, 23, 26, 0.16);
   --radius: 10px;
   --radius-sm: 6px;
   --font-display: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
@@ -38,6 +40,9 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --text-scale: 1;
   --tap: 44px;
+  /* The portal's sticky top bar (its tallest item is a tap-sized button) and the demo strip above it. */
+  --topbar-h: calc(var(--tap) + 17px);
+  --strip-h: 38px;
   color-scheme: light;
 }
 
@@ -68,6 +73,7 @@
     --plate-ink: #14171a;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
     --shadow-lift: 0 8px 32px rgba(0, 0, 0, 0.6);
+    --scroll-shade: rgba(0, 0, 0, 0.7);
     color-scheme: dark;
   }
 }
@@ -98,6 +104,7 @@
   --plate-ink: #14171a;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-lift: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --scroll-shade: rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
@@ -222,6 +229,7 @@ textarea {
   font-weight: 600;
   letter-spacing: 0.01em;
   position: relative;
+  min-height: var(--strip-h);
 }
 
 .demo-strip strong {
@@ -441,12 +449,24 @@ textarea {
   .sidebar {
     display: block;
     position: sticky;
-    top: 57px;
-    height: calc(100vh - 90px);
+    top: var(--topbar-h);
+    /* Fits under the demo strip and top bar, so the last links and the scroll shadow stay on screen. */
+    height: calc(100vh - var(--topbar-h) - var(--strip-h));
+    height: calc(100dvh - var(--topbar-h) - var(--strip-h));
     overflow-y: auto;
     border-right: 1px solid var(--line);
-    background: var(--surface);
+    /* Shadows at the top and bottom edges while there is more to scroll to. */
+    background:
+      linear-gradient(var(--surface) 30%, transparent) top / 100% 40px no-repeat local,
+      linear-gradient(transparent, var(--surface) 70%) bottom / 100% 40px no-repeat local,
+      radial-gradient(farthest-side at 50% 0, var(--scroll-shade), transparent) top / 100% 14px no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, var(--scroll-shade), transparent) bottom / 100% 14px no-repeat scroll,
+      var(--surface);
     padding: 14px 10px 30px;
+  }
+  /* Once the demo strip scrolls away, the column under the sticky sidebar keeps the sidebar's color. */
+  .body:not(.no-side) {
+    background: linear-gradient(to right, var(--surface) 247px, var(--line) 247px 248px, transparent 248px);
   }
   .bottom-nav {
     display: none;
@@ -713,6 +733,14 @@ textarea {
   cursor: not-allowed;
 }
 
+/* A faded blue primary button is hard to read, above all in the dark theme: go neutral instead. */
+.btn.primary:disabled {
+  opacity: 1;
+  background: var(--surface-3);
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+
 .btn .spinner {
   width: 16px;
   height: 16px;
@@ -750,6 +778,14 @@ textarea {
   color: var(--ink-3);
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: none;
+}
+
+/* A field's problem, shown in place of its hint. */
+.field-err {
+  color: var(--bad);
+  font-weight: 650;
 }
 
 .field .counter.over {
@@ -826,15 +862,19 @@ textarea {
 
 .toggle {
   display: flex;
-  align-items: center;
+  /* The box stays beside the first line when the text wraps; the padding centers a one-line toggle. */
+  align-items: flex-start;
   gap: 12px;
   min-height: var(--tap);
+  padding-block: calc((var(--tap) - 24px) / 2);
   cursor: pointer;
 }
 
 .toggle input {
   width: 22px;
   height: 22px;
+  margin: 1px 0 0;
+  flex: none;
   accent-color: var(--accent);
 }
 
@@ -1120,7 +1160,9 @@ textarea {
 
 .result {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* A fixed first column, so pallet codes line up down the list whatever the location plate or the
+     "Last confirmed" time says. Longer text wraps inside it. */
+  grid-template-columns: 15rem minmax(0, 1fr) auto;
   gap: 4px 14px;
   align-items: center;
   width: 100%;
@@ -1139,7 +1181,8 @@ textarea {
 
 .result .where {
   grid-row: span 2;
-  min-width: 118px;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .result .what {
@@ -1152,7 +1195,58 @@ textarea {
 
 .result .desc {
   font-weight: 600;
-  overflow-wrap: anywhere;
+  /* Breaks inside a word only when the word alone is too long for the line. */
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+/* A result with its fix underneath, inside one card (Reconcile). */
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.result-card > .result {
+  border: 0;
+  background: transparent;
+}
+
+.result-card:hover {
+  border-color: var(--ink-3);
+}
+
+.result-card .result-actions {
+  padding: 0 14px 12px;
+}
+
+.result-card .result-actions:empty {
+  display: none;
+}
+
+.result-hint {
+  font-size: 13.5px;
+}
+
+/* Compact rows (the map's selected location): code and description on one line, no location plate. */
+.result.compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px 12px;
+}
+
+.result.compact .what {
+  flex-wrap: nowrap;
+}
+
+/* Placed explicitly so the phone layout below cannot push the job line into the badge column. */
+.result.compact .what,
+.result.compact .meta {
+  grid-column: 1;
+}
+
+.result.compact .side {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .result .meta {
@@ -1180,9 +1274,9 @@ textarea {
   border: 1px solid var(--line);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .result {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
   .result .where {
     grid-row: auto;
@@ -1208,7 +1302,13 @@ textarea {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  /* Edge shadows when there are more columns to scroll to. */
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shade), transparent) left / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shade), transparent) right / 14px 100% no-repeat scroll,
+    var(--surface);
 }
 
 table.t {
@@ -1254,6 +1354,93 @@ table.t th.n {
   font-variant-numeric: tabular-nums;
 }
 
+/* Codes inside running text never break at a hyphen (B-02-02, RECEIVING-01). */
+.code-nw {
+  white-space: nowrap;
+}
+
+/* A job's name on its own line under the code, so every row wraps the same way. */
+.job-name {
+  display: block;
+}
+
+/* Overview's recent activity on phones: code and time on one line, what happened under them. */
+@media (max-width: 480px) {
+  .ov-act {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    align-items: baseline;
+  }
+  .ov-act > .pcode {
+    grid-area: 1 / 1;
+  }
+  .ov-act > .ov-act-time {
+    grid-area: 1 / 2;
+  }
+  .ov-act > .grow {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+}
+
+/* Tables marked cards-sm become one card per row on phones: the lead cell on top, then "label value" pairs. */
+@media (max-width: 600px) {
+  table.t.cards-sm thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  table.t.cards-sm,
+  table.t.cards-sm tbody {
+    display: block;
+  }
+  table.t.cards-sm tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  table.t.cards-sm tr:last-child {
+    border-bottom: 0;
+  }
+  table.t.cards-sm tr.click:hover {
+    background: var(--surface-2);
+  }
+  table.t.cards-sm td {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+  table.t.cards-sm td.lead {
+    flex-basis: 100%;
+  }
+  table.t.cards-sm td[data-label]::before {
+    content: attr(data-label) ' ';
+    color: var(--ink-2);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  /* The role matrix: the four roles in a 2 x 2 grid, so every card reads the same way. */
+  table.t.cards-sm.role-matrix tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  table.t.cards-sm.role-matrix td.lead {
+    grid-column: 1 / -1;
+  }
+  table.t.cards-sm.role-matrix td[data-label] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
 /* ------------------------------------------------------------------ sheets & toasts */
 
 .sheet-backdrop {
@@ -1290,10 +1477,27 @@ table.t th.n {
   max-width: 820px;
 }
 
+/* A footer that stays at the bottom of a long sheet (the Print button under many labels). The negative
+   offsets cover the sheet's own bottom padding, so nothing scrolls past underneath it. */
+.sheet-foot {
+  position: sticky;
+  z-index: 1;
+  bottom: calc(-18px - env(safe-area-inset-bottom, 0px));
+  margin: 14px -16px calc(-18px - env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
 @media (min-width: 760px) {
   .sheet {
     border-radius: 16px;
     padding: 22px;
+  }
+  .sheet-foot {
+    bottom: -22px;
+    margin: 16px -22px -22px;
+    padding: 14px 22px 22px;
   }
 }
 
@@ -1418,7 +1622,8 @@ table.t th.n {
   color: var(--ink-2);
 }
 
-.empty svg {
+/* Only the big icon above the title; icons inside the action buttons keep their normal size. */
+.empty > svg {
   width: 40px;
   height: 40px;
   color: var(--ink-3);
@@ -1435,6 +1640,12 @@ table.t th.n {
   border-bottom: 1px solid var(--line);
   margin-bottom: 16px;
   overflow-x: auto;
+}
+
+/* Tab rows that wrap instead of hiding tabs off the edge (Reconcile's five lists). */
+.tabs.wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
 }
 
 .tabs button {
@@ -1854,9 +2065,26 @@ table.t th.n {
   gap: 8px;
 }
 
+.map-layout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+/* The selected location sits beside the zones only when both have room (see WarehouseMap). */
+.map-layout.has-side {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.map-side {
+  position: sticky;
+  top: calc(var(--topbar-h) + 12px);
+}
+
 .map-aisle {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 70px minmax(0, 1fr);
   gap: 10px;
   align-items: stretch;
 }
@@ -1900,11 +2128,17 @@ table.t th.n {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.bay {
+  container-type: inline-size;
+}
+
 .bay .bay-code {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 22px;
+  /* Sized to the tile so a code stays on one line: 22px in a roomy tile, smaller in a narrow one. */
+  font-size: clamp(14px, 22cqi, 22px);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .bay .boxes {
@@ -1929,6 +2163,10 @@ table.t th.n {
 .bay.inactive {
   opacity: 0.55;
   border-style: dashed;
+}
+
+.bay.wide {
+  grid-column: span 2;
 }
 
 .bay .bay-count {
@@ -2194,6 +2432,49 @@ table.t th.n {
   gap: 10px;
 }
 
+/* People: one member per card, in columns that line up from card to card. */
+.member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.member .m-role,
+.member .m-actions {
+  grid-column: 2;
+}
+
+.member .m-actions:empty {
+  display: none;
+}
+
+.member .m-email {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 760px) {
+  .member {
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .member .m-role {
+    grid-column: 3;
+  }
+  .member .m-actions {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (min-width: 1200px) {
+  .member {
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) 20.5rem;
+  }
+  .member .m-actions {
+    grid-column: 4;
+    justify-content: flex-end;
+  }
+}
+
 .person {
   display: flex;
   flex-direction: column;
@@ -2217,8 +2498,9 @@ table.t th.n {
 }
 
 .person .p-name {
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink-2);
 }
 
 .person .p-role {
@@ -2228,6 +2510,12 @@ table.t th.n {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--accent);
+}
+
+.person .p-where {
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: -4px;
 }
 
 .person .p-desc {
@@ -2619,18 +2907,98 @@ table.t th.n {
 
 /* ------------------------------------------------------------------ shell: small screens */
 
-@media (max-width: 560px) {
+/* The top bar sheds words as it narrows, so it never scrolls sideways: first the tour label, then the
+   warehouse chip, the role's name, the Portal tag and the network label. */
+@media (max-width: 840px) {
+  .tour-chip-label {
+    display: none;
+  }
+  /* Chips that are down to an icon stay at least a fingertip wide and tall. */
+  .topbar .chip {
+    min-width: var(--tap);
+    min-height: var(--tap);
+    justify-content: center;
+    /* If space still runs out (large text), the wordmark gives way, never the chips. */
+    flex-shrink: 0;
+  }
+  .brand {
+    min-width: 0;
+  }
+  .brand-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 720px) {
   .wh-chip {
     display: none;
   }
 }
 
-@media (max-width: 420px) {
-  .acct-name {
+/* Account chip: initials and role on wide screens; on narrow ones a short role badge (OWN, SUP, OP, VW). */
+.acct-role {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .acct-name,
+  .acct-chip .avatar {
     display: none;
   }
+  .acct-role {
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: 700 13px/1 var(--font-display);
+    letter-spacing: 0.04em;
+  }
+}
+
+@media (max-width: 600px) {
+  .brand-sub {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .net-label {
+    display: none;
+  }
+}
+
+@media (max-width: 460px) {
   .brand-name {
-    font-size: 19px;
+    font-size: 18px;
+  }
+  .topbar .chip {
+    padding: 4px 6px;
+  }
+}
+
+/* The wordmark steps down before the chips are squeezed: they need about 194px beside it. */
+@media (max-width: 383px) {
+  .brand-name {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 367px) {
+  .brand-name {
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+}
+
+@media (max-width: 356px) {
+  .brand-name {
+    display: none;
   }
 }
 
@@ -2678,10 +3046,7 @@ table.t td svg,
   justify-content: flex-start;
 }
 
-@media (max-width: 420px) {
-  .net-label {
-    display: none;
-  }
+@media (max-width: 460px) {
   .topbar {
     gap: 6px;
     padding: 8px 12px;
@@ -2714,13 +3079,4 @@ table.t td svg,
   width: 16px;
   height: 16px;
 }
-@media (max-width: 520px) {
-  .brand-sub {
-    display: none;
-  }
-}
-@media (max-width: 420px) {
-  .tour-chip-label {
-    display: none;
-  }
-}
+

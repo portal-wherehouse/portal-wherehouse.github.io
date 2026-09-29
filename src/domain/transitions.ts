@@ -210,7 +210,7 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
     }
     case 'dispatch': {
       if (pallet.state !== 'STORED') {
-        return reject('INVALID_STATE', 'Place the pallet in a receiving or staging location before dispatch.');
+        return reject('INVALID_STATE', `${pallet.code} is ${STATE_LABEL[pallet.state].toLowerCase()}. Only a pallet stored on a rack or area can be dispatched.`);
       }
       if (pallet.hold) return reject('INVALID_STATE', `${pallet.code} is on hold (${pallet.hold.reason}). A supervisor must clear the hold first.`);
       if (job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed.`);

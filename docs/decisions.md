@@ -40,11 +40,33 @@ This is the page 40 default. Label codes are drawn as SVG text scaled to fit, so
 **D-12: The full app installs as a web app and opens offline.**
 A small service worker caches the app shell (page 18). A new version waits until every tab is closed, so it never updates in the middle of a scan or while queued moves are pending (page 38). Warehouse data stays in IndexedDB and never passes through that cache. *Affects:* `public/sw.js`, `src/device/pwa.ts`.
 
+**D-13: The product is called Wherehouse.**
+John asked for a better name than "Pallet Locator". Wherehouse is short, says what it answers (where is it, in the warehouse), and reads well as "Wherehouse Portal". Runner-up names were PalletPin and Laydown. The name, tagline and support email live only in `src/brand.ts`, so a rename is one edit. *Still needs:* a trademark and domain check before launch (a defunct music retailer used the same name). *Affects:* `src/brand.ts`, `index.html`, `public/manifest.webmanifest`.
+
+**D-14: A public website in front of the portal, in one build.**
+The app opens on the website (home with an on-page guided tour, Product, See it in action, Why it's simple, Scanners, Applications, Customers, Pricing, About, Contact, Security and data). "Already a customer? Open Wherehouse Portal" leads to the portal. One build keeps one set of design tokens and lets the home tour use the real engine in a sandbox, so it never opens the portal or touches portal data. Customer stories, prices and the About page are clearly labeled placeholders: nothing is invented. *Affects:* `src/site`, `src/app/App.tsx`, `src/app/state.tsx`. *Tested by:* the website specs in `tests/e2e`.
+
+**D-15: Real sign-in is off while we test.**
+John asked to leave sign-in out for now and add it later. The sign-in page offers four demo roles plus an owner in a second company, and the demo strip says sign-in is off. The engine still checks membership and role on every command, so turning on Firebase Authentication only changes who the actor is. *Affects:* `src/portal/SignIn.tsx`, `src/demo/seed.ts`.
+
+**D-16: Hardware scanners work as keyboards, through one scan router.**
+"No one is gonna do all of this by hand." Most USB and Bluetooth scanners can act as a keyboard, which works in every browser with no driver. The router detects scans by typing speed, hands each scan to the screen that wants it, and falls back to opening the pallet or rack from anywhere. Labels gain a Code 128 barcode of the printed code for laser scanners. Command barcodes let people confirm, cancel, finish and switch station modes without touching the screen. Web Serial is offered where the browser supports it. *Affects:* `src/device`, `src/features/scanners`, `src/features/labels`. *Tested by:* `tests/unit/scanner.test.ts`, the scanner specs in `tests/e2e`. *Still needs:* reads by real scanners of printed Code 128 labels, and speed thresholds checked against real devices.
+
+**D-17: A Scan station for desks and carts.**
+Put-away (one rack, many pallets, save all) and Count (everything scanned at a rack compared with the record) are the jobs where a scanner saves the most time. The station sends the same commands as every other screen. Marking a pallet missing follows the engine's rule (Operator and up, with a reason), the same as on the pallet record. *Affects:* `src/features/station`. *Tested by:* `tests/unit/station.test.ts`.
+
+**D-18: Firebase for accounts, records, photos and backups.**
+John will use Firebase for accounts, so records move there too rather than running a second vendor. Firestore is read-only to the app; every change goes through one callable Cloud Function that runs the engine inside a transaction, which keeps receipts, versions and append-only history. This replaces the blueprint's Supabase plan. The reasoning, costs and risks are in [data-storage.md](data-storage.md). *Affects:* `firebase/` (drafts, never deployed), `src/features/data`.
+
+**D-19: Walkthroughs and help live inside the product.**
+The portal's "Take the tour" button walks through every page. Help holds the tutorial video spot (a placeholder with a chapter-by-chapter description), step-by-step tutorials, an FAQ and a contact form. The contact form stores messages on the device until a real inbox is connected. The blueprint's example shift stays as the "Practice shift". *Affects:* `src/features/tour`, `src/features/help`.
+
 ## Open (from page 40)
 
 | Decision or risk | Default in this build | Evidence needed to settle it |
 | --- | --- | --- |
 | Camera decoder | Native with jsQR fallback | Successful scans on the chosen iPhone and Android devices |
+| Hardware scanners | Keyboard mode, speed-based detection, Code 128 on labels | Real scanners reading printed labels; thresholds tuned on those devices |
 | Confirmation step | Explicit confirmation after two scans | A physical rehearsal showing whether a fast mode is safe |
 | Location notation | Flexible code plus optional fields | Demo labels stay readable; the real workflow confirms naming |
 | Weak connectivity | Limited offline queue (see D-07) | Online loop proven before offline writes are enabled for a pilot |
@@ -55,4 +77,4 @@ A small service worker caches the app shell (page 18). A new version waits until
 
 ## Deliberately deferred
 
-Production hosting, the Supabase project and its configuration, retention periods and alert thresholds. These need implementation evidence and a Supabase project owned by John Henry Mims. They do not block the local prototype.
+Real sign-in, the Firebase project and its configuration (see [data-storage.md](data-storage.md)), production hosting, sending the Help and Contact forms to a real inbox, the tutorial video itself, real prices, retention periods and alert thresholds. These need a Firebase project owned by John Henry Mims and decisions only he can make. They do not block the local demo.

@@ -87,6 +87,12 @@ export function isDoubleRead(last: { raw: string; at: number } | null, raw: stri
 
 // ------------------------------------------------------------------ wording
 
+/** Text someone typed (a hold reason), ended with a full stop when it has none, so the next sentence can follow it. */
+export function asSentence(text: string): string {
+  const t = text.trim();
+  return !t || /[.!?]$/.test(t) ? t : `${t}.`;
+}
+
 export function agoLong(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return 'never';
   const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
@@ -232,7 +238,7 @@ export interface PlanLine {
 export function planLine(pallet: Pallet, rack: Location, codeOf: CodeOf): PlanLine {
   const fromCode = codeOf(pallet.current_location_id);
   const chk = intentFor(pallet, rack);
-  const hold = pallet.hold ? `On hold: ${pallet.hold.reason} The hold stays on.` : null;
+  const hold = pallet.hold ? `On hold: ${asSentence(pallet.hold.reason)} The hold stays on.` : null;
   if (!chk.ok) return { key: pallet.id, pallet, fromCode, intent: null, what: 'Cannot go here', detail: chk.message, result: { status: 'blocked', message: chk.message } };
   const what = chk.intent === 'place' ? 'Place here' : chk.intent === 'move' ? `Move from ${fromCode ?? '?'}` : 'Already here';
   const base = chk.intent === 'place' ? 'Not placed yet.' : chk.intent === 'verify_location' ? 'Saving confirms it is still here.' : null;
@@ -409,7 +415,8 @@ export type StationAction =
   | { type: 'START_MOVE'; pallet: Pallet }
   | { type: 'START_RACK'; mode: 'putaway' | 'count'; rack: Location }
   | { type: 'MOVE_SAVING'; commandId: string }
-  | { type: 'MOVE_RESULT'; result: LineResult }
+  /** `pallet` is the record as it is after a save, so the card stops showing the scan-time state. */
+  | { type: 'MOVE_RESULT'; result: LineResult; pallet?: Pallet }
   | { type: 'PUTAWAY_PHASE'; phase: 'saving' | 'done' }
   | { type: 'REMOVE_LINE'; key: string }
   | { type: 'REPLAN_LINE'; key: string; pallet: Pallet }
@@ -490,17 +497,21 @@ export function stationReducer(s: StationState, a: StationAction, ctx: StationCt
     case 'START_MOVE': {
       const sw = switchMode(s, 'move', ctx);
       if (sw.verdict === 'error') return sw;
+      // A move that is saving, or whose result is unknown, is never replaced (the same rule as Cancel).
+      if (s.move.phase === 'saving') return done(say(sw.state, 'error', 'Wait for the save to finish.'), 'error');
+      if (s.move.phase === 'unknown') return done(say(sw.state, 'error', 'Check the result first. The move may already be saved.'), 'error');
       return startMove({ ...sw.state, move: EMPTY_MOVE }, a.pallet);
     }
     case 'START_RACK': {
       const sw = switchMode(s, a.mode, ctx);
       if (sw.verdict === 'error') return sw;
+      if (a.mode === 'putaway' ? s.putaway.phase === 'saving' : s.count.busy) return done(say(sw.state, 'error', 'Wait for the save to finish.'), 'error');
       return a.mode === 'putaway' ? startPutaway(sw.state, a.rack) : startCount(sw.state, a.rack);
     }
     case 'MOVE_SAVING':
       return done({ ...s, move: { ...s.move, phase: 'saving', commandId: a.commandId, note: null }, flash: { tone: 'info', text: 'Saving…' } });
     case 'MOVE_RESULT':
-      return moveResult(s, a.result);
+      return moveResult(s, a.result, a.pallet);
     case 'PUTAWAY_PHASE': {
       const next = { ...s, putaway: { ...s.putaway, phase: a.phase } };
       if (a.phase === 'saving') return done({ ...next, flash: { tone: 'info', text: 'Saving each pallet in turn…' } });
@@ -667,7 +678,7 @@ function scanLookup(s: StationState, sc: Scanned, ctx: StationCtx, info: ScanInf
 // ------------------------------------------------------------------ Move
 
 function holdNote(p: Pallet): Note | null {
-  return p.hold ? { tone: 'warn', text: `On hold: ${p.hold.reason} Moving keeps the hold.` } : null;
+  return p.hold ? { tone: 'warn', text: `On hold: ${asSentence(p.hold.reason)} Moving keeps the hold.` } : null;
 }
 
 function startMove(s: StationState, pallet: Pallet, info?: ScanInfo): Step {
@@ -705,7 +716,7 @@ function scanMove(s: StationState, sc: Scanned, ctx: StationCtx, info: ScanInfo)
   return done(say({ ...s, move: { ...m, phase: 'confirm', rack: loc, intent: chk.intent, note: holdNote(m.pallet) } }, 'ok', `${changed}${intentText(chk.intent, m.pallet, loc, ctx.codeOf)}.`, info));
 }
 
-function moveResult(s: StationState, r: LineResult): Step {
+function moveResult(s: StationState, r: LineResult, saved?: Pallet): Step {
   const m = s.move;
   const p = m.pallet;
   const rack = m.rack;
@@ -714,8 +725,9 @@ function moveResult(s: StationState, r: LineResult): Step {
   switch (r.status) {
     case 'saved': {
       const text = m.intent === 'place' ? `Placed at ${rack.code}` : m.intent === 'move' ? `Moved to ${rack.code}` : `Confirmed at ${rack.code}`;
-      const note: Note = { tone: 'ok', text: `${text}${r.version ? `, version ${r.version}` : ''}${r.replayed ? ' (recovered from the saved receipt)' : ''}.` };
-      return done(logSave({ ...s, move: { ...m, phase: 'done', commandId: null, note }, flash: { tone: 'ok', text: `${text}. Scan the next pallet.` } }, 'ok', label, text));
+      const note: Note = { tone: 'ok', text: `${text}${r.replayed ? ' (recovered from the saved receipt)' : ''}.` };
+      const pallet = saved && saved.id === p.id ? saved : p;
+      return done(logSave({ ...s, move: { ...m, phase: 'done', pallet, commandId: null, note }, flash: { tone: 'ok', text: `${p.code}: ${text}.` } }, 'ok', label, text));
     }
     case 'queued': {
       const note: Note = { tone: 'warn', text: `Queued on this device, not confirmed. It is sent when you reconnect. Until then the records keep ${p.code} where it was last confirmed.` };
@@ -924,7 +936,8 @@ export function promptFor(s: StationState, ctx: Pick<StationCtx, 'confirmByResca
       if (m.phase === 'saving') return { text: 'Saving…', sub: 'Waiting for the server to confirm.', tone: 'info' };
       if (m.phase === 'unknown') return { text: 'Check the result', sub: 'No answer from the server. Scan Confirm or tap Check result.', tone: 'warn' };
       if (m.phase === 'queued') return { text: 'Queued. Scan the next pallet', sub: 'Saved on this device only, not confirmed yet.', tone: 'warn' };
-      return { text: 'Saved. Scan the next pallet', sub: m.note?.text ?? '', tone: 'ok' };
+      // The result itself is in the flash and on the card; saying it a third time here only adds noise.
+      return { text: 'Saved. Scan the next pallet', sub: '', tone: 'ok' };
     }
     case 'putaway': {
       const p = s.putaway;

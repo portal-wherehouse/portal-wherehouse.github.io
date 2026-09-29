@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BRAND } from '../../brand';
 import { useApp } from '../../app/state';
-import { snapshotCounts, validateSnapshot, type Snapshot, type SnapshotCheck, type SnapshotCounts } from '../../data/backend';
+import { checkSnapshot, snapshotCounts, type Snapshot, type SnapshotCheck, type SnapshotCounts } from '../../data/backend';
 import { IS_PREVIEW, canDownload, copyText, downloadText } from '../../device/output';
 import { formatBytes } from '../../device/photos';
 import { Icon, type IconName } from '../../ui/icons';
@@ -135,6 +135,7 @@ function WhereNow() {
     void refresh();
   };
 
+  const fileBytes = useBackupBytes();
   const tiles: { icon: IconName; label: string; value: number; note?: string }[] = [
     { icon: 'pallet', label: 'Pallets', value: counts.pallets },
     { icon: 'history', label: 'History entries', value: counts.events },
@@ -185,7 +186,7 @@ function WhereNow() {
           ) : info.usage != null ? (
             <div className="stack" style={{ gap: 6 }}>
               <span>
-                {formatBytes(info.usage)} used{info.quota ? ` of about ${formatBytes(info.quota)} this browser allows this site` : ''}. A backup file of the same data is about {formatBytes(backend.approxSize())}.
+                {formatBytes(info.usage)} used{info.quota ? ` of about ${formatBytes(info.quota)} this browser allows this site` : ''}. A backup file of the same data is about {formatBytes(fileBytes)}.
               </span>
               {pct !== null && (
                 <div className="progress" role="img" aria-label={`${pct < 1 ? 'Less than 1' : Math.round(pct)} percent of the allowance used`}>
@@ -194,7 +195,7 @@ function WhereNow() {
               )}
             </div>
           ) : (
-            `This browser does not report its storage use. A backup file of the data is about ${formatBytes(backend.approxSize())}.`
+            `This browser does not report its storage use. A backup file of the data is about ${formatBytes(fileBytes)}.`
           )}
         </dd>
         <dt>Kept by the browser</dt>
@@ -246,6 +247,18 @@ function WhereNow() {
 const FILE_SLUG = BRAND.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 
+/** The size of the file Download backup saves, measured on the same text it writes. */
+function useBackupBytes(): number {
+  const { backend, v } = useApp();
+  return useMemo(() => {
+    try {
+      return new Blob([makeBackup(backend.exportSnapshot()).json]).size;
+    } catch {
+      return backend.approxSize();
+    }
+  }, [backend, v]);
+}
+
 function makeBackup(snapshot: Snapshot) {
   const compact = JSON.stringify(snapshot);
   const json = compact.length < 1_500_000 ? JSON.stringify(snapshot, null, 2) : compact;
@@ -257,6 +270,7 @@ type Loaded = { source: string; value: unknown; check: SnapshotCheck };
 
 function BackupRestore() {
   const { backend, role, toast, actorId, go } = useApp();
+  const fileBytes = useBackupBytes();
   const admin = role === 'OWNER' || role === 'SUPERVISOR';
   const [shown, setShown] = useState<string | null>(null);
   const [paste, setPaste] = useState('');
@@ -290,7 +304,7 @@ function BackupRestore() {
       setLoaded({ source, value: null, check: { ok: false, problems: ['This is not a backup file: it is not valid JSON text. Check that the whole file was copied.'] } });
       return;
     }
-    setLoaded({ source, value, check: validateSnapshot(value) });
+    setLoaded({ source, value, check: checkSnapshot(value) });
   };
 
   const onFile = async (f: File | undefined) => {
@@ -346,7 +360,7 @@ function BackupRestore() {
                 <Icon name="download" /> Make a backup
               </h3>
               <p className="muted ds-small" style={{ margin: 0 }}>
-                The data is about {formatBytes(backend.approxSize())}. The file carries a fingerprint, so a damaged or edited copy is caught before it can replace anything.
+                The file will be about {formatBytes(fileBytes)}. It carries a fingerprint, so a damaged or edited copy is caught before it can replace anything.
               </p>
               {!canDownload() && (
                 <p className="ds-small" style={{ margin: 0 }}>

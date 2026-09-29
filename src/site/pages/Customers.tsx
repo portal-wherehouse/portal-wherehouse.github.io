@@ -17,7 +17,7 @@ const STORY_PARTS: { title: string; icon: IconName; guide: string }[] = [
 ];
 
 const PERKS: { icon: IconName; title: string; body: string; placeholder?: string }[] = [
-  { icon: 'phone', title: 'A direct line to the founder', body: `Talk to ${CREATOR.name}, who builds ${BRAND.name}, directly. No ticket queue.` },
+  { icon: 'phone', title: 'A direct line to the person building it', body: `Talk to ${CREATOR.name}, who builds ${BRAND.name}, directly. No ticket queue.` },
   { icon: 'flag', title: 'A say in the roadmap', body: 'Tell us what your yard needs. What early customers ask for shapes what gets built next.' },
   { icon: 'dollar', title: 'Launch pricing', body: 'Keep launch pricing when plans go live.', placeholder: 'Terms are placeholders' },
   { icon: 'hardhat', title: 'Setup help', body: 'Help labeling your racks, setting up scanners, and bringing in your jobs.' },
@@ -32,7 +32,7 @@ export function CustomersPage() {
       <div className="site-inner">
         <PageHero
           eyebrow="Customers"
-          title="Real stories, from real yards"
+          title="Room for real stories from real yards"
           lede={`${BRAND.name} is new, so there are no customer stories yet. Instead of inventing logos or quotes, this page shows where the real ones will go once customers share them.`}
         >
           <button type="button" className="site-btn primary pd-wrapbtn" onClick={() => scrollToId('early')}>

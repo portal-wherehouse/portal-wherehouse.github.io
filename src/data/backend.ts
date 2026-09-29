@@ -104,7 +104,9 @@ export class Backend {
     this.outbox.subscribe(() => this.bump(false));
     try {
       this.channel = new BroadcastChannel('pallet-locator-demo');
-      this.channel.onmessage = () => void this.reload();
+      // A restore or reset in another tab also wiped the unsent requests and the offline queue, so this
+      // tab drops its copies too instead of writing them back and replaying them into the new data.
+      this.channel.onmessage = (e: MessageEvent) => void (e.data?.type === 'reset' ? this.reloadAll() : this.reload());
     } catch {
       this.channel = null;
     }
@@ -117,10 +119,10 @@ export class Backend {
     };
   }
 
-  private bump(broadcast: boolean) {
+  private bump(broadcast: boolean, type: 'changed' | 'reset' = 'changed') {
     this.version++;
     for (const fn of this.listeners) fn();
-    if (broadcast) this.channel?.postMessage({ type: 'changed' });
+    if (broadcast) this.channel?.postMessage({ type });
   }
 
   /** Read engine: the live store while online, the cached snapshot while offline. */
@@ -157,6 +159,27 @@ export class Backend {
         this.lastSync = new Date().toISOString();
         this.bump(false);
       }
+    } catch {
+      /* keep what we have */
+    }
+  }
+
+  /** After another tab replaced everything: the data, its details, unsent requests and the offline queue. */
+  async reloadAll() {
+    if (!this.store) return;
+    try {
+      const [db, meta, pending] = await Promise.all([get<Db>(DB_KEY, this.store), get<Meta>(META_KEY, this.store), get<PendingSend[]>(PENDING_KEY, this.store)]);
+      if (db) {
+        this.db = db;
+        this.engine = new Engine(this.db);
+      }
+      if (meta) this.meta = meta;
+      this.pending = pending ?? [];
+      this.cache = null;
+      this.network = 'online';
+      await this.outbox.init();
+      this.lastSync = new Date().toISOString();
+      this.bump(false);
     } catch {
       /* keep what we have */
     }
@@ -326,7 +349,7 @@ export class Backend {
   async reset(fixture: FixtureName) {
     await this.seed(fixture);
     if (this.outbox) await this.outbox.clearAll();
-    this.bump(true);
+    this.bump(true, 'reset');
   }
 
   /** Estimated bytes used by the local database (photos dominate). */
@@ -364,7 +387,7 @@ export class Backend {
    * so a failed write changes nothing.
    */
   async importSnapshot(input: unknown): Promise<SnapshotImport> {
-    const check = validateSnapshot(input);
+    const check = checkSnapshot(input);
     if (!check.ok) return check;
     return this.withLock(async () => {
       const now = new Date().toISOString();
@@ -392,7 +415,7 @@ export class Backend {
       this.network = 'online';
       if (this.outbox) await this.outbox.clearAll();
       this.lastSync = now;
-      this.bump(true);
+      this.bump(true, 'reset');
       return { ok: true as const, counts: check.counts, persisted, warnings: check.warnings };
     });
   }
@@ -456,6 +479,19 @@ export function dbChecksum(db: Db): string {
 const RECORD_TABLES = ['users', 'workspaces', 'warehouses', 'locations', 'jobs', 'pallets', 'events', 'receipts', 'labels', 'attachments', 'imports', 'counters'] as const;
 const LIST_TABLES = ['memberships', 'audit', 'lineage'] as const;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isStr = (v: unknown): v is string => typeof v === 'string';
+/** A record of the table by its own key only: never an inherited name like "constructor". */
+const own = <T,>(table: Record<string, T>, id: unknown): T | undefined => (isStr(id) && Object.hasOwn(table, id) ? table[id] : undefined);
+const ROLES = ['OWNER', 'SUPERVISOR', 'OPERATOR', 'VIEWER'];
+
+/** validateSnapshot that never throws: anything it did not foresee is reported as a damaged file. */
+export function checkSnapshot(input: unknown): SnapshotCheck {
+  try {
+    return validateSnapshot(input);
+  } catch {
+    return { ok: false, problems: ['This backup is damaged: part of it is not in the shape a backup should have. Nothing was changed.'] };
+  }
+}
 
 /**
  * Check a parsed backup file before anything is replaced: the format and versions, every table's
@@ -487,31 +523,70 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
   };
   (['users', 'workspaces', 'warehouses', 'locations', 'jobs', 'pallets', 'attachments', 'imports'] as const).forEach(keyed);
   for (const [k, v] of Object.entries(d.labels)) if (!isObj(v) || v.token !== k) problems.push(`Label ${k.slice(0, 12)} does not match its key.`);
-  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !d.workspaces[k]) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
+  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !own(d.workspaces, k)) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
   if (problems.length) return { ok: false, problems: cap(problems) };
 
-  const ws = (id: unknown) => typeof id === 'string' && !!d.workspaces[id];
+  // Every entry of the lists is a record of the right shape, before anything reads its fields.
+  d.memberships.forEach((m, i) => {
+    if (!isObj(m) || !isStr(m.workspace_id) || !isStr(m.user_id) || !ROLES.includes(m.role as string) || typeof m.active !== 'boolean') problems.push(`Membership ${i + 1} is not a complete record.`);
+  });
+  d.audit.forEach((a, i) => {
+    if (!isObj(a) || !isStr(a.id) || !isStr(a.workspace_id) || !isStr(a.actor_id) || !isStr(a.action) || !isStr(a.accepted_at)) problems.push(`Admin log entry ${i + 1} is not a complete record.`);
+  });
+  d.lineage.forEach((l, i) => {
+    if (!isObj(l) || !isStr(l.workspace_id) || !isStr(l.parent_id) || !isStr(l.child_id)) problems.push(`Split record ${i + 1} is not a complete record.`);
+  });
+  for (const [k, r] of Object.entries(d.receipts)) if (!isObj(r) || k !== `${r.workspace_id}:${r.command_id}` || !isObj(r.result)) problems.push(`Request receipt ${k.slice(0, 12)} is not a complete record.`);
+  for (const [k, ev] of Object.entries(d.events)) if (!Array.isArray(ev) || ev.some((e) => !isObj(e))) problems.push(`The history for ${k.slice(0, 12)} is not a list of entries.`);
+  if (problems.length) return { ok: false, problems: cap(problems) };
+
+  // References point at records in the file, and at records of the same company.
+  const ws = (id: unknown) => !!own(d.workspaces, id);
   for (const m of d.memberships) {
-    if (!isObj(m) || !ws(m.workspace_id) || !d.users[m.user_id]) problems.push('A membership points at a company or person that is not in the file.');
+    if (!ws(m.workspace_id) || !own(d.users, m.user_id)) problems.push('A membership points at a company or person that is not in the file.');
   }
   for (const w of Object.values(d.warehouses)) if (!ws(w.workspace_id)) problems.push(`Warehouse ${w.code} belongs to a company that is not in the file.`);
-  for (const l of Object.values(d.locations)) if (!ws(l.workspace_id) || !d.warehouses[l.warehouse_id]) problems.push(`Location ${l.code} points at a missing company or warehouse.`);
+  for (const l of Object.values(d.locations)) {
+    const wh = own(d.warehouses, l.warehouse_id);
+    if (!ws(l.workspace_id) || !wh) problems.push(`Location ${l.code} points at a missing company or warehouse.`);
+    else if (wh.workspace_id !== l.workspace_id) problems.push(`Location ${l.code} points at another company's warehouse.`);
+  }
   for (const j of Object.values(d.jobs)) if (!ws(j.workspace_id)) problems.push(`Job ${j.code} belongs to a company that is not in the file.`);
   for (const p of Object.values(d.pallets)) {
     const code = typeof p.code === 'string' ? p.code : p.id;
     if (!ws(p.workspace_id)) problems.push(`Pallet ${code} belongs to a company that is not in the file.`);
-    if (!d.jobs[p.job_id]) problems.push(`Pallet ${code} points at a job that is not in the file.`);
-    if (p.current_location_id !== null && !d.locations[p.current_location_id]) problems.push(`Pallet ${code} points at a location that is not in the file.`);
+    const job = own(d.jobs, p.job_id);
+    if (!job) problems.push(`Pallet ${code} points at a job that is not in the file.`);
+    else if (job.workspace_id !== p.workspace_id) problems.push(`Pallet ${code} points at another company's job.`);
+    for (const id of [p.current_location_id, p.last_confirmed_location_id]) {
+      if (id === null || id === undefined) continue;
+      const loc = own(d.locations, id);
+      if (!loc) problems.push(`Pallet ${code} points at a location that is not in the file.`);
+      else if (loc.workspace_id !== p.workspace_id) problems.push(`Pallet ${code} points at another company's location.`);
+    }
     if (!PALLET_STATES.includes(p.state)) problems.push(`Pallet ${code} has an unknown state.`);
     if (typeof p.version !== 'number') problems.push(`Pallet ${code} has no version number.`);
-    const ev = d.events[p.id];
+    const ev = own(d.events, p.id);
     if (!Array.isArray(ev) || ev.length === 0) problems.push(`Pallet ${code} has no history.`);
-    else if (ev.some((e, i) => !isObj(e) || e.pallet_id !== p.id || (i > 0 && e.revision !== ev[i - 1].revision + 1)) || ev[ev.length - 1].revision !== p.version) {
+    else if (ev.some((e, i) => e.pallet_id !== p.id || e.workspace_id !== p.workspace_id || (i > 0 && e.revision !== ev[i - 1].revision + 1)) || ev[ev.length - 1].revision !== p.version) {
       problems.push(`Pallet ${code} has history that does not line up with its version.`);
     }
   }
-  for (const k of Object.keys(d.events)) if (!d.pallets[k]) problems.push('History exists for a pallet that is not in the file.');
-  for (const a of Object.values(d.attachments)) if (!d.pallets[a.pallet_id]) problems.push('A photo belongs to a pallet that is not in the file.');
+  for (const k of Object.keys(d.events)) if (!own(d.pallets, k)) problems.push('History exists for a pallet that is not in the file.');
+  for (const a of Object.values(d.attachments)) {
+    const p = own(d.pallets, a.pallet_id);
+    if (!p || p.workspace_id !== a.workspace_id) problems.push('A photo belongs to a pallet that is not in the file, or to another company.');
+  }
+  for (const t of Object.values(d.labels)) {
+    const target = t.kind === 'P' ? own(d.pallets, t.target_id) : t.kind === 'L' ? own(d.locations, t.target_id) : undefined;
+    if (!target || target.workspace_id !== t.workspace_id) problems.push(`Label ${t.token.slice(0, 12)} points at a record that is not in the file, or at another company's.`);
+  }
+  for (const l of d.lineage) {
+    const parent = own(d.pallets, l.parent_id);
+    const child = own(d.pallets, l.child_id);
+    if (!parent || !child || parent.workspace_id !== l.workspace_id || child.workspace_id !== l.workspace_id) problems.push('A split record points at pallets that are not in the file, or at another company.');
+  }
+  for (const a of d.audit) if (!ws(a.workspace_id)) problems.push('An admin log entry belongs to a company that is not in the file.');
   const names = Object.values(d.workspaces).map((w) => (typeof w.name === 'string' ? w.name : w.id));
   if (names.length === 0) problems.push('The backup has no companies in it.');
   for (const w of Object.values(d.workspaces)) {

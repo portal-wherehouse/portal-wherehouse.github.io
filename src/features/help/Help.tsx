@@ -157,7 +157,7 @@ export function Help() {
           Every button here opens the real screen it talks about, and the sample warehouse is safe to practice on. You can reset it from Settings any time. Tutorials and video chapters use the same codes you will see on screen, like job J-214 and rack A-03-02.
         </p>
         <ul>
-          <li>The walkthrough video is still being recorded. Its spot below describes exactly what it will show, chapter by chapter, and never pretends to play.</li>
+          <li>The walkthrough video is not recorded yet. Its spot below describes what it will show, chapter by chapter, and never pretends to play.</li>
           <li>The search box at the top looks through the tutorials, the video chapters and all {FAQ_COUNT} answers at once. The Questions section has its own filter.</li>
           <li>The contact form keeps your request in this browser and gives you a ready-made email, because the support inbox is not connected in this preview yet.</li>
         </ul>
@@ -175,7 +175,7 @@ export function Help() {
       <HelpSection id="start" title="How can we help?" lede="Search everything on this page, or jump straight in.">
         <SearchAll onPick={reveal} />
         <div className="help-quick">
-          <QuickAction icon="tour" title="Take the tour" body="A 3-minute walk through every screen, with tips on each one." cta="Start the tour" onClick={() => run({ action: 'tour' })} />
+          <QuickAction icon="tour" title="Take the tour" body="A 5-minute walk through every screen, with tips on each one." cta="Start the tour" onClick={() => run({ action: 'tour' })} />
           <QuickAction
             icon="hardhat"
             title="Start the practice shift"

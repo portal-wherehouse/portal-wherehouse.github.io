@@ -11,7 +11,7 @@ const CODE_HELP: Record<string, string> = {
   INACTIVE_LOCATION: 'That location is switched off. Choose an active one.',
   INVALID_STATE: 'The record is not in a state that allows this.',
   INVALID_INPUT: 'Check the highlighted information and try again.',
-  NOT_FOUND: 'That record is not available in this workspace.',
+  NOT_FOUND: 'That record is not available in this company.',
   COMMAND_KEY_REUSED: 'This request ID was already used for different content.',
   TEMPORARY_FAILURE: 'Nothing was saved. It is safe to try again.',
 };

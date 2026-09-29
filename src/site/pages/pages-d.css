@@ -574,15 +574,34 @@ table.t.pr-table .featured {
 table.t.pr-table thead th.featured {
   background: color-mix(in srgb, var(--hazard) 22%, var(--surface));
 }
-table.t.pr-table tr.pr-group th {
+table.t.pr-table tr.pr-group > * {
   padding: 18px 14px 8px;
   background: var(--surface-2);
   color: var(--ink-2);
-  font: 800 12px/1 var(--font-body);
+  font: 800 12px/1.2 var(--font-body);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  text-align: left;
   border-bottom: 1px solid var(--line);
+}
+/* The group name stays in view with the feature names when the table scrolls sideways. */
+table.t.pr-table tr.pr-group th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  white-space: normal;
+}
+table.t.pr-table tr.pr-group td {
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+/* The whole table fits on wider screens, so the header row is enough there. */
+@media (min-width: 900px) {
+  .pr-group-plan {
+    display: none;
+  }
 }
 table.t.pr-table tbody tr td {
   border-bottom: 1px solid var(--line);
@@ -1437,6 +1456,16 @@ table.t.pr-table tbody:last-child tr:last-child > td {
     max-width: 380px;
   }
 }
+/* Below the text on phones: centered, so it reads as a framed photo spot, not a stray box. */
+@media (max-width: 719px) {
+  .fo-portrait {
+    max-width: 320px;
+    margin-inline: auto;
+  }
+  .fo-portrait figcaption {
+    text-align: center;
+  }
+}
 @media (min-width: 960px) {
   .fo-portrait {
     justify-self: end;
@@ -2079,6 +2108,17 @@ table.t.pr-table tbody:last-child tr:last-child > td {
   border-color: #14171a;
   background: #14171a;
   color: #f4f5f1;
+}
+/* On a dark page the ink card would blend in: raise it and give it a visible edge. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .ct-card.ct-card-ink {
+    border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+    background: var(--surface-2);
+  }
+}
+:root[data-theme='dark'] .ct-card.ct-card-ink {
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+  background: var(--surface-2);
 }
 .ct-help {
   padding-top: 12px;

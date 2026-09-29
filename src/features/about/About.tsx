@@ -46,7 +46,7 @@ export function About() {
             <BrandMark width={44} height={44} style={{ flex: 'none' }} />
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 26, textTransform: 'uppercase' }}>{BRAND.name}</div>
-              <div className="muted">Built from the Pallet Locator Complete Build Blueprint, Draft 0.1</div>
+              <div className="muted">Built from the original build blueprint, Draft 0.1</div>
             </div>
           </div>
           <p style={{ margin: 0 }}>

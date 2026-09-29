@@ -6,7 +6,7 @@ import { useApp } from '../../app/state';
 import { makeLabelPayload } from '../../domain/codes';
 import { STATE_LABEL } from '../../domain/transitions';
 import { SCAN_COMMANDS, commandPayload } from '../../device/scanCommands';
-import { useScanRouter, useScanTarget, type ScanEvent, type ScanSource } from '../../device/scanRouter';
+import { stripScanPrefix, useScanRouter, useScanTarget, type ScanEvent, type ScanSource } from '../../device/scanRouter';
 import { createTypingMeter } from '../../device/wedge';
 import { Icon, type IconName } from '../../ui/icons';
 import { fmtTime } from '../../ui/ui';
@@ -100,6 +100,8 @@ export function TestPad() {
     },
     active,
     100,
+    // Nothing is saved here, so the pad keeps listening while a window (such as the portal tour) is open.
+    { whileModal: true },
   );
 
   const samples = read((e, _a, ws) => {
@@ -123,7 +125,8 @@ export function TestPad() {
     const text = draft.trim();
     if (!text) return;
     const t = meter.current.result(draft, settings);
-    emit(text, t.fromScanner ? 'wedge' : 'typed', { durationMs: t.durationMs });
+    // A scanner typing into the box loses its prefix, exactly as a scan outside the box does.
+    emit(t.fromScanner ? stripScanPrefix(text, settings.prefix) : text, t.fromScanner ? 'wedge' : 'typed', { durationMs: t.durationMs });
     meter.current.reset();
     setDraft('');
   };

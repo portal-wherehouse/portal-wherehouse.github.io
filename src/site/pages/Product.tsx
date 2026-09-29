@@ -353,16 +353,16 @@ function Labels() {
             <strong>4x6 pallet labels or full sheets,</strong> printed from the browser, with a one-inch calibration box to check the printer scale.
           </li>
           <li>
-            <strong>QR code and Code 128 barcode.</strong> Both hold the same code. Phone cameras read the QR, and scanners that only read straight-line barcodes use the Code 128.
+            <strong>QR code and Code 128 barcode.</strong> The QR holds a random token and the barcode holds the printed code, like <span className="pc-nw">P-000042</span>. Phone cameras read the QR, and scanners that only read straight-line barcodes use the Code 128.
           </li>
           <li>
             <strong>The big printed code is the backup.</strong> If a label is torn, type <span className="pc-nw">P-000042</span>, or just p42.
           </li>
           <li>
-            <strong>Edits never break a label.</strong> The QR and barcode carry a random token, not the job or description, so changing details keeps the label working.
+            <strong>Edits never break a label.</strong> The QR carries a random token and the barcode carries only the pallet code, never the job or description, so changing details keeps the label working.
           </li>
           <li>
-            <strong>Replace a damaged label</strong> and the old one stops working. Pallets whose printed details changed land on a reprint list.
+            <strong>Reprint a damaged label</strong> with the same code. If a label was copied or misused, a supervisor can replace it so the old QR stops working. Pallets whose printed details changed land on a reprint list.
           </li>
           <li>
             <strong>Rack labels</strong> carry the rack code in large type and the reminder: scan the pallet first, then this label.
@@ -392,7 +392,7 @@ function Devices() {
         columns={4}
         items={[
           { icon: 'phone', title: 'Phones', body: 'Large buttons and bottom tabs for one-handed use on the floor. The camera reads QR labels when no scanner is around.' },
-          { icon: 'grid', title: 'Computers', body: 'The office sees the same records with a full sidebar, tables and exports. Press / to jump to search.' },
+          { icon: 'grid', title: 'Computers', body: 'The office sees the same records with a full sidebar, tables and exports. On Find, press / to jump to the search box.' },
           { icon: 'scanner', title: 'Scanners', body: 'USB and Bluetooth scanners in keyboard mode type straight into the page. A scan station screen keeps hands on the scanner.' },
           { icon: 'download', title: 'Install it', body: 'Add it to the home screen from the browser menu. It opens full screen, like any other app on the phone.' },
         ]}

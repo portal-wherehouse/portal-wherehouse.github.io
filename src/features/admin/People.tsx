@@ -47,29 +47,29 @@ export function People() {
         }
       />
       <Explain refs="pages 5, 9, 20">
-        <p>Access belongs to a workspace membership, and the server checks it on every read and every change. A removed person loses access on their very next request, even if their phone still shows the app. Only owners can grant or change supervisor and owner access, and a workspace always keeps at least one owner.</p>
+        <p>Access belongs to a membership in the company, and the server checks it on every read and every change. A removed person loses access on their very next request, even if their phone still shows the app. Only owners can grant or change supervisor and owner access, and a company always keeps at least one owner.</p>
         <p>In this demo you can sign in as anyone below to see exactly what their role allows.</p>
       </Explain>
 
       <div className="stack" data-tour="people-list">
         {members.map((m) => (
-          <div key={m.user_id} className="panel row" style={{ alignItems: 'center' }}>
+          <div key={m.user_id} className="panel member">
             <Avatar name={m.user.name} />
-            <div className="grow" style={{ minWidth: 180 }}>
+            <div className="m-who">
               <div style={{ fontWeight: 700 }}>
                 {m.user.name} {m.user_id === actorId && <span className="tag accent">you</span>}
               </div>
-              <div className="muted" style={{ fontSize: 13.5 }}>
+              <div className="muted m-email" style={{ fontSize: 13.5 }}>
                 {m.user.email}
               </div>
             </div>
-            <div style={{ minWidth: 160 }}>
+            <div className="m-role">
               <div style={{ fontWeight: 700 }}>{ROLE_LABEL[m.role]}</div>
               <div className="muted" style={{ fontSize: 12.5 }}>
                 {ROLE_DESC[m.role]}
               </div>
             </div>
-            <div className="row" style={{ gap: 6 }}>
+            <div className="row m-actions" style={{ gap: 6 }}>
               {m.user_id !== actorId && (
                 <button className="btn small" onClick={() => signIn(m.user_id, data.ctx.workspace.id)} title="Demo only: switch to this account">
                   <Icon name="user" /> Sign in as
@@ -116,6 +116,7 @@ export function People() {
           title={`Remove ${remove.name}`}
           kind="remove_member"
           verb="Remove access"
+          done={`${remove.name} no longer has access`}
           danger
           reason="optional"
           intro="They lose access on their next request. Their history stays. You can invite them again later."
@@ -130,23 +131,35 @@ export function People() {
 function InviteSheet({ isOwner, onClose }: { isOwner: boolean; onClose: () => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   const [role, setRole] = useState<Role>('OPERATOR');
   const allowed = ROLES.filter((r) => isOwner || (r !== 'OWNER' && r !== 'SUPERVISOR'));
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   return (
     <AdminSheet
       title="Invite someone"
       kind="invite_member"
       verb="Send invite"
+      done={`${email.trim()} added as ${ROLE_LABEL[role]}`}
       intro="In the real app this sends a sign-in link by email. In this demo the person is added at once, and you can sign in as them."
-      valid={!!name.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())}
+      valid={!!name.trim() && emailOk}
       payload={() => ({ name, email, role })}
       onClose={onClose}
     >
       <Field label="Name" htmlFor="inv-name">
         <input id="inv-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
-      <Field label="Email" htmlFor="inv-email">
-        <input id="inv-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.example" />
+      <Field label="Email" htmlFor="inv-email" hint={emailTouched && !emailOk ? <span className="field-err">Enter a full email address, like name@company.com.</span> : undefined}>
+        <input
+          id="inv-email"
+          className="input"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => setEmailTouched(true)}
+          aria-invalid={emailTouched && !emailOk}
+          placeholder="name@company.example"
+        />
       </Field>
       <Field label="Role" htmlFor="inv-role" hint={ROLE_DESC[role]}>
         <select id="inv-role" className="select" value={role} onChange={(e) => setRole(e.target.value as Role)}>
@@ -170,6 +183,7 @@ function RoleSheet({ target, isOwner, onClose }: { target: { userId: string; nam
       title={`Change ${target.name}'s role`}
       kind="change_role"
       verb="Change role"
+      done={`${target.name} is now ${ROLE_LABEL[role]}`}
       reason="optional"
       valid={role !== target.role}
       intro={`Currently ${ROLE_LABEL[target.role]}. The change applies on their next request.`}
@@ -203,7 +217,7 @@ const MATRIX: { what: string; min: Role }[] = [
 export function RoleMatrix() {
   return (
     <div className="table-wrap" style={{ border: 0, borderRadius: 0 }}>
-      <table className="t">
+      <table className="t cards-sm role-matrix">
         <thead>
           <tr>
             <th>Action</th>
@@ -217,11 +231,11 @@ export function RoleMatrix() {
         <tbody>
           {MATRIX.map((m) => (
             <tr key={m.what}>
-              <td>{m.what}</td>
+              <td className="lead">{m.what}</td>
               {[...ROLES].reverse().map((r) => {
                 const yes = ROLE_RANK[r] >= ROLE_RANK[m.min];
                 return (
-                  <td key={r} style={{ textAlign: 'center', color: yes ? 'var(--ok)' : 'var(--ink-3)' }}>
+                  <td key={r} data-label={ROLE_LABEL[r]} style={{ textAlign: 'center', color: yes ? 'var(--ok)' : 'var(--ink-3)' }}>
                     {yes ? <Icon name="check" /> : '–'}
                     <span className="sr-only">{yes ? 'Yes' : 'No'}</span>
                   </td>
@@ -247,7 +261,7 @@ function AuditList({ entries }: { entries: AdminAudit[] }) {
   };
   return (
     <div className="table-wrap">
-      <table className="t" style={{ fontSize: 13.5 }}>
+      <table className="t cards-sm" style={{ fontSize: 13.5 }}>
         <thead>
           <tr>
             <th>When</th>
@@ -263,10 +277,10 @@ function AuditList({ entries }: { entries: AdminAudit[] }) {
                 {fmtAgo(a.accepted_at)}
               </td>
               <td>{users[a.actor_id]?.name}</td>
-              <td>
+              <td className="lead">
                 <strong>{COMMAND_LABEL[a.action]}</strong> {target(a)}
               </td>
-              <td className="muted">
+              <td className="muted lead">
                 {change(a)}
                 {a.reason ? ` · “${a.reason}”` : ''}
               </td>

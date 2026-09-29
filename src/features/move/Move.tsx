@@ -12,6 +12,7 @@ import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
 import { Explain, HoldBadge, Notice, PageHead, PermissionDenied, Plate, Spinner, StateBadge, WhereCell, fmtTime } from '../../ui/ui';
 import { ScanPanel, type DemoTarget } from '../scan/ScanPanel';
+import { asSentence, isDoubleRead } from '../station/logic';
 import { initialMove, moveReducer, type MoveState } from './machine';
 
 const INTENT_VERB = { place: 'Place', move: 'Move', verify_location: 'Confirm still here' } as const;
@@ -70,14 +71,19 @@ export function Move() {
       if (s.stage === 'REVIEW') {
         if (cmd === 'CONFIRM') return confirmRef.current(), true;
         if (cmd === 'CANCEL') return dispatch({ type: 'CANCEL_REVIEW' }), true;
-        if (cmd) return false;
-        try {
-          const r = backend.reader.resolve(actorId, workspaceId, ev.text);
-          if (r.type === 'location' && r.location.id === s.destination?.id && scanSettings.confirmByRescan) return confirmRef.current(), true;
-        } catch {
-          /* not a label we know; the hint below covers it */
+        // Other command barcodes (a mode, Finish) are refused too: opening the Scan station would drop this move.
+        if (!cmd) {
+          // A scanner double read of the rack that opened this review is the same scan, not a confirmation.
+          const last = s.lastScan && { raw: s.lastScan.text, at: s.lastScan.at };
+          if (isDoubleRead(last, ev.text, ev.at, ev.source)) return true;
+          try {
+            const r = backend.reader.resolve(actorId, workspaceId, ev.text);
+            if (r.type === 'location' && r.location.id === s.destination?.id && scanSettings.confirmByRescan) return confirmRef.current(), true;
+          } catch {
+            /* not a label we know; the hint below covers it */
+          }
         }
-        toast(scanSettings.confirmByRescan ? `Scan ${s.destination?.code} again or scan Confirm to save. Scan Cancel to pick another rack.` : 'Tap Confirm to save, or scan Cancel to pick another rack.', 'info');
+        toast(scanSettings.confirmByRescan ? `Scan ${s.destination?.code} again or scan Confirm to save. Scan Cancel to pick another rack.` : 'Scan Confirm or tap Confirm to save. Scan Cancel to pick another rack.', 'info');
         return 'error';
       }
       if (s.stage === 'RESULT' && !cmd) {
@@ -95,6 +101,14 @@ export function Move() {
     },
     s.stage === 'REVIEW' || s.stage === 'RESULT',
   );
+
+  // Warn before leaving a move that is waiting for its confirmation.
+  const { setLeaveGuard } = app;
+  const pendingCode = s.stage === 'REVIEW' ? (s.pallet?.code ?? null) : null;
+  useEffect(() => {
+    setLeaveGuard(pendingCode ? `The move of ${pendingCode} is not confirmed. Leaving discards it.` : null);
+  }, [pendingCode, setLeaveGuard]);
+  useEffect(() => () => setLeaveGuard(null), [setLeaveGuard]);
 
   if (!roleAllows(role, 'move')) {
     return (
@@ -221,7 +235,7 @@ export function Move() {
                 <ScanPanel
                   prompt="Point at the pallet label"
                   demoTargets={demoPallets}
-                  placeholder="Pallet code, e.g. P-000042"
+                  placeholder="P-000042"
                   onResolved={(r, raw) => {
                     if (r.type === 'pallet') dispatch({ type: 'SCAN_PALLET', pallet: r.pallet, raw, at: Date.now() });
                     else dispatch({ type: 'SCAN_LOCATION', location: r.location, raw, at: Date.now() });
@@ -246,7 +260,7 @@ export function Move() {
                 <ScanPanel
                   prompt="Point at the rack label"
                   demoTargets={demoLocs}
-                  placeholder="Rack code, e.g. A-03-02"
+                  placeholder="A-03-02"
                   autoFocusInput={!!route.id}
                   onResolved={(r, raw) => {
                     if (r.type === 'location') dispatch({ type: 'SCAN_LOCATION', location: r.location, raw, at: Date.now() });
@@ -281,6 +295,7 @@ export function Move() {
                 onOther={() => void otherDevice()}
                 otherBusy={otherBusy}
                 offline={offline}
+                confirmByRescan={scanSettings.confirmByRescan}
               />
             )}
             {s.stage === 'RESULT' && s.result?.ok && s.pallet && (
@@ -409,6 +424,7 @@ function Review({
   onOther,
   otherBusy,
   offline,
+  confirmByRescan,
 }: {
   s: MoveState;
   from: Location | null;
@@ -419,6 +435,7 @@ function Review({
   onOther: () => void;
   otherBusy: boolean;
   offline: boolean;
+  confirmByRescan: boolean;
 }) {
   const { read } = useApp();
   const p = s.pallet!;
@@ -451,7 +468,7 @@ function Review({
         </div>
         {p.hold && (
           <div style={{ marginTop: 8 }}>
-            <HoldBadge /> <span className="muted">{p.hold.reason} The hold stays on after the move.</span>
+            <HoldBadge /> <span className="muted">Hold reason: {asSentence(p.hold.reason)} The hold stays on after the move.</span>
           </div>
         )}
         {s.intent === 'verify_location' && <p style={{ marginTop: 8 }}>This is where the pallet is already recorded. Confirming adds a verification event and refreshes “last confirmed”, without inventing a move.</p>}
@@ -465,7 +482,7 @@ function Review({
         </div>
       ) : (
         <div className="row">
-          <button className="btn primary big" onClick={onConfirm} disabled={busy}>
+          <button className="btn primary big wrap" onClick={onConfirm} disabled={busy}>
             {busy ? <Spinner /> : <Icon name={s.intent === 'verify_location' ? 'check' : 'move'} />}
             {busy ? 'Waiting for server…' : offline ? `Queue: ${verb.toLowerCase()} ${s.destination!.code}` : `${verb}${s.intent === 'verify_location' ? '' : `: ${s.destination!.code}`}`}
           </button>
@@ -473,6 +490,11 @@ function Review({
             Change destination
           </button>
         </div>
+      )}
+      {s.stage === 'REVIEW' && (
+        <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+          Using a scanner? {confirmByRescan ? `Scan ${s.destination!.code} again or scan Confirm to save.` : 'Scan Confirm to save.'}
+        </p>
       )}
       {!offline && s.stage === 'REVIEW' && (
         <button className="btn ghost small wrap" style={{ alignSelf: 'flex-start' }} onClick={onOther} disabled={otherBusy}>

@@ -82,7 +82,7 @@ export function Activity() {
             </span>
           </div>
           <div className="table-wrap" style={{ border: 0, borderRadius: 0 }}>
-            <table className="t">
+            <table className="t cards-sm">
               <tbody>
                 {d.events.map((ev) => {
                   const p = backend.db.pallets[ev.pallet_id];
@@ -96,12 +96,12 @@ export function Activity() {
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <span className="pcode">{p?.code}</span>
                       </td>
-                      <td>
+                      <td className="lead">
                         <strong>{EVENT_LABEL[ev.type]}</strong>
                         {from !== to && (from || to) ? (
                           <span className="muted">
                             {' '}
-                            {from ?? 'none'} <span className="arrow">→</span> {to ?? 'none'}
+                            <span className="code-nw">{from ?? 'none'}</span> <span className="arrow">→</span> <span className="code-nw">{to ?? 'none'}</span>
                           </span>
                         ) : null}
                         {ev.reason && <div className="faint" style={{ fontSize: 13 }}>“{ev.reason}”</div>}

@@ -6,7 +6,7 @@ import type { Location, Pallet } from '../../domain/types';
 import { ReadError } from '../../demo/engine';
 import { cameraSupported, decodeImageFile, startCamera, type CameraSession } from '../../device/scanner';
 import { parseScanCommand } from '../../device/scanCommands';
-import { useScanRouter, useScanTarget, type ScanSource } from '../../device/scanRouter';
+import { stripScanPrefix, useScanRouter, useScanTarget, type ScanSource } from '../../device/scanRouter';
 import { useSerialStatus } from '../../device/serial';
 import { createTypingMeter } from '../../device/wedge';
 import { useApp } from '../../app/state';
@@ -191,9 +191,10 @@ export function ScanPanel({
         onSubmit={(e) => {
           e.preventDefault();
           if (code.trim()) {
-            // A scanner typing into this box (it had focus) still counts as a scanner.
+            // A scanner typing into this box (it had focus) still counts as a scanner, and its prefix comes off.
             const timing = meter.current.result(code, settings);
-            resolveOwn(code, timing.fromScanner ? 'wedge' : 'typed');
+            if (timing.fromScanner) resolveOwn(stripScanPrefix(code.trim(), settings.prefix), 'wedge');
+            else resolveOwn(code, 'typed');
             meter.current.reset();
             setCode('');
           }
@@ -235,7 +236,7 @@ export function ScanPanel({
             <Icon name="scanner" width={16} height={16} />
             <span>Hardware scanners are turned off.</span>
             <button type="button" className="btn ghost small" onClick={() => go('scanners')}>
-              Scanner setup
+              Scanners
             </button>
           </span>
         )}

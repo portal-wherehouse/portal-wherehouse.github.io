@@ -64,21 +64,6 @@
   gap: 8px;
 }
 
-/* Four across when there is room: the icon moves above the name so long names never clip. */
-@container (min-width: 560px) {
-  .st-modes {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .st-mode-top {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  .st-mode-name {
-    font-size: calc(clamp(17px, 3.6cqi, 22px) * var(--text-scale));
-  }
-}
-
 .st-mode {
   position: relative;
   display: flex;
@@ -114,10 +99,11 @@
   flex: none;
 }
 
+/* Two across, the icon sits beside the name: this size keeps PUT-AWAY inside its tile down to a 320px phone. */
 .st-mode-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: calc(clamp(17px, 6cqi, 22px) * var(--text-scale));
+  font-size: calc(clamp(13px, 8.4cqi - 11px, 22px) * var(--text-scale));
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -163,6 +149,26 @@
   background: var(--surface-2);
 }
 
+/* Four across when there is room: the icon moves above the name so long names never clip. The name is sized so
+   PUT-AWAY fits a quarter of the row, and every tile starts at the top so icons and names line up
+   whether a hint takes one line or two. */
+@container (min-width: 560px) {
+  .st-modes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .st-mode {
+    justify-content: flex-start;
+  }
+  .st-mode-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .st-mode-name {
+    font-size: calc(clamp(16px, 3cqi, 22px) * var(--text-scale));
+  }
+}
+
 /* ------------------------------------------------------------------ the big status board */
 
 .st-status {
@@ -176,6 +182,11 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Focus lands here after a click on a mode or a test label (so Enter confirms); it is not a control, so no ring. */
+.st-status:focus {
+  outline: none;
 }
 
 .st-status::before {
@@ -1043,6 +1054,11 @@
 
 .st-tray-items.narrow {
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+
+/* Command barcodes: one full-width column, so every command has the same shape whatever its name's length. */
+.st-tray-items.single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* A pretend label: the printed code, and what it is underneath. */

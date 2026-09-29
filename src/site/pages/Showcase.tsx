@@ -164,7 +164,7 @@ const GROUPS: Group[] = [
         name: 'Warehouse map',
         line: 'Every rack by zone and aisle, with what is recorded on it.',
         mock: <MapMock />,
-        bullets: ['See which racks are full, empty, or holding a pallet on hold.', 'Open any rack to see the pallets recorded there.', 'Counts come from records. The app does not guess rack capacity.'],
+        bullets: ['See which racks have pallets recorded, which have nothing recorded, and which hold a pallet on hold.', 'Open any rack to see the pallets recorded there.', 'Counts come from records. The app does not guess rack capacity.'],
       },
     ],
   },
@@ -261,11 +261,11 @@ const GROUPS: Group[] = [
         name: 'Locations and rack labels',
         line: 'Racks, plus areas like Receiving and Quarantine, each with its own label.',
         who: 'Supervisors',
-        bullets: ['Codes like A-03-02 are read as zone, aisle and bay for the map.', 'Rename a rack and its label keeps working.', 'Switch off a location you no longer use. It stays in the history.'],
+        bullets: ['Codes like A-03-02 are read as zone, aisle and bay for the map.', 'Rename a rack and its QR keeps working. Reprint the label so the printed code matches.', 'Switch off a location you no longer use. It stays in the history.'],
       },
       {
         icon: 'labels',
-        name: 'Label studio',
+        name: 'Labels',
         line: 'Print pallet and rack labels in batches, at the right size.',
         bullets: [
           'Print what needs a reprint, everything waiting for placement, a whole job, hand-picked pallets, or every rack.',
@@ -291,7 +291,7 @@ const GROUPS: Group[] = [
         bullets: [
           `${BRAND.name} tells a scan from typing by speed, so each scan goes to the screen you are using.`,
           'Scan anywhere: when no screen is waiting for a scan, scanning a label opens that pallet or rack.',
-          'A Scanner setup page in the portal for prefix, suffix and timing.',
+          'A Scanners page in the portal for prefix, suffix and timing.',
           'Most USB and Bluetooth scanners can be switched to keyboard mode by scanning a setup code from their manual.',
         ],
       },
@@ -385,7 +385,7 @@ const GROUPS: Group[] = [
         name: 'Help center',
         line: 'A tutorial video, common questions and a quick contact form in one place.',
         mock: <HelpMock />,
-        bullets: ['The tutorial video is being recorded. Its spot and a chapter outline are already in place.', 'Answers to the questions people ask in their first week.', 'A short form to ask for help.'],
+        bullets: ['The tutorial video is planned but not recorded yet. Its spot and a chapter outline are already in place.', 'Answers to the questions people ask in their first week.', 'A short form to ask for help.'],
       },
       {
         icon: 'checklist',

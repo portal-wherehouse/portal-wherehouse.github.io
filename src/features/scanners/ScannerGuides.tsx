@@ -146,7 +146,7 @@ export function Troubleshooting() {
         <Acc icon="alertCircle" title="The portal says “not recognized”" sub="The scanner read something we do not know.">
           <ul>
             <li>Product barcodes and supplier labels are not {BRAND.name} codes. Scan the {BRAND.name} label on the pallet or rack.</li>
-            <li>Labels only work in the company that printed them. A replaced label stops working; use the new one or type the printed code.</li>
+            <li>Labels only work in the company that printed them. A replaced label’s QR code stops working. Use the new label, or scan the old label’s barcode or type its printed code.</li>
           </ul>
         </Acc>
       </div>

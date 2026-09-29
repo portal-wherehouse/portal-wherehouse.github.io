@@ -15,8 +15,8 @@ export const SITE_NAV: SiteNavItem[] = [
   { route: 'showcase', label: 'See it in action', blurb: 'Everything it can do, screen by screen' },
   { route: 'simple', label: 'Why it’s simple', blurb: 'The decisions that keep it easy' },
   { route: 'hardware', label: 'Scanners', blurb: 'Works with the barcode scanners you already own' },
-  { route: 'industries', label: 'Applications', blurb: 'Who uses it and for what' },
-  { route: 'customers', label: 'Customers', blurb: 'Stories from the floor' },
+  { route: 'industries', label: 'Applications', blurb: 'Who it is for and how they would use it' },
+  { route: 'customers', label: 'Customers', blurb: 'Early access, and room for real stories' },
   { route: 'pricing', label: 'Pricing', blurb: 'Plans for every size of yard' },
   { route: 'founder', label: 'About', blurb: 'Who is building it' },
 ];

@@ -51,7 +51,7 @@ export function Jobs() {
         <Empty icon="jobs" title="No jobs here" />
       ) : (
         <div className="table-wrap" data-tour="jobs-table">
-          <table className="t">
+          <table className="t cards-sm">
             <thead>
               <tr>
                 <th>Job</th>
@@ -67,14 +67,24 @@ export function Jobs() {
                 const c = data.counts[j.id] ?? {};
                 return (
                   <tr key={j.id} className="click" onClick={() => go({ name: 'job', id: j.id })}>
-                    <td>
+                    <td className="lead">
                       <span className="jcode">{j.code}</span> {j.name} {j.status === 'CLOSED' && <span className="tag">closed</span>}
                     </td>
-                    <td className="n">{c.RECEIVED ?? 0}</td>
-                    <td className="n">{c.STORED ?? 0}</td>
-                    <td className="n">{c.MISSING ? <strong style={{ color: 'var(--bad)' }}>{c.MISSING}</strong> : 0}</td>
-                    <td className="n">{c.HOLD ?? 0}</td>
-                    <td className="n">{c.DISPATCHED ?? 0}</td>
+                    <td className="n" data-label="Waiting">
+                      {c.RECEIVED ?? 0}
+                    </td>
+                    <td className="n" data-label="Stored">
+                      {c.STORED ?? 0}
+                    </td>
+                    <td className="n" data-label="Missing">
+                      {c.MISSING ? <strong style={{ color: 'var(--bad)' }}>{c.MISSING}</strong> : 0}
+                    </td>
+                    <td className="n" data-label="Holds">
+                      {c.HOLD ?? 0}
+                    </td>
+                    <td className="n" data-label="Dispatched">
+                      {c.DISPATCHED ?? 0}
+                    </td>
                   </tr>
                 );
               })}
@@ -97,6 +107,7 @@ function CreateJob({ onClose }: { onClose: () => void }) {
       title="New job"
       kind="create_job"
       verb="Create job"
+      done={`Job ${normalizeCode(code)} created`}
       intro="Job codes are shown on every label, so keep them short. Codes are stored in capitals without extra spaces."
       valid={!!normalizeCode(code) && normalizeCode(code).length <= 20 && !!name.trim() && name.length <= 120}
       payload={() => ({ code, name, destination_notes: dest || undefined })}
@@ -142,7 +153,7 @@ export function JobDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [v, backend.network, route.id],
   );
-  if (!data) return <Empty icon="jobs" title="Job not found">It may belong to another workspace.</Empty>;
+  if (!data) return <Empty icon="jobs" title="Job not found">It may belong to another company.</Empty>;
   const { job } = data;
   const canAdmin = roleAllows(role, 'close_job');
   const blockers = data.onHand.length + data.missing.length + data.holds;
@@ -225,6 +236,7 @@ export function JobDetail() {
           title={sheet === 'close' ? `Close ${job.code}` : `Reopen ${job.code}`}
           kind={sheet === 'close' ? 'close_job' : 'reopen_job'}
           verb={sheet === 'close' ? 'Close job' : 'Reopen job'}
+          done={sheet === 'close' ? `${job.code} closed` : `${job.code} reopened`}
           reason="optional"
           expectedVersion={job.version}
           intro={sheet === 'close' ? 'Closed jobs keep their full history. They can be reopened later.' : 'Reopening allows new receipts and dispatches again.'}
@@ -255,7 +267,7 @@ function PickTable({ pallets, loc, onOpen }: { job: Job; pallets: Pallet[]; loc:
           {pallets.map((p) => (
             <tr key={p.id} className="click" onClick={() => onOpen(p.id)}>
               <td>
-                <strong className="jcode">{loc(p) || '—'}</strong>
+                <strong className="jcode">{loc(p) || 'No rack'}</strong>
               </td>
               <td>
                 <span className="pcode">{p.code}</span>

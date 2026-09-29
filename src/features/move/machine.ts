@@ -4,6 +4,7 @@
 
 import { moveBlocker } from '../../domain/transitions';
 import type { CommandResult, Location, Pallet } from '../../domain/types';
+import { asSentence } from '../station/logic';
 
 export type MoveStage = 'EXPECT_PALLET' | 'EXPECT_LOCATION' | 'REVIEW' | 'SUBMITTING' | 'RESULT' | 'CONFLICT' | 'UNKNOWN' | 'QUEUED';
 
@@ -69,7 +70,7 @@ export function moveReducer(s: MoveState, e: MoveEvent): MoveState {
           pallet: e.pallet,
           blockedRoute: null,
           lastScan: scanned,
-          message: e.pallet.hold ? { tone: 'warn', text: `On hold: ${e.pallet.hold.reason} Moving keeps the hold.` } : null,
+          message: e.pallet.hold ? { tone: 'warn', text: `On hold: ${asSentence(e.pallet.hold.reason)} Moving keeps the hold.` } : null,
         };
       }
       if (s.stage === 'EXPECT_LOCATION') {

@@ -15,14 +15,14 @@ type ListId = 'unplaced' | 'missing' | 'holds' | 'reprint' | 'stale';
 
 const LISTS: { id: ListId; title: string; icon: IconName; what: string; fix: string }[] = [
   { id: 'unplaced', title: 'Needs placement', icon: 'receive', what: 'Received but never put on a rack.', fix: 'Walk to the pallet, then use Move: scan it, scan its rack.' },
-  { id: 'missing', title: 'Missing', icon: 'question', what: 'Someone looked and could not find it.', fix: 'When it turns up, open it and choose “Found it here” at the rack where it is.' },
+  { id: 'missing', title: 'Missing', icon: 'question', what: 'Someone looked and could not find it.', fix: 'When it turns up, a supervisor opens it, presses “Found pallet” and picks the rack where it is.' },
   { id: 'holds', title: 'On hold', icon: 'hold', what: 'Flagged as damaged, wrong or disputed.', fix: 'Inspect it. A supervisor clears the hold with a reason.' },
   { id: 'reprint', title: 'Labels to reprint', icon: 'print', what: 'The label was replaced, or details changed after printing.', fix: 'Print new labels and stick them over the old ones.' },
-  { id: 'stale', title: 'Not verified in 3+ days', icon: 'check', what: 'Stored, but nobody has confirmed the rack recently.', fix: 'During a walk, open Move and use “Verify here”, or verify from the pallet record.' },
+  { id: 'stale', title: 'Not verified 3+ days', icon: 'check', what: 'Stored, but nobody has confirmed the rack recently.', fix: 'During a walk, open Move, scan the pallet and the rack it is on, and press “Confirm still here”, or use Confirm still here on the pallet record.' },
 ];
 
 export function Reconcile() {
-  const { read, go, backend, v } = useApp();
+  const { read, go, backend, v, role } = useApp();
   const [tab, setTab] = useState<ListId>('unplaced');
   const [printing, setPrinting] = useState<string[] | null>(null);
 
@@ -50,7 +50,7 @@ export function Reconcile() {
       <Explain refs="pages 6, 15">
         <p>These lists are how records stay honest. The app never guesses where a pallet is: it shows the last confirmed rack and when. Each list links to the one workflow that fixes it, and every fix is recorded in the pallet's history.</p>
       </Explain>
-      <div className="tabs" role="tablist" data-tour="reconcile-lists">
+      <div className="tabs wrap" role="tablist" data-tour="reconcile-lists">
         {LISTS.map((l) => (
           <button key={l.id} role="tab" aria-selected={tab === l.id} onClick={() => setTab(l.id)}>
             <Icon name={l.icon} /> {l.title} <span className="tag">{data[l.id].length}</span>
@@ -77,19 +77,26 @@ export function Reconcile() {
           )}
           <div className="results">
             {rows.map((r) => (
-              <div key={r.pallet.id} className="stack" style={{ gap: 6 }}>
+              <div key={r.pallet.id} className="result-card">
                 <ResultRow row={r} onOpen={() => go({ name: 'pallet', id: r.pallet.id })} />
-                <div className="row" style={{ paddingLeft: 4 }}>
-                  {tab === 'unplaced' && (
-                    <button className="btn small primary" onClick={() => go({ name: 'move', id: r.pallet.id })}>
-                      <Icon name="move" /> Place now
-                    </button>
-                  )}
-                  {tab === 'missing' && (
-                    <button className="btn small" onClick={() => go({ name: 'pallet', id: r.pallet.id })}>
-                      <Icon name="target" /> Record where it was found
-                    </button>
-                  )}
+                <div className="row result-actions">
+                  {/* Each fix is offered only to roles that can make it; the others see who can. */}
+                  {tab === 'unplaced' &&
+                    (roleAllows(role, 'place') ? (
+                      <button className="btn small primary" onClick={() => go({ name: 'move', id: r.pallet.id })}>
+                        <Icon name="move" /> Place now
+                      </button>
+                    ) : (
+                      <span className="muted result-hint">An operator can place this pallet.</span>
+                    ))}
+                  {tab === 'missing' &&
+                    (roleAllows(role, 'locate') ? (
+                      <button className="btn small" onClick={() => go({ name: 'pallet', id: r.pallet.id })}>
+                        <Icon name="target" /> Record where it was found
+                      </button>
+                    ) : (
+                      <span className="muted result-hint">A supervisor records where it was found.</span>
+                    ))}
                   {tab === 'holds' && r.pallet.hold && (
                     <span className="muted" style={{ fontSize: 13.5 }}>
                       “{r.pallet.hold.reason}” · {fmtAgo(r.pallet.hold.applied_at)}
@@ -103,11 +110,14 @@ export function Reconcile() {
                       <AppliedButton pallet={r.pallet} />
                     </>
                   )}
-                  {tab === 'stale' && (
-                    <button className="btn small" onClick={() => go({ name: 'move', id: r.pallet.id })}>
-                      <Icon name="check" /> Verify with a scan
-                    </button>
-                  )}
+                  {tab === 'stale' &&
+                    (roleAllows(role, 'verify_location') ? (
+                      <button className="btn small" onClick={() => go({ name: 'move', id: r.pallet.id })}>
+                        <Icon name="check" /> Verify with a scan
+                      </button>
+                    ) : (
+                      <span className="muted result-hint">An operator can confirm it with a scan.</span>
+                    ))}
                 </div>
               </div>
             ))}

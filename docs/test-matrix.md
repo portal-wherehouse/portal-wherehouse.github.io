@@ -15,9 +15,11 @@ Open **Integrity lab** in the app to run the same scenarios in your own browser 
 
 | Suite | Command | Result | Date | Environment |
 | --- | --- | --- | --- | --- |
-| Engine scenarios | `npx vitest run` | 38 passed, 0 failed | 2026-09-23 | Node 22.22, Linux |
-| Browser walkthroughs | `npx playwright test` | 4 passed, 0 failed | 2026-09-23 | Chromium (Playwright 1.56.1), Linux, production build |
-| Typecheck | `npx tsc -b` | clean | 2026-09-23 | TypeScript 5.9.3 |
+| Unit tests (engine scenarios, scanners, scan station, backups) | `npx vitest run` | 112 passed, 0 failed (4 files) | 2026-09-29 | Node 22.22, Linux |
+| Browser tests | `npx playwright test` | 48 passed, 0 failed, 0 skipped | 2026-09-29 | Chromium (Playwright 1.56.1), Linux, production build |
+| Typecheck | `npx tsc -b` | clean | 2026-09-29 | TypeScript 5.9.3 |
+
+The browser tests are in `tests/e2e`: `walkthrough.spec.ts` (the example shift through the real sign-in, the practice shift, the offline queue, the integrity lab, the Viewer role), `site.spec.ts` (every website page, the phone menu, the portal button, browser Back and typed addresses, the home guided tour by tap and by scanner), `portal-tour.spec.ts` (all 29 walkthrough stops on desktop and phone), `help.spec.ts` (video spot, chapters, FAQ search, contact form), `scanners.spec.ts` (keyboard-wedge emulation, command barcodes decoded from the page, the Move screen, the Scan station put-away and count, double reads), `signin.spec.ts` (deep links, role switching, two companies kept apart), `smoke.spec.ts` (every portal page, no sideways scroll at 390 px, phone tabs) and `copy.spec.ts` (no em dashes and no old product name on any page). Scanner timing depends on machine load, so the scanner and home-tour groups allow one retry, which the report shows as flaky rather than hiding.
 
 ## Scenarios (Vitest and the in-app Integrity lab)
 
@@ -91,6 +93,9 @@ These need phones, printers and people. They are listed so nobody mistakes them 
 | --- | --- | --- | --- |
 | Camera permission | First allow, first deny, later revoke | Usable recovery and manual entry | Not run |
 | Camera selection | Rear and front switch, rotation | Correct preview; scan target stays usable | Not run |
+| Handheld scanner (keyboard mode) | A USB and a Bluetooth scanner set to keyboard mode with Enter as suffix | Every label scans on Move, Find and the Scan station; typing in a text field is never mistaken for a scan | Not run (emulated in Playwright) |
+| Code 128 on printed labels | A laser scanner reading 4x6 and sheet labels | Reads the printed code on the first pass | Not run on a physical scanner. The encoder is checked against the Code 128 tables in unit tests, and on 2026-09-28 the open-source ZXing decoder (zxing-cpp) read every on-screen command barcode and six rack label barcodes correctly. |
+| Serial scanner | A serial scanner in Chrome over Web Serial | Connects, scans arrive like keyboard scans | Not run |
 | Label printing | Sheet and 4x6 output at actual size | Readable code, intact QR, no clipped labels | Not run |
 | Label condition | Glare, mild damage, wrinkling, low light | Reliable scan, or a clear fallback | Not run |
 | App lifecycle | Lock phone, switch apps, resume | No duplicate command or stuck camera | Not run |
@@ -103,4 +108,4 @@ Gate (page 32): at least one tested iPhone and one tested Android device must co
 
 ## Online pilot tests (pages 30 and 31): waiting on the backend
 
-D01 to D07 and S01 to S04 above prove the rules in the local engine. The blueprint requires the same cases against a real Postgres database with row-level security, two workspaces and forced faults. Those run once the Supabase project exists.
+D01 to D07 and S01 to S04 above prove the rules in the local engine. The blueprint requires the same cases against the real backend, two workspaces and forced faults. With Firebase (D-18) that means the command function and `firestore.rules` tested in the Firebase emulators, then in the real project. Those run once the Firebase project exists.

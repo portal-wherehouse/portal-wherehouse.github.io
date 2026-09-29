@@ -2,7 +2,7 @@
 // opens each stop's screen, dims everything but the part being explained, and anchors a card beside it.
 
 import './portal-tour.css';
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { isSiteRoute, useApp, type Route, type RouteName } from '../../app/state';
 import { MIN_ROLE, roleAllows } from '../../domain/transitions';
 import { Icon } from '../../ui/icons';
@@ -31,6 +31,8 @@ interface Geo {
   mode: Mode;
   top: number;
   left: number;
+  /** Set when the card is narrowed to fit beside the spotlight instead of covering it. */
+  width?: number;
   view: ViewState;
 }
 
@@ -49,9 +51,13 @@ interface Found {
 const LAST = STOPS.length - 1;
 /** Used when a screen has none of its stop's own targets, for example a role that cannot use it. */
 const GENERIC = ['#main .page-head', '[data-tour="page-title"]', '#main'];
+/** The lock panel a screen shows to a role that cannot use it. */
+const LOCKED = ['[data-tour="locked"]'];
 const PAD = 8;
 const GAP = 14;
 const EDGE = 12;
+/** The narrowest the card gets when it is squeezed in beside a spotlight. */
+const MIN_CARD = 300;
 const SPECIFIC_WAIT_MS = 350;
 const SEEK_LIMIT_MS = 1500;
 
@@ -59,7 +65,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(n, hi
 
 function readView(): ViewState {
   const w = window.innerWidth;
-  return { sidebar: window.matchMedia('(min-width: 960px)').matches, narrow: w <= 420, compact: w < 640 };
+  return { sidebar: window.matchMedia('(min-width: 960px)').matches, narrow: w <= 520, compact: w < 640 };
 }
 
 function reducedMotion(): boolean {
@@ -161,7 +167,7 @@ function scrollFor(els: Element[], cardH: number, view: ViewState): number | nul
 }
 
 /** Beside the spotlight where the card fits: right, left, below, above; wide targets try below first. */
-function place(r: Box, w: number, h: number, vw: number, vh: number, align: TourStop['align']): { top: number; left: number } {
+function place(r: Box, w: number, h: number, vw: number, vh: number, align: TourStop['align']): { top: number; left: number; width?: number } {
   const right = r.left + r.width;
   const bottom = r.top + r.height;
   const vTop = clamp(r.top, EDGE, vh - h - EDGE);
@@ -174,7 +180,20 @@ function place(r: Box, w: number, h: number, vw: number, vh: number, align: Tour
   ];
   const order = r.width > vw * 0.55 ? [2, 3, 0, 1] : [0, 1, 2, 3];
   for (const i of order) if (options[i].ok) return options[i];
+  // Nothing fits whole: narrow the card into the wider side gap rather than cover the spotlight.
+  const roomRight = vw - EDGE - (right + GAP);
+  const roomLeft = r.left - GAP - EDGE;
+  if (Math.max(roomRight, roomLeft) >= MIN_CARD) {
+    return roomRight >= roomLeft ? { top: vTop, left: right + GAP, width: roomRight } : { top: vTop, left: EDGE, width: roomLeft };
+  }
   return { top: Math.max(EDGE, vh - h - EDGE), left: Math.max(EDGE, vw - w - EDGE) };
+}
+
+/** The card's own width from the stylesheet, before any narrowing to fit beside a spotlight. */
+function naturalWidth(card: HTMLElement | null, vw: number): number {
+  if (!card) return 0;
+  const css = parseFloat(getComputedStyle(card).getPropertyValue('--ptour-w'));
+  return css ? Math.min(css, vw - 2 * EDGE) : card.offsetWidth;
 }
 
 /** What covers ordinary page content: the sticky top bar and, on phones, the tab bar. */
@@ -198,7 +217,7 @@ function measure(found: Found | null, card: HTMLElement | null, prev: Geo | null
   const view = readView();
   const vw = document.documentElement.clientWidth;
   const vh = window.innerHeight;
-  const w = card?.offsetWidth ?? 0;
+  const w = naturalWidth(card, vw);
   const h = card?.offsetHeight ?? 0;
   const centered = (): Geo => (view.compact ? { spot: null, mode: 'sheet-bottom', top: 0, left: 0, view } : { spot: null, mode: 'center', top: Math.max(EDGE, (vh - h) / 2), left: Math.max(EDGE, (vw - w) / 2), view });
 
@@ -242,7 +261,7 @@ function sameGeo(a: Geo | null, b: Geo): boolean {
   if (!a) return false;
   const near = (x: number, y: number) => Math.abs(x - y) < 0.5;
   const sameBox = (p: Box | null, q: Box | null) => (!p || !q ? p === q : near(p.top, q.top) && near(p.left, q.left) && near(p.width, q.width) && near(p.height, q.height));
-  return a.mode === b.mode && near(a.top, b.top) && near(a.left, b.left) && sameBox(a.spot, b.spot) && a.view.sidebar === b.view.sidebar && a.view.narrow === b.view.narrow && a.view.compact === b.view.compact;
+  return a.mode === b.mode && near(a.top, b.top) && near(a.left, b.left) && near(a.width ?? 0, b.width ?? 0) && sameBox(a.spot, b.spot) && a.view.sidebar === b.view.sidebar && a.view.narrow === b.view.narrow && a.view.compact === b.view.compact;
 }
 
 /** Pallet, rack and job codes in the copy (P-000042, A-03-02) never break across lines. */
@@ -284,19 +303,23 @@ function whereLine(stop: TourStop, route: RouteName | null, sidebar: boolean): s
 export function PortalTour() {
   const { guideStep, actorId, route, blockedNav, stopGuide } = useApp();
   const inPortal = !!actorId && !isSiteRoute(route.name) && route.name !== 'signin';
+  // The stop whose screen was last opened. It outlives the card, which hides during a "Leave this screen?"
+  // question, so the card coming back does not ask to leave again.
+  const opened = useRef<number | null>(null);
 
   // Leaving the portal (signing out) ends the tour rather than parking it.
   useEffect(() => {
     if (guideStep !== null && !inPortal) stopGuide();
+    if (guideStep === null) opened.current = null;
   }, [guideStep, inPortal, stopGuide]);
 
   if (guideStep === null || !inPortal) return null;
-  // A "leave this screen?" question takes priority; the tour comes back once it is answered.
+  // A "leave this screen?" question takes priority. Leaving carries the tour on; staying ends it.
   if (blockedNav) return null;
-  return <TourOverlay index={clamp(Math.round(guideStep), 0, LAST)} />;
+  return <TourOverlay index={clamp(Math.round(guideStep), 0, LAST)} opened={opened} />;
 }
 
-function TourOverlay({ index }: { index: number }) {
+function TourOverlay({ index, opened }: { index: number; opened: RefObject<number | null> }) {
   const { route, go, setGuideStep, stopGuide, setTourOpen, backend, workspaceId, role } = useApp();
   const stop = STOPS[index];
   const cardRef = useRef<HTMLDivElement>(null);
@@ -323,6 +346,7 @@ function TourOverlay({ index }: { index: number }) {
   }, [stop]);
   const arrived = !dest || sameRoute(route, dest);
   const current = found && found.index === index ? found : null;
+  const locked = !!(stop.needs && role && !roleAllows(role, stop.needs));
 
   useEffect(() => {
     const el = document.createElement('div');
@@ -338,6 +362,8 @@ function TourOverlay({ index }: { index: number }) {
 
   // 1. Open the stop's screen.
   useEffect(() => {
+    if (opened.current === index) return;
+    opened.current = index;
     if (dest && !sameRoute(route, dest)) go(dest);
     // Only when the stop changes: if someone navigates by hand, the tour does not drag them back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -351,7 +377,8 @@ function TourOverlay({ index }: { index: number }) {
     }
     let raf = 0;
     const started = performance.now();
-    const specific = stop.target ?? [];
+    // A role that cannot use the screen sees its lock panel, so that is what gets the spotlight.
+    const specific = locked ? LOCKED : (stop.target ?? []);
     const generic = stop.route ? GENERIC : [];
     const settle = (el: Element | null) => {
       if (!el) return setFound({ index, els: [], pinned: false, under: false, ready: true });
@@ -462,12 +489,12 @@ function TourOverlay({ index }: { index: number }) {
   // Keep the last width while the next stop is being found, so the card does not jump.
   if (current) lastUnder.current = current.under;
   const under = !wide && mode === 'float' && lastUnder.current;
-  const cardStyle = geo && (mode === 'float' || mode === 'center') ? { top: geo.top, left: geo.left } : undefined;
+  const cardStyle = geo && (mode === 'float' || mode === 'center') ? { top: geo.top, left: geo.left, width: geo.width } : undefined;
   const total = STOPS.length;
   const body = copy(stop.body, view);
   const tip = copy(stop.tip, view);
   const where = stop.kind ? null : whereLine(stop, dest?.name ?? null, view.sidebar);
-  const lockNote = stop.needs && role && !roleAllows(role, stop.needs) ? `Your ${ROLE_LABEL[role]} account can only look here. This screen needs ${ROLE_LABEL[MIN_ROLE[stop.needs]]} access or higher.` : null;
+  const lockNote = locked && role && stop.needs ? `This screen is locked for your ${ROLE_LABEL[role]} account. It needs ${ROLE_LABEL[MIN_ROLE[stop.needs]]} access or higher. Here is what it does:` : null;
 
   const end = () => stopGuide();
   const openHelp = () => {
@@ -514,18 +541,18 @@ function TourOverlay({ index }: { index: number }) {
               {stop.title}
             </h2>
           </div>
+          {lockNote && (
+            <p className="ptour-note">
+              <Icon name="lock" aria-hidden="true" />
+              <span>{lockNote}</span>
+            </p>
+          )}
           <p id={bodyId} className="ptour-body">
             {rich(body)}
           </p>
           {tip && (
             <p className="ptour-tip">
               <strong>Tip:</strong> {rich(tip)}
-            </p>
-          )}
-          {lockNote && (
-            <p className="ptour-note">
-              <Icon name="lock" aria-hidden="true" />
-              <span>{lockNote}</span>
             </p>
           )}
           {where && (

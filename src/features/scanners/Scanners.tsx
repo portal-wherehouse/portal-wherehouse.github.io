@@ -252,7 +252,7 @@ function SettingsPanel() {
           step={1}
           value={settings.minLength}
           onCommit={(minLength) => setSettings({ minLength })}
-          hint={`Shorter bursts are ignored. ${BRAND.name} labels are all longer than 4 characters.`}
+          hint={`Shorter bursts are ignored. ${BRAND.name} QR codes are long, but a barcode carries just the printed code, so keep this at or below your shortest rack code.`}
         />
       </div>
 

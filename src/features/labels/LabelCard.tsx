@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { makeLabelPayload } from '../../domain/codes';
-import type { Job, Location, Pallet } from '../../domain/types';
+import type { Job, Location, LocationKind, Pallet } from '../../domain/types';
 import { qrSvg } from '../../device/output';
 import { Barcode128 } from './Barcode128';
 import './barcode.css';
@@ -29,11 +29,11 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
     return (
       <div className="label-card label-sheet">
         <FitCode text={pallet.code} className="l-code" maxHeight="0.56in" />
+        <div className="l-job">JOB {job.code}</div>
+        <div className="l-desc l-clamp">{pallet.description}</div>
         <div className="l-row">
           <Qr payload={payload} className="l-qr" />
           <div className="l-side">
-            <div className="l-job">{job.code}</div>
-            <div className="l-desc l-clamp">{pallet.description}</div>
             <Barcode128 value={pallet.code} className="l-bc" height="0.42in" />
           </div>
         </div>
@@ -58,12 +58,15 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
   );
 }
 
+/** The kind line printed on a location label, in the words the app uses elsewhere. */
+const KIND_LINE: Record<LocationKind, string> = { RACK: 'Rack location', RECEIVING: 'Receiving area', QUARANTINE: 'Quarantine area', STAGING: 'Staging area', FLOOR: 'Floor area' };
+
 export function RackLabel({ location, token, warehouse }: { location: Location; token: string; warehouse: string }) {
   return (
     <div className="label-card label-rack">
       <Qr payload={makeLabelPayload('L', token)} className="l-qr" />
       <div className="l-side">
-        <div className="l-kind">{location.kind === 'RACK' ? 'Rack location' : location.kind.toLowerCase()}</div>
+        <div className="l-kind">{KIND_LINE[location.kind]}</div>
         <FitCode text={location.code} className="l-code" maxHeight="0.95in" />
         <Barcode128 value={location.code} className="l-bc" height="0.42in" />
         <div className="l-foot" style={{ gap: '0.2in' }}>

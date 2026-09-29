@@ -36,7 +36,7 @@ const STEPS: { rail: string; title: string; body: string; tab: DeviceTab; eyebro
     rail: 'Label',
     eyebrow: 'Receive',
     title: 'It gets a label',
-    body: 'Print the label and stick it on the pallet. The big code is for people, the QR code is for scanners, and the job line tells anyone walking by whose material it is.',
+    body: 'Print the label and stick it on the pallet. The big code is for people, the QR code and barcode are for scanners, and the job line tells anyone walking by whose material it is.',
     tab: 'receive',
   },
   {
@@ -57,7 +57,8 @@ const STEPS: { rail: string; title: string; body: string; tab: DeviceTab; eyebro
     rail: 'Find',
     eyebrow: 'Find',
     title: 'Find it later',
-    body: 'Weeks later someone asks for the J-214 lighting. Search by job, pallet code, rack or a word from the description. The rack comes first, because that is where you walk.',
+    // The tour puts the ask in front: "Weeks later someone asks for the J-214 lighting fixtures."
+    body: 'Search by job, pallet code, rack or a word from the description. The rack comes first, because that is where you walk.',
     tab: 'find',
   },
   {
@@ -70,7 +71,7 @@ const STEPS: { rail: string; title: string; body: string; tab: DeviceTab; eyebro
 ];
 
 const CALLOUTS: Callout[] = [
-  { selector: '.l-code', title: 'The big code', body: 'Printed large so anyone can read it at a glance. If the QR code is ever damaged, type this instead.' },
+  { selector: '.l-code', title: 'The big code', body: 'Printed large so anyone can read it at a glance. If the QR code and barcode are both damaged, type this instead.' },
   { selector: '.l-job', title: 'The job line', body: 'Which job it belongs to and what is on it, so anyone walking past knows whose it is.' },
   {
     selector: '.l-qr',
@@ -84,6 +85,11 @@ const RACK_CHOICES = [SUGGESTED_RACK, 'A-01-02', 'B-02-01'];
 const MAX_ROWS = 8;
 /** A tap or Enter this soon after a hardware scan is the scanner's own Enter key, not a person. */
 const HARDWARE_ECHO_MS = 300;
+
+/** A word from a description to search by: "lighting" for "Lighting fixtures". */
+const searchWord = (description: string) => (description.match(/[A-Za-z]{3,}/)?.[0] ?? description.trim()).toLowerCase();
+/** A description as it reads mid-sentence: "Lighting fixtures" becomes "lighting fixtures", "LED panels" keeps its capitals. */
+const midSentence = (text: string) => (/^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text);
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -179,6 +185,8 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
     const p = r.current_state!;
     settle(() => {
       setPallet(p);
+      // Step 5 opens on a search for this pallet's own job.
+      setQ(sb.engine.db.jobs[p.job_id]?.code ?? '');
       setAnnounce(`Received. The new pallet code is ${p.code}.`);
     });
   };
@@ -190,16 +198,17 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
     setAnnounce(spoken);
   };
 
-  const scan = (text: string) => {
-    if (!pallet) return;
+  /** Handle one scan. Returns 'error' when the scan could not be used, so a hardware scanner plays the bad sound. */
+  const scan = (text: string): true | 'error' => {
+    if (!pallet) return true;
     if (saved) {
       say('info', 'Already placed', 'This pallet is saved. Start over to run the loop again.', 'Already placed.');
-      return;
+      return true;
     }
     const r = resolveScan(sb, text);
     if (r.type === 'error') {
-      say('warn', 'Not recognized', `${r.message} Tap one of the labels above, or type ${scannedPallet ? SUGGESTED_RACK : pallet.code}.`, r.message);
-      return;
+      say('warn', 'Not recognized', `${r.message} Tap one of the printed labels, or type ${scannedPallet ? SUGGESTED_RACK : pallet.code}.`, r.message);
+      return 'error';
     }
     if (r.type === 'pallet') {
       if (r.pallet.id !== pallet.id) {
@@ -209,7 +218,7 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
           `That label is ${r.pallet.code} (${r.pallet.description}). For this tour, scan ${pallet.code}, the pallet you just received.`,
           `Different pallet ${r.pallet.code}.`,
         );
-        return;
+        return 'error';
       }
       if (scannedPallet) {
         say(
@@ -218,11 +227,11 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
           rack ? `${pallet.code} and ${rack.code} are both in. Review the move to save it.` : `${pallet.code} is already scanned. Now scan the rack you put it on.`,
           'Pallet already scanned.',
         );
-        return;
+        return true;
       }
       setScannedPallet(pallet);
       say('ok', 'Pallet scanned', `${pallet.code}, ${pallet.description}. Now scan the rack you put it on.`, `Pallet ${pallet.code} scanned. Now scan the rack.`);
-      return;
+      return true;
     }
     const loc = r.location;
     if (!scannedPallet) {
@@ -232,19 +241,20 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
         `That is rack ${loc.code}. Scan the pallet label first so ${BRAND.name} knows what is moving, then the rack to say where it went.`,
         `That is rack ${loc.code}. Scan the pallet first.`,
       );
-      return;
+      return 'error';
     }
     if (!loc.active) {
       say('warn', `${loc.code} is not in use`, 'Pick another rack.', `${loc.code} is not in use.`);
-      return;
+      return 'error';
     }
     if (rack && rack.id === loc.id) {
       // Scanning the same rack again confirms the choice, like the portal's "scan again to confirm".
       goStep(3);
-      return;
+      return true;
     }
     setRack(loc);
     say('ok', rack ? 'Rack changed' : 'Rack scanned', `${loc.code}. Both scans are in. Review the move to save it.`, `Rack ${loc.code} scanned. Both scans are in.`);
+    return true;
   };
 
   const fromPerson = () => performance.now() - lastHardware.current > HARDWARE_ECHO_MS;
@@ -255,8 +265,7 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
     (e) => {
       lastHardware.current = performance.now();
       setCode('');
-      scan(e.text);
-      return true;
+      return scan(e.text);
     },
     step === 2,
   );
@@ -320,7 +329,16 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
 
   // ---------------------------------------------------------------- narrative
 
+  // Step 5 asks for what the visitor actually received, and the rack they put it on.
+  const find = {
+    job: job?.code ?? 'J-214',
+    what: pallet ? midSentence(pallet.description) : 'lighting fixtures',
+    rack: rack?.code ?? SUGGESTED_RACK,
+    word: pallet ? searchWord(pallet.description) : 'lighting',
+  };
+
   const s = STEPS[step];
+  let body = s.body;
   let turn: ReactNode;
   let behind: ReactNode;
   let blocked: string | null = null;
@@ -360,7 +378,8 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
       blocked = saved ? null : 'Confirm the move to continue.';
       break;
     case 4:
-      turn = 'Search J-214, a rack like A-03-02, or a word like lighting.';
+      body = `Weeks later someone asks for the ${find.job} ${find.what}. ${s.body}`;
+      turn = `Search ${find.job}, a rack like ${find.rack}, or a word like ${find.word}.`;
       behind =
         'Exact codes rank first, then codes that start with what you typed, then words in descriptions. Locations read “last confirmed”: where the pallet was recorded, never a guess.';
       break;
@@ -420,7 +439,7 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
   } else if (step === 3 && pallet && job && rack) {
     screen = <ConfirmScreen pallet={pallet} job={job} rack={rack} saved={saved} busy={busy} error={placeError} onConfirm={confirm} onChangeRack={changeRack} />;
   } else if (step === 4) {
-    screen = <FindScreen q={q} onQ={setQ} rows={found.rows} total={found.total} highlightId={pallet?.id ?? null} palletCode={pallet?.code ?? null} />;
+    screen = <FindScreen q={q} onQ={setQ} rows={found.rows} total={found.total} highlightId={pallet?.id ?? null} palletCode={pallet?.code ?? null} examples={find} />;
   } else if (step === 5 && pallet && job) {
     screen = (
       <HistoryScreen pallet={pallet} job={job} location={pallet.current_location_id ? (sb.engine.db.locations[pallet.current_location_id] ?? null) : null} events={events} />
@@ -464,7 +483,7 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
         <h3 className="tt-title" ref={heading} tabIndex={-1}>
           {s.title}
         </h3>
-        <p className="tt-body">{nowrapCodes(s.body)}</p>
+        <p className="tt-body">{nowrapCodes(body)}</p>
         <Aside icon="bolt" label="Your turn" className="tt-turn">
           {nowrapCodes(turn)}
         </Aside>

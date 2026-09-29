@@ -332,16 +332,16 @@ add({
   group: 'Database & retries',
   title: 'Concurrent moves from one revision',
   page: 31,
-  proves: 'Alice and Ben both load version N. One move is accepted; the other gets an explicit conflict with the current summary.',
+  proves: 'Two phones both load version N. One move is accepted; the other gets an explicit conflict with the current summary.',
   run(h) {
     const p = h.pallet('P-000014');
     const v = p.version;
-    const alice = h.envelope('move', { location_id: h.loc('A-03-02').id }, p, { expectedVersion: v });
-    const ben = h.envelope('move', { location_id: h.loc('B-01-01').id }, p, { expectedVersion: v });
-    const a = h.engine.execute(h.users.operator, alice);
-    const b = h.engine.execute(h.users.supervisor, ben);
-    h.expect(a.ok, 'Alice commits version ' + (v + 1));
-    h.expect(!b.ok && b.code === 'VERSION_CONFLICT', 'Ben receives VERSION_CONFLICT');
+    const phoneA = h.envelope('move', { location_id: h.loc('A-03-02').id }, p, { expectedVersion: v });
+    const phoneB = h.envelope('move', { location_id: h.loc('B-01-01').id }, p, { expectedVersion: v });
+    const a = h.engine.execute(h.users.operator, phoneA);
+    const b = h.engine.execute(h.users.supervisor, phoneB);
+    h.expect(a.ok, 'Phone A commits version ' + (v + 1));
+    h.expect(!b.ok && b.code === 'VERSION_CONFLICT', 'Phone B receives VERSION_CONFLICT');
     h.expect(!b.ok && b.current?.version === v + 1 && b.current.current_location_id === h.loc('A-03-02').id, 'Conflict shows the newer state', 'A-03-02, version ' + (v + 1));
     h.equal(h.events(p).length, v + 1, 'Exactly one new event');
   },

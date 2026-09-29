@@ -460,7 +460,6 @@ interface HistEvent {
   when: string;
   body: ReactNode;
   tone?: 'fix' | 'old';
-  tag?: string;
 }
 
 function HistoryList({ events }: { events: HistEvent[] }) {
@@ -475,7 +474,6 @@ function HistoryList({ events }: { events: HistEvent[] }) {
             <div className="cm-h-top">
               <strong>{e.title}</strong>
               <span className="cm-v">v{e.v}</span>
-              {e.tag && <span className="tag warn">{e.tag}</span>}
             </div>
             <div className="cm-h-what">{e.body}</div>
             <div className="cm-faint">{e.when}</div>
@@ -489,7 +487,7 @@ function HistoryList({ events }: { events: HistEvent[] }) {
 /** History with a correction: the mistaken entry stays, the fix is added on top. */
 export function CorrectionMock() {
   return (
-    <Browser screen="Pallet P-000020 · History" label="A pallet history with a correction. A move to B-02-02 was recorded by mistake. A supervisor added a correction with a reason. The original move is still listed, marked as corrected.">
+    <Browser screen="Pallet P-000020 · History" label="A pallet history with a correction. A move to B-02-02 was recorded by mistake. A supervisor added a correction with a reason. The original move is still listed, and the correction points back to it.">
       <div className="cm-panel-title">
         <Icon name="history" /> History <span className="grow" />
         <span className="cm-faint">4 events, newest first</span>
@@ -508,7 +506,7 @@ export function CorrectionMock() {
             ),
             tone: 'fix',
           },
-          { icon: 'move', title: 'Moved', v: 3, when: '9:40 AM · Demo Operator', body: 'B-01-02 → B-02-02', tone: 'old', tag: 'Corrected in v4' },
+          { icon: 'move', title: 'Moved', v: 3, when: '9:40 AM · Demo Operator', body: 'B-01-02 → B-02-02', tone: 'old' },
           { icon: 'pin', title: 'Placed', v: 2, when: 'Sep 18 · Demo Operator', body: 'Unassigned → B-01-02' },
           { icon: 'receive', title: 'Received', v: 1, when: 'Sep 18 · Demo Operator', body: 'For J-203 Library HVAC upgrade' },
         ]}
@@ -533,14 +531,14 @@ export function MapMock() {
           <div key={a.aisle} className="cm-map-row">
             <span className="cm-map-aisle">{a.aisle}</span>
             {a.bays.map((b) => (
-              <span key={b.code} className={`cm-bay ${b.n === 0 ? 'empty' : ''}`}>
+              <span key={b.code} className={`cm-bay ${b.n === 0 ? 'cm-nothing' : ''}`}>
                 <span className="cm-bay-code">{b.code}</span>
                 <span className="cm-bay-boxes">
                   {Array.from({ length: b.n }, (_, i) => (
                     <i key={i} className={b.hold && i < b.hold ? 'held' : undefined} />
                   ))}
                 </span>
-                <span className="cm-bay-n">{b.n === 0 ? 'Nothing recorded' : `${b.n} recorded${b.hold ? ` · ${b.hold} hold` : ''}`}</span>
+                <span className="cm-bay-n">{b.n === 0 ? 'Nothing recorded' : `${b.n} recorded${b.hold ? ` · ${b.hold}\u00a0hold` : ''}`}</span>
               </span>
             ))}
           </div>
@@ -822,7 +820,7 @@ export function PeopleMock() {
 export function PalletLabelMock({ marks = false, className, code = 'P-000042' }: { marks?: boolean; className?: string; code?: string }) {
   const m = (n: number) => (marks ? <span className="cm-mark-n">{n}</span> : null);
   return (
-    <figure className={`cm-label ${className ?? ''}`} role="img" aria-label={`Sample pallet label for ${code}: the code printed large, job J-214 School renovation, Lighting fixtures, a QR code, a Code 128 barcode, and the line: if the QR is damaged, type ${code}.`}>
+    <figure className={`cm-label ${className ?? ''}`} role="img" aria-label={`Sample pallet label for ${code}: the code printed large, job J-214 School renovation, Lighting fixtures, a QR code, a Code 128 barcode of the code, and the line: if both codes are damaged, type ${code}.`}>
       <div aria-hidden="true">
         <div className="cm-label-code">
           {m(1)}
@@ -846,27 +844,32 @@ export function PalletLabelMock({ marks = false, className, code = 'P-000042' }:
           </span>
           <span className="cm-label-bar">
             {m(3)}
-            <Code128 text={SAMPLE_PALLET_PAYLOAD} caption={false} />
+            <Code128 text={code} caption={false} />
           </span>
         </div>
         <div className="cm-label-foot">
           {m(5)}
-          <span>WH-01 · If the QR is damaged, type {code}</span>
+          <span>WH-01 · If both codes are damaged, type {code}</span>
         </div>
       </div>
     </figure>
   );
 }
 
-/** A rack label: the rack code first, with its QR. */
+/** A rack label: the rack code first, with its QR and a Code 128 barcode of the rack code. */
 export function RackLabelMock({ code = 'A-03-02' }: { code?: string }) {
   return (
-    <figure className="cm-rack-label" role="img" aria-label={`Sample rack label for ${code} with a QR code and the line: scan the pallet first, then this label.`}>
+    <figure
+      className="cm-rack-label"
+      role="img"
+      aria-label={`Sample rack label for ${code} with a QR code, a Code 128 barcode of the rack code, and the line: scan the pallet first, then this label.`}
+    >
       <div aria-hidden="true" className="cm-rack-inner">
         <QrCode payload={SAMPLE_RACK_PAYLOAD} className="cm-rack-qr" />
         <div className="cm-rack-text">
           <span className="cm-rack-kind">Rack location</span>
           <span className="cm-rack-code">{code}</span>
+          <Code128 text={code} caption={false} className="cm-rack-bar" />
           <span className="cm-rack-foot">Scan the pallet first, then this label</span>
         </div>
       </div>
@@ -1054,20 +1057,27 @@ export function HelpMock() {
  */
 export function LifecycleDiagram() {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const arrow = `lc-a-${id}`;
-  const arrowSoft = `lc-s-${id}`;
-  const defs = (
-    <defs>
-      <marker id={arrow} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M0 0L10 5L0 10z" className="lc-head" />
-      </marker>
-      <marker id={arrowSoft} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M0 0L10 5L0 10z" className="lc-head-soft" />
-      </marker>
-    </defs>
-  );
-  const m = `url(#${arrow})`;
-  const ms = `url(#${arrowSoft})`;
+  // Each drawing defines its own arrowheads: CSS hides one drawing, and markers inside a hidden SVG never paint.
+  const arrows = (which: 'w' | 't') => {
+    const arrow = `lc-a-${id}-${which}`;
+    const arrowSoft = `lc-s-${id}-${which}`;
+    return {
+      defs: (
+        <defs>
+          <marker id={arrow} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" className="lc-head" />
+          </marker>
+          <marker id={arrowSoft} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" className="lc-head-soft" />
+          </marker>
+        </defs>
+      ),
+      m: `url(#${arrow})`,
+      ms: `url(#${arrowSoft})`,
+    };
+  };
+  const wide = arrows('w');
+  const tall = arrows('t');
   const title = 'Pallet lifecycle';
   const desc =
     'Receive creates a pallet as Received. Placing it on a rack makes it Stored; moves keep it Stored at a new rack. Dispatch sends it to the job site. When it comes back, the return is recorded and it is Received again, ready to place. A received or stored pallet can be marked Missing; a supervisor records where it was found and it is Stored again. A supervisor can retire a pallet from any state.';
@@ -1077,18 +1087,18 @@ export function LifecycleDiagram() {
       <svg className="lc-wide" viewBox="0 0 1000 480" role="img" aria-labelledby={`${id}-t ${id}-d`}>
         <title id={`${id}-t`}>{title}</title>
         <desc id={`${id}-d`}>{desc}</desc>
-        {defs}
+        {wide.defs}
         {/* edges */}
-        <path className="lc-edge" d="M232 246H396" markerEnd={m} />
-        <path className="lc-edge" d="M602 246H766" markerEnd={m} />
-        <path className="lc-edge" d="M470 284C470 350 530 350 530 288" markerEnd={m} />
-        <path className="lc-edge" d="M870 284V404H604" markerEnd={m} />
-        <path className="lc-edge" d="M398 404H130V288" markerEnd={m} />
-        <path className="lc-edge soft" d="M470 208V112" markerEnd={ms} />
-        <path className="lc-edge soft" d="M130 208V74H396" markerEnd={ms} />
-        <path className="lc-edge soft" d="M530 112V204" markerEnd={ms} />
-        <path className="lc-edge dash" d="M602 74H766" markerEnd={ms} />
-        <path className="lc-edge dash" d="M870 208V112" markerEnd={ms} />
+        <path className="lc-edge" d="M232 246H396" markerEnd={wide.m} />
+        <path className="lc-edge" d="M602 246H766" markerEnd={wide.m} />
+        <path className="lc-edge" d="M470 284C470 350 530 350 530 288" markerEnd={wide.m} />
+        <path className="lc-edge" d="M870 284V404H604" markerEnd={wide.m} />
+        <path className="lc-edge" d="M398 404H130V288" markerEnd={wide.m} />
+        <path className="lc-edge soft" d="M470 208V112" markerEnd={wide.ms} />
+        <path className="lc-edge soft" d="M130 208V74H396" markerEnd={wide.ms} />
+        <path className="lc-edge soft" d="M530 112V204" markerEnd={wide.ms} />
+        <path className="lc-edge dash" d="M602 74H766" markerEnd={wide.ms} />
+        <path className="lc-edge dash" d="M870 208V112" markerEnd={wide.ms} />
 
         {/* edge labels */}
         <text className="lc-l" x="314" y="234" textAnchor="middle">Place</text>
@@ -1120,14 +1130,14 @@ export function LifecycleDiagram() {
       <svg className="lc-tall" viewBox="0 0 340 660" role="img" aria-labelledby={`${id}-t2 ${id}-d2`}>
         <title id={`${id}-t2`}>{title}</title>
         <desc id={`${id}-d2`}>{desc}</desc>
-        {defs}
-        <path className="lc-edge" d="M106 92V190" markerEnd={m} />
-        <path className="lc-edge" d="M106 272V370" markerEnd={m} />
-        <path className="lc-edge" d="M106 452V508" markerEnd={m} />
-        <path className="lc-edge" d="M30 534H12V52H26" markerEnd={m} />
-        <path className="lc-edge soft" d="M184 220H210" markerEnd={ms} />
-        <path className="lc-edge soft" d="M212 244H186" markerEnd={ms} />
-        <path className="lc-edge dash" d="M184 412H210" markerEnd={ms} />
+        {tall.defs}
+        <path className="lc-edge" d="M106 92V190" markerEnd={tall.m} />
+        <path className="lc-edge" d="M106 272V370" markerEnd={tall.m} />
+        <path className="lc-edge" d="M106 452V508" markerEnd={tall.m} />
+        <path className="lc-edge" d="M30 534H12V52H26" markerEnd={tall.m} />
+        <path className="lc-edge soft" d="M184 220H210" markerEnd={tall.ms} />
+        <path className="lc-edge soft" d="M212 244H186" markerEnd={tall.ms} />
+        <path className="lc-edge dash" d="M184 412H210" markerEnd={tall.ms} />
         <text className="lc-l" x="118" y="136">Place</text>
         <text className="lc-ls" x="118" y="154">scan pallet, scan rack</text>
         <text className="lc-l" x="118" y="316">Dispatch</text>

@@ -1,12 +1,26 @@
 // Warehouse map: every location laid out by zone and aisle from its code, with a box per recorded pallet.
 // Recorded state only: the map never claims free space or capacity (page 32, non-goals).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import type { Location, Pallet } from '../../domain/types';
 import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
-import { Empty, Explain, PageHead, Plate } from '../../ui/ui';
+import { Empty, Explain, PageHead, Plate, Sheet } from '../../ui/ui';
 import { ResultRow } from '../find/Find';
+
+/** Wide enough for the selected location to sit beside the zones; narrower screens show it in a sheet. */
+const SIDE_BY_SIDE = '(min-width: 1100px)';
+
+function useSideBySide(): boolean {
+  return useSyncExternalStore(
+    (fn) => {
+      const mq = window.matchMedia(SIDE_BY_SIDE);
+      mq.addEventListener('change', fn);
+      return () => mq.removeEventListener('change', fn);
+    },
+    () => window.matchMedia(SIDE_BY_SIDE).matches,
+  );
+}
 
 interface Zone {
   zone: string;
@@ -17,6 +31,7 @@ export function WarehouseMap() {
   const { read, go, route, backend, v } = useApp();
   const [selected, setSelected] = useState<string | null>(route.id ?? null);
   const [showInactive, setShowInactive] = useState(false);
+  const sideBySide = useSideBySide();
 
   const data = useMemo(
     () =>
@@ -56,10 +71,15 @@ export function WarehouseMap() {
     const list = data.byLoc[l.id] ?? [];
     const held = list.filter((p) => p.hold).length;
     return (
-      <button key={l.id} className={`bay ${l.active ? '' : 'inactive'}`} aria-pressed={selected === l.id} onClick={() => setSelected(selected === l.id ? null : l.id)} aria-label={`${l.code}: ${list.length} pallets recorded${held ? `, ${held} on hold` : ''}${l.active ? '' : ', inactive'}`}>
-        <span className="bay-code" style={l.code.length > 8 ? { fontSize: 16, overflowWrap: 'anywhere' } : undefined}>
-          {l.code}
-        </span>
+      <button
+        key={l.id}
+        // Long area codes (RECEIVING-01) take two tiles' width, so every code stays on one line.
+        className={`bay ${l.active ? '' : 'inactive'} ${l.code.length > 8 ? 'wide' : ''}`}
+        aria-pressed={selected === l.id}
+        onClick={() => setSelected(selected === l.id ? null : l.id)}
+        aria-label={`${l.code}: ${list.length} pallets recorded${held ? `, ${held} on hold` : ''}${l.active ? '' : ', inactive'}`}
+      >
+        <span className="bay-code">{l.code}</span>
         <span className="boxes" aria-hidden>
           {list.slice(0, 12).map((p) => (
             <span key={p.id} className={`box ${p.hold ? 'held' : ''}`} title={`${p.code}${p.hold ? ' (on hold)' : ''}`} />
@@ -74,6 +94,29 @@ export function WarehouseMap() {
       </button>
     );
   };
+
+  // What is recorded at the selected location: beside the zones on wide screens, in a sheet otherwise.
+  const detail = sel && (
+    <>
+      <div className="muted">
+        {selPallets.length === 0 ? 'No pallets are recorded here.' : `${selPallets.length} ${selPallets.length === 1 ? 'pallet is' : 'pallets are'} recorded here.`}
+        {!sel.active && ' This location is inactive, so nothing can be placed or moved here.'}
+      </div>
+      <div className="results">
+        {selPallets.map((p) => (
+          <ResultRow key={p.id} compact row={{ pallet: p, job: backend.db.jobs[p.job_id], location: sel, lastLocation: sel }} onOpen={() => go({ name: 'pallet', id: p.id })} />
+        ))}
+      </div>
+      <div className="row">
+        <button className="btn" onClick={() => go({ name: 'location', id: sel.id })}>
+          <Icon name="pin" /> Location details
+        </button>
+        <button className="btn" onClick={() => go({ name: 'find', q: sel.code })}>
+          <Icon name="find" /> Search this code
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div className="stack">
@@ -93,7 +136,7 @@ export function WarehouseMap() {
         <p>“Nothing recorded” means no pallet is recorded there. It does not mean the space is free, because the app has no dimensions or load limits. Tap a bay to see what is recorded there.</p>
       </Explain>
 
-      <div className="grid-2" style={{ gridTemplateColumns: sel ? 'minmax(0, 1.4fr) minmax(0, 1fr)' : '1fr', alignItems: 'start' }}>
+      <div className={`map-layout ${sel && sideBySide ? 'has-side' : ''}`}>
         <div className="panel stack" data-tour="map-zones">
           {zones.length === 0 && areas.length === 0 && <Empty icon="map" title="No locations yet">A supervisor adds locations under Locations.</Empty>}
           {zones.map((z) => (
@@ -128,8 +171,8 @@ export function WarehouseMap() {
           </div>
         </div>
 
-        {sel && (
-          <div className="panel stack" style={{ position: 'sticky', top: 12 }}>
+        {sel && sideBySide && (
+          <div className="panel stack map-side">
             <div className="row">
               <Plate code={sel.code} kind={sel.kind} />
               <span className="grow" />
@@ -137,26 +180,15 @@ export function WarehouseMap() {
                 <Icon name="x" />
               </button>
             </div>
-            <div className="muted">
-              {selPallets.length === 0 ? 'No pallets are recorded here.' : `${selPallets.length} ${selPallets.length === 1 ? 'pallet is' : 'pallets are'} recorded here.`}
-              {!sel.active && ' This location is inactive, so nothing can be placed or moved here.'}
-            </div>
-            <div className="results">
-              {selPallets.map((p) => (
-                <ResultRow key={p.id} row={{ pallet: p, job: backend.db.jobs[p.job_id], location: sel, lastLocation: sel }} onOpen={() => go({ name: 'pallet', id: p.id })} />
-              ))}
-            </div>
-            <div className="row">
-              <button className="btn" onClick={() => go({ name: 'location', id: sel.id })}>
-                <Icon name="pin" /> Location details
-              </button>
-              <button className="btn" onClick={() => go({ name: 'find', q: sel.code })}>
-                <Icon name="find" /> Search this code
-              </button>
-            </div>
+            {detail}
           </div>
         )}
       </div>
+      {sel && !sideBySide && (
+        <Sheet title={<Plate code={sel.code} kind={sel.kind} />} onClose={() => setSelected(null)}>
+          <div className="stack">{detail}</div>
+        </Sheet>
+      )}
     </div>
   );
 }

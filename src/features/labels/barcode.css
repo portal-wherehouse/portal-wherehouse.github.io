@@ -57,7 +57,12 @@
   margin-top: 0.02in;
 }
 
-/* Letter sheet: the barcode sits beside the QR, under the job and description. */
+/* Letter sheet: job and description under the code, then the QR with the barcode beside it. */
+.label-sheet .l-clamp {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 .label-sheet .l-side {
   flex: 1;
   min-width: 0;

@@ -56,7 +56,7 @@ export function Locations() {
         }
       />
       <Explain refs="pages 9, 16">
-        <p>Location codes are unique inside a warehouse. A rack label carries a random token, not the code, so renaming a rack keeps its label working. Inactive locations stay in history but cannot receive pallets, and a location with pallets recorded on it cannot be switched off.</p>
+        <p>Location codes are unique inside a warehouse. A rack label’s QR carries a random token, so it keeps working after a rename, but the printed code and barcode show the old code, so reprint the label. Inactive locations stay in history but cannot receive pallets, and a location with pallets recorded on it cannot be switched off.</p>
       </Explain>
       <div className="filter-row">
         <input className="input" placeholder="Filter by code" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter by code" style={{ maxWidth: 220 }} />
@@ -77,7 +77,7 @@ export function Locations() {
         <Empty icon="locations" title="No locations match" />
       ) : (
         <div className="table-wrap" data-tour="locations-table">
-          <table className="t">
+          <table className="t cards-sm">
             <thead>
               <tr>
                 <th>Code</th>
@@ -93,7 +93,9 @@ export function Locations() {
                     <Plate code={l.code} size="sm" />
                   </td>
                   <td>{KIND_LABEL[l.kind]}</td>
-                  <td className="n">{data.occ[l.id] ?? 0}</td>
+                  <td className="n" data-label="Recorded pallets">
+                    {data.occ[l.id] ?? 0}
+                  </td>
                   <td>{l.active ? <span className="tag ok">Active</span> : <span className="tag">Inactive</span>}</td>
                 </tr>
               ))}
@@ -118,6 +120,7 @@ function CreateLocation({ onClose }: { onClose: () => void }) {
       title="New location"
       kind="create_location"
       verb="Create location"
+      done={`Location ${n} created`}
       intro="A new QR label is issued with the location. Print it and fix it to the rack before using it."
       valid={!!n && n.length <= 30}
       payload={() => ({ code, kind })}
@@ -234,9 +237,10 @@ export function LocationDetail() {
           title={`Rename ${loc.code}`}
           kind="rename_location"
           verb="Rename"
+          done={`Renamed to ${normalizeCode(newCode)}. Reprint its label so the printed code matches.`}
           reason="optional"
           expectedVersion={loc.version}
-          intro="The printed label keeps working because it carries a token, not the code. Reprint it so people can read the new code."
+          intro="The QR on the old label keeps working because it carries a token. Its printed code and barcode still show the old code, so reprint the label right away."
           valid={!!normalizeCode(newCode) && normalizeCode(newCode) !== loc.code}
           payload={() => ({ location_id: loc.id, code: newCode })}
           onClose={() => setSheet(null)}
@@ -251,6 +255,7 @@ export function LocationDetail() {
           title={`${loc.active ? 'Deactivate' : 'Reactivate'} ${loc.code}`}
           kind={loc.active ? 'deactivate_location' : 'reactivate_location'}
           verb={loc.active ? 'Deactivate' : 'Reactivate'}
+          done={loc.active ? `${loc.code} deactivated` : `${loc.code} reactivated`}
           danger={loc.active}
           reason="optional"
           expectedVersion={loc.version}

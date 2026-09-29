@@ -18,6 +18,7 @@ export function AdminSheet({
   valid = true,
   reason,
   verb,
+  done,
   danger,
   expectedVersion,
   onDone,
@@ -32,6 +33,8 @@ export function AdminSheet({
   /** 'required' | 'optional' | undefined (no reason field). */
   reason?: 'required' | 'optional';
   verb: string;
+  /** The toast once it is saved, like "J-240 closed". */
+  done?: string;
   danger?: boolean;
   expectedVersion?: number;
   onDone?: (createdId: string | null) => void;
@@ -44,7 +47,7 @@ export function AdminSheet({
 
   const finish = (r: Awaited<ReturnType<typeof cmd.run>>) => {
     if (r.phase === 'done') {
-      toast(`${title}: saved${r.accepted?.replayed ? ' (recovered)' : ''}`);
+      toast(`${done ?? `${title}: saved`}${r.accepted?.replayed ? ' (recovered)' : ''}`);
       onDone?.(r.accepted?.target_id ?? null);
       onClose();
     }

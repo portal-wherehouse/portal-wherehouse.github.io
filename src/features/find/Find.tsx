@@ -6,6 +6,7 @@ import { PALLET_STATES, type PalletState } from '../../domain/types';
 import { STATE_LABEL } from '../../domain/transitions';
 import type { RankedRow } from '../../domain/search';
 import { useApp } from '../../app/state';
+import { modalOpen } from '../../device/scanRouter';
 import { Icon } from '../../ui/icons';
 import { Empty, Explain, HoldBadge, Notice, PageHead, StateBadge, WhereCell, fmtAgo, fmtTime } from '../../ui/ui';
 
@@ -26,7 +27,7 @@ export function Find() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      if (e.key === '/' && !modalOpen() && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         input.current?.focus();
       }
@@ -99,7 +100,7 @@ export function Find() {
           className="input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="J-214, P-000042, A-03-02, or “door hardware”"
+          placeholder="Job, pallet, rack or words"
           autoComplete="off"
           spellCheck={false}
           type="search"
@@ -221,15 +222,26 @@ export function Find() {
   );
 }
 
-export function ResultRow({ row, onOpen }: { row: RankedRow | { pallet: RankedRow['pallet']; job: RankedRow['job']; location: RankedRow['location']; lastLocation: RankedRow['lastLocation'] }; onOpen: () => void }) {
+/** One pallet in a list. Compact rows leave out the location, for lists that are all at one location (the map). */
+export function ResultRow({
+  row,
+  onOpen,
+  compact,
+}: {
+  row: RankedRow | { pallet: RankedRow['pallet']; job: RankedRow['job']; location: RankedRow['location']; lastLocation: RankedRow['lastLocation'] };
+  onOpen: () => void;
+  compact?: boolean;
+}) {
   const { read } = useApp();
   const p = row.pallet;
   const thumb = read((e) => Object.values(e.db.attachments).find((a) => a.pallet_id === p.id && a.state === 'ready')?.thumb_url ?? null);
   return (
-    <button className="result" onClick={onOpen}>
-      <div className="where">
-        <WhereCell pallet={p} location={row.location} lastLocation={row.lastLocation} />
-      </div>
+    <button className={`result ${compact ? 'compact' : ''}`} onClick={onOpen}>
+      {!compact && (
+        <div className="where">
+          <WhereCell pallet={p} location={row.location} lastLocation={row.lastLocation} />
+        </div>
+      )}
       <div className="what">
         <span className="pcode">{p.code}</span>
         <span className="desc">{p.description}</span>

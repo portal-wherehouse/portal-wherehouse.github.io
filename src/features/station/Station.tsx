@@ -1,7 +1,7 @@
 // Scan station: a hands-free screen for someone holding a hardware scanner, readable from a few feet away.
 // Four modes (Look up, Move, Put-away, Count); the rules live in logic.ts, this file wires them to the app.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import './station.css';
 import { useApp } from '../../app/state';
 import { eligibility } from '../../data/outbox';
@@ -61,7 +61,8 @@ function startMode(q: string | undefined, role: Role | null): StationMode {
   return 'lookup';
 }
 
-type ReasonAsk = { list: CountList; row: CountRow };
+/** A row waiting for its reason, with the rack its count was on when the sheet opened. */
+type ReasonAsk = { list: CountList; row: CountRow; rack: Location };
 
 export function Station() {
   const app = useApp();
@@ -196,7 +197,7 @@ export function Station() {
     const id = uuid();
     dispatch({ type: 'MOVE_SAVING', commandId: id });
     const result = await send(commandFor(m.intent, m.pallet, m.rack), id);
-    dispatch({ type: 'MOVE_RESULT', result });
+    dispatch({ type: 'MOVE_RESULT', result, pallet: backend.reader.db.pallets[m.pallet.id] });
     feedback(result.status === 'saved' || result.status === 'queued');
   };
 
@@ -206,7 +207,7 @@ export function Station() {
     const id = m.commandId;
     dispatch({ type: 'MOVE_SAVING', commandId: id });
     const result = await recover(id);
-    dispatch({ type: 'MOVE_RESULT', result });
+    dispatch({ type: 'MOVE_RESULT', result, pallet: m.pallet ? backend.reader.db.pallets[m.pallet.id] : undefined });
     feedback(result.status === 'saved');
   };
 
@@ -250,10 +251,17 @@ export function Station() {
     feedback(bad === 0);
   };
 
-  /** Fix one count row: move or place it here, record it found, or mark it missing. */
-  const fixRow = async (list: CountList, row: CountRow, reason?: string) => {
+  /** Fix one count row: move or place it here, record it found, or mark it missing. `rackId` is the rack the reason was written for. */
+  const fixRow = async (list: CountList, row: CountRow, reason?: string, rackId?: string) => {
     const c = sRef.current.count;
     if (!row.fix || !c.rack || c.busy) return;
+    // The count may have closed or moved to another rack since the row was shown. Never save it against the wrong one.
+    const current = c.report?.[list].find((r) => r.key === row.key);
+    if ((rackId && c.rack.id !== rackId) || !current || !isSendable(current.result)) {
+      dispatch({ type: 'FLASH', tone: 'error', text: `That count changed, so ${row.pallet.code} was not saved. Check the list and try again.` });
+      feedback(false);
+      return;
+    }
     dispatch({ type: 'COUNT_BUSY', busy: true });
     dispatch({ type: 'LINE_RESULT', list, key: row.key, result: { status: 'saving' } });
     const result = await send(commandFor(row.fix, row.pallet, c.rack, reason), uuid());
@@ -292,6 +300,13 @@ export function Station() {
 
   // ---------------------------------------------------------------- render
 
+  // After a click on a mode or a test label, focus goes to the status board instead of staying on that button,
+  // so Enter confirms (the page-wide Enter skips buttons) rather than pressing the same button again.
+  const statusRef = useRef<HTMLElement>(null);
+  const focusStatus = (e: MouseEvent) => {
+    if (e.detail > 0) statusRef.current?.focus({ preventScroll: true });
+  };
+
   const s = state;
   const prompt = promptFor(s, settings);
   const canChange = modeAccess(role, 'move').ok;
@@ -307,7 +322,7 @@ export function Station() {
         actions={
           <>
             <button className="btn" onClick={() => go('scanners')}>
-              <Icon name="scanner" /> Scanner setup
+              <Icon name="scanner" /> Scanners
             </button>
             {canFull && (
               <button className="btn ghost" onClick={toggleFull} aria-pressed={full}>
@@ -338,9 +353,9 @@ export function Station() {
             <li>
               <strong>Count</strong>: scan a rack, then every pallet physically on it. Finish compares your scans with the records: matched, missing from the scan, unexpected, and unknown codes.
             </li>
-            <li>Command barcodes (print them from Scanner setup) do the same as the buttons: Confirm, Cancel, Finish, and one for each mode.</li>
+            <li>Command barcodes (print them from Scanners) do the same as the buttons: Confirm, Cancel, Finish, and one for each mode.</li>
             <li>Every save carries the version you scanned. If someone else changed a pallet first, you see a conflict and the newer record. Nothing is overwritten.</li>
-            <li>Viewers can look things up. Operators can move, put away and confirm counts. Marking a pallet missing, or recording a missing one as found, needs a supervisor or owner.</li>
+            <li>Viewers can look things up. Operators can move, put away, confirm counts and mark a pallet missing with a reason. Recording a missing one as found needs a supervisor or owner.</li>
             <li>Offline, moves and location checks are saved on this device and are not confirmed until the server accepts them. Placing a new pallet waits for the connection.</li>
           </ul>
         </Explain>
@@ -359,7 +374,17 @@ export function Station() {
               {STATION_MODES.map((m) => {
                 const ok = modeAccess(role, m).ok;
                 return (
-                  <button key={m} type="button" className="st-mode" aria-pressed={s.mode === m} disabled={!ok} onClick={() => dispatch({ type: 'MODE', mode: m })}>
+                  <button
+                    key={m}
+                    type="button"
+                    className="st-mode"
+                    aria-pressed={s.mode === m}
+                    disabled={!ok}
+                    onClick={(e) => {
+                      dispatch({ type: 'MODE', mode: m });
+                      focusStatus(e);
+                    }}
+                  >
                     <span className="st-mode-top">
                       <Icon name={ok ? MODE_ICON[m] : 'lock'} />
                       <span className="st-mode-name">{MODE_LABEL[m]}</span>
@@ -371,12 +396,12 @@ export function Station() {
             </div>
           </div>
 
-          <section className={`st-status tone-${prompt.tone}`} data-tour="station-status" aria-labelledby="st-prompt">
+          <section className={`st-status tone-${prompt.tone}`} data-tour="station-status" aria-labelledby="st-prompt" ref={statusRef} tabIndex={-1}>
             <div className="st-status-top">
               <span className="st-mode-tag">
                 <Icon name={MODE_ICON[s.mode]} /> {MODE_LABEL[s.mode]} mode
               </span>
-              <button type="button" className={`st-listen ${settings.wedge ? 'on' : 'off'}`} onClick={() => go('scanners')} title="Open Scanner setup">
+              <button type="button" className={`st-listen ${settings.wedge ? 'on' : 'off'}`} onClick={() => go('scanners')} title="Open Scanners">
                 <span className="dot" aria-hidden="true" />
                 {scannerNote}
               </button>
@@ -444,7 +469,7 @@ export function Station() {
                 onConfirmAll={() => dispatch({ type: 'CONFIRM' })}
                 onCancel={() => dispatch({ type: 'CANCEL' })}
                 onFix={(list, row) => void fixRow(list, row)}
-                onAskReason={(list, row) => setAsk({ list, row })}
+                onAskReason={(list, row) => s.count.rack && setAsk({ list, row, rack: s.count.rack })}
                 onSkip={(key) => dispatch({ type: 'SKIP', key })}
                 onRecover={(list, key, id) => void recoverLine(list, key, id)}
               />
@@ -454,7 +479,7 @@ export function Station() {
 
         <div className="st-side">
           <TypeCode onEmptyEnter={() => dispatch({ type: 'CONFIRM' })} />
-          <TestLabels s={s} />
+          <TestLabels s={s} onTapped={focusStatus} />
           <SessionLog log={s.log} mode={s.mode} onClear={() => dispatch({ type: 'CLEAR_LOG' })} />
         </div>
       </div>
@@ -464,17 +489,17 @@ export function Station() {
           title={ask.row.fix === 'mark_missing' ? `Mark ${ask.row.pallet.code} missing?` : `Record ${ask.row.pallet.code} as found?`}
           intro={
             ask.row.fix === 'mark_missing'
-              ? `It is on record at ${s.count.rack?.code} but was not scanned. Marking it missing takes it off the rack in the records until someone records where it was found.`
-              : `It is marked missing in the records. This records it as found and stored at ${s.count.rack?.code}.`
+              ? `It is on record at ${ask.rack.code} but was not scanned. Marking it missing takes it off the rack in the records until someone records where it was found.`
+              : `It is marked missing in the records. This records it as found and stored at ${ask.rack.code}.`
           }
           verb={ask.row.fix === 'mark_missing' ? 'Mark missing' : 'Record found here'}
           danger={ask.row.fix === 'mark_missing'}
-          initial={ask.row.fix === 'mark_missing' ? `Not on ${s.count.rack?.code} during a count.` : `Found on ${s.count.rack?.code} during a count.`}
+          initial={ask.row.fix === 'mark_missing' ? `Not on ${ask.rack.code} during a count.` : `Found on ${ask.rack.code} during a count.`}
           onClose={() => setAsk(null)}
           onSave={(reason) => {
             const a = ask;
             setAsk(null);
-            void fixRow(a.list, a.row, reason);
+            void fixRow(a.list, a.row, reason, a.rack.id);
           }}
         />
       )}

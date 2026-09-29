@@ -120,6 +120,18 @@
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
+/* A little smaller on narrow phones, so the name still fits when the web font is blocked or still loading. */
+@media (max-width: 420px) {
+  .shell-brand-name {
+    font-size: clamp(20px, 5.8vw, 27px);
+  }
+}
+/* With the header navigation on the same row, the nav gives up room first, never the brand name. */
+@media (min-width: 1180px) {
+  .shell-brand {
+    flex-shrink: 0;
+  }
+}
 
 .shell-nav {
   display: none;

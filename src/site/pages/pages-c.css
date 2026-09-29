@@ -992,7 +992,7 @@
   border-radius: 6px;
   background: var(--surface);
 }
-.cm-bay.empty {
+.cm-bay.cm-nothing {
   border-style: dashed;
   border-color: var(--ink-3);
 }
@@ -1020,9 +1020,6 @@
   font-size: 10.5px;
   font-weight: 700;
   color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Overview */
@@ -1228,7 +1225,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
-.cm-mini-stats span {
+.cm-mini-stats > span {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -1669,6 +1666,9 @@
   font: 700 min(54px, 17cqi) / 0.92 var(--font-display);
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+.cm-rack-bar svg {
+  height: 30px;
 }
 .cm-rack-foot {
   font-size: 10.5px;
@@ -3463,16 +3463,19 @@
   font: 700 10px/1.2 var(--font-display);
   letter-spacing: 0.03em;
 }
+/* The icon sits over the words, so the label stays on one line in the narrow phone. */
 .sp-a2hs {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   margin-top: auto;
-  padding: 8px 9px;
+  padding: 7px 6px;
   border-radius: 9px;
   background: var(--accent);
   color: var(--accent-ink);
-  font: 700 11px/1.15 var(--font-body);
+  font: 700 10.5px/1.15 var(--font-body);
+  white-space: nowrap;
 }
 .sp-a2hs svg {
   flex: none;

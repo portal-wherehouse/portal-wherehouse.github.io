@@ -3,7 +3,7 @@
 
 import { useApp } from '../../app/state';
 import type { ScanCommand } from '../../device/scanCommands';
-import { useScanRouter, useScanTarget } from '../../device/scanRouter';
+import { modalOpen, useScanRouter, useScanTarget } from '../../device/scanRouter';
 import { interpretScan, shortScan } from './interpret';
 
 const MODE_ROUTE: Partial<Record<ScanCommand, 'lookup' | 'move' | 'putaway' | 'count'>> = {
@@ -12,11 +12,6 @@ const MODE_ROUTE: Partial<Record<ScanCommand, 'lookup' | 'move' | 'putaway' | 'c
   MODE_PUTAWAY: 'putaway',
   MODE_COUNT: 'count',
 };
-
-/** A modal window (a sheet or dialog) is open, so opening another screen behind it would be confusing. */
-function modalOpen(): boolean {
-  return typeof document !== 'undefined' && !!document.querySelector('[role="dialog"][aria-modal="true"]');
-}
 
 export function ScanAnywhere() {
   const { backend, actorId, workspaceId, route, go, toast } = useApp();
@@ -27,6 +22,7 @@ export function ScanAnywhere() {
     (e) => {
       if (!actorId || !workspaceId) return false;
       const shown = shortScan(e.text);
+      // Screens behind an open sheet or dialog are not offered scans; this says why nothing happened.
       if (modalOpen()) {
         toast(`Scanned ${shown}. Close the open window first, then scan again.`, 'info');
         return 'error';
@@ -67,6 +63,7 @@ export function ScanAnywhere() {
     },
     settings.scanAnywhere && !!actorId,
     -100,
+    { whileModal: true },
   );
 
   return null;

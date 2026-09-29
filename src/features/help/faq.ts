@@ -54,7 +54,7 @@ export const FAQ: FaqCategory[] = [
       {
         id: 'new',
         q: 'Where should someone new start?',
-        a: ['Take the tour first. It visits every screen and takes about 3 minutes. Then start the practice shift, which walks one pallet from delivery to a job site and back and ticks off each step as you really do it. The Guide is the handbook for anyone who wants the reasons behind the rules.'],
+        a: ['Take the tour first. It visits every screen and takes about 5 minutes. Then start the practice shift, which walks one pallet from delivery to a job site and back and ticks off each step as you really do it. The Guide is the handbook for anyone who wants the reasons behind the rules.'],
         links: [
           { label: 'Take the tour', to: { action: 'tour' } },
           { label: 'Start the practice shift', to: { action: 'practice' } },
@@ -95,13 +95,13 @@ export const FAQ: FaqCategory[] = [
         q: 'The label is torn or will not scan. What now?',
         a: [
           'Type the big printed code under the QR code, like P-000042 or A-03-02, on Move or Find. Then open the pallet and press Label to print a fresh copy. A reprint carries the same code, so older copies keep working.',
-          'Use Replace label only when a label was copied or misused. It stops the old label from working.',
+          'Use Replace label only when a label was copied or misused. It stops the old QR from working. The printed code and barcode still find the pallet, so remove the old label.',
         ],
       },
       {
         id: 'qr',
         q: 'What is inside the QR code?',
-        a: ['Only a format marker and a random 16-character token, like PL1:P: followed by the token. No job, description or location. That means a label never goes out of date when a pallet moves, and a photo of a label reveals nothing to someone outside your company.'],
+        a: ['Only a format marker and a random 16-character token, like PL1:P: followed by the token. No job, description or location. That means a label never goes out of date when a pallet moves, and the QR reveals nothing to someone outside your company beyond what is printed on the label.'],
       },
       {
         id: 'commands',

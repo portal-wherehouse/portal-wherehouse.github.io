@@ -11,6 +11,7 @@ import { CtaBand, FeatureCards, Placeholder, PortalCTA, Section, SiteLink } from
 import { TryIt } from './TryIt';
 import './home.css';
 import { encodeCode128 } from '../device/code128';
+import { PLACEHOLDER_MONTHLY } from './prices';
 
 export function Home() {
   return (
@@ -142,7 +143,7 @@ function HeroArt() {
             </div>
           </div>
           <Barcode text="P-000042" />
-          <div className="home-label-foot">If the QR is damaged, type P-000042</div>
+          <div className="home-label-foot">If both codes are damaged, type P-000042</div>
         </div>
 
         <div className="home-phone">
@@ -440,22 +441,23 @@ function Customers() {
 
 // ------------------------------------------------------------------ pricing (placeholders)
 
-const PLANS: { name: string; fit: string; points: string[] }[] = [
-  { name: 'Starter', fit: 'One yard getting its first racks labeled.', points: ['Receive, Move and Find', 'Pallet and rack labels', 'Works with your scanners'] },
-  { name: 'Team', fit: 'A busy yard with a crew on every shift.', points: ['Everything in Starter', 'Owner, supervisor, operator and viewer roles', 'Reconcile and full history'] },
-  { name: 'Company', fit: 'Several yards or companies, one login.', points: ['Everything in Team', 'More than one company per account', 'Priority help'] },
+/** The three priced plans, in short. The Pricing page has the full detail and Enterprise. */
+const PLANS: { id: keyof typeof PLACEHOLDER_MONTHLY; name: string; fit: string; points: string[] }[] = [
+  { id: 'starter', name: 'Starter', fit: 'One yard getting its first racks labeled.', points: ['Receive, Move and Find', 'Pallet and rack labels', 'Works with your scanners'] },
+  { id: 'team', name: 'Team', fit: 'A busy yard with a crew on every shift.', points: ['Everything in Starter', 'Owner, supervisor, operator and viewer roles', 'Reconcile: a list of what needs a look'] },
+  { id: 'company', name: 'Company', fit: 'Larger operations, or more than one company under one login.', points: ['Everything in Team', 'More than one company per account', 'Priority help'] },
 ];
 
 function Pricing() {
   return (
-    <Section eyebrow="Pricing" title="Plans for every size of yard" lede="Three plans, one app. Plan names, prices and details are placeholders until early testing wraps up.">
+    <Section eyebrow="Pricing" title="Plans for every size of yard" lede="Three plans for most yards, and Enterprise for big operations. Plan names, prices and details are placeholders until early testing wraps up.">
       <ul className="home-plans">
         {PLANS.map((p) => (
           <li key={p.name} className="home-plan">
             <h3>{p.name}</h3>
             <p className="home-plan-fit">{p.fit}</p>
             <Placeholder label="Price placeholder">
-              <span className="home-plan-amount">$XX</span> <span className="home-plan-per">per month</span>
+              <span className="home-plan-amount">${PLACEHOLDER_MONTHLY[p.id]}</span> <span className="home-plan-per">per month</span>
             </Placeholder>
             <ul className="home-plan-points">
               {p.points.map((pt) => (

@@ -515,8 +515,6 @@ export function ConfirmScreen({
 
 // ------------------------------------------------------------------ 5. Find
 
-const TRY_QUERIES = ['J-214', 'A-03-02', 'lighting'];
-
 function Where({ row }: { row: RankedRow }) {
   const p = row.pallet;
   const none = (code: string, text: string) => (
@@ -548,6 +546,7 @@ export function FindScreen({
   total,
   highlightId,
   palletCode,
+  examples,
 }: {
   q: string;
   onQ: (q: string) => void;
@@ -555,8 +554,10 @@ export function FindScreen({
   total: number;
   highlightId: string | null;
   palletCode: string | null;
+  /** Searches to suggest, from the pallet the visitor received: its job, its rack and a word from its description. */
+  examples: { job: string; rack: string; word: string };
 }) {
-  const tries = palletCode ? [TRY_QUERIES[0], palletCode, ...TRY_QUERIES.slice(1)] : TRY_QUERIES;
+  const tries = [examples.job, ...(palletCode ? [palletCode] : []), examples.rack, examples.word];
   return (
     <div className="stack">
       <ScreenHead eyebrow="Warehouse" title="Find materials" sub="Search a job, pallet code, rack, or description." />
@@ -582,7 +583,9 @@ export function FindScreen({
       {rows.length === 0 ? (
         <div className="panel">
           <Empty icon="find" title={q.trim() ? `No pallets match “${q.trim()}”` : 'Type something to search'}>
-            <p>Try a job code like J-214, a rack like A-03-02, or a word like lighting.</p>
+            <p>
+              Try a job code like {examples.job}, a rack like {examples.rack}, or a word like {examples.word}.
+            </p>
           </Empty>
         </div>
       ) : (

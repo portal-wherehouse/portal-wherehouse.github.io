@@ -1,6 +1,6 @@
 # Product contract
 
-Source: *Pallet Locator Complete Build Blueprint, Draft 0.1*, pages 3 to 15. Pallet Locator is by John Henry Mims. When a deliberate decision changes anything here, update this file in the same commit (page 37).
+Source: *Pallet Locator Complete Build Blueprint, Draft 0.1*, pages 3 to 15. The product is now called Wherehouse (decision D-13) and is by John Henry Mims. When a deliberate decision changes anything here, update this file in the same commit (page 37).
 
 ## Who it is for
 
@@ -60,8 +60,9 @@ Every person has their own account so each history entry names its actor. Permis
 | Stage | Included | Status in this build |
 | --- | --- | --- |
 | A: Local prototype | Fake data, Receive/Move/Find, labels, local history, reset | Built |
-| B: Online pilot | Real accounts, isolated workspaces, atomic commands on the server, private photos, roles, exports, corrections, backups | Screens and rules built against a local simulated server. Supabase not connected yet. |
+| B: Online pilot | Real accounts, isolated workspaces, atomic commands on the server, private photos, roles, exports, corrections, backups | Screens and rules built against a local simulated server. Sign-in is off while we test. Firebase is the chosen backend (D-18), not connected yet. |
 | C: Resilient expansion | Offline move queue, conflict inbox, controlled splits, richer reconciliation | Built against the simulated server |
+| Beyond the blueprint | Public website, handheld scanner support and command barcodes, Scan station, portal walkthrough, Help center, backup and restore | Built (D-14 to D-19) |
 
 **Outside the first release:** item quantities inside pallets, replenishment and forecasting, purchase orders, accounting, route planning, GPS or RFID location, direct thermal-printer drivers, ERP integration, a floor-plan editor, and automatic photo recognition. The warehouse map in this build is drawn from location codes and is not a floor-plan editor. It never claims free space or capacity.
 

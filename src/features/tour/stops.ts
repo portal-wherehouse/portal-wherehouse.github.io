@@ -12,7 +12,7 @@ import type { IconName } from '../../ui/icons';
 export interface View {
   /** The desktop sidebar is showing (otherwise the phone tabs and More). */
   sidebar: boolean;
-  /** Very narrow screen: top-bar chips shrink to icons. */
+  /** Narrow screen (520px or less): the connection chip is a dot and the account chip a round role badge. */
   narrow: boolean;
 }
 
@@ -96,8 +96,8 @@ export const STOPS: TourStop[] = [
     align: 'end',
     body: (v) =>
       v.narrow
-        ? 'The top bar stays on every screen. The dot is your connection, and a number beside it counts changes on this device the server has not confirmed yet. The flag starts this tour, and the round badge is your account and role.'
-        : 'The top bar stays on every screen. The connection chip says Online or Offline, and a number beside it counts changes on this device the server has not confirmed yet. The account chip shows the role you are using, and Take the tour brings you back here any time.',
+        ? 'The top bar stays on every screen. The dot is your connection, and a number beside it counts changes on this device the server has not confirmed yet. The flag starts this tour, and the round badge shows the role you are using: OWN, SUP, OP or VW.'
+        : 'The top bar stays on every screen. The connection chip shows whether you are online, and a number beside it counts changes on this device the server has not confirmed yet. The account chip shows the role you are using, and the flag button, Take the tour, brings you back here any time.',
     tip: (v) => `Sign-in is off while we test. Use the ${v.narrow ? 'round account badge' : 'account chip'}, or Switch role in the yellow strip, to try the Owner, Supervisor, Operator and Viewer accounts.`,
   },
   {
@@ -249,7 +249,7 @@ export const STOPS: TourStop[] = [
     target: ['[data-tour="locations-table"]', '#main .table-wrap'],
     extend: ['#main .filter-row'],
     body: 'Locations are your racks and areas: receiving, quarantine, staging and floor spots. Each has its own QR label, and the table shows how many pallets are recorded at each one. Supervisors add locations, print every rack label in one batch, and switch off spots that are no longer used.',
-    tip: 'A rack label carries a random token instead of the code, so renaming a rack never breaks its label.',
+    tip: 'A rack label’s QR carries a random token, so it keeps working after a rename. Reprint the label so its printed code and barcode match.',
   },
   {
     id: 'labels',
@@ -271,7 +271,7 @@ export const STOPS: TourStop[] = [
     needs: 'import_batch',
     target: ['[data-tour="import-steps"]'],
     extend: ['[data-tour="import-kind"]', '#main .seg'],
-    body: 'Bring in locations, jobs or pallets you already have from a spreadsheet saved as CSV. Get the template, paste or choose your file, then check the preview, which points to any problem by row and column. The whole batch goes in or none of it does, so a bad row never leaves half an import behind.',
+    body: 'Bring in locations, jobs or pallets you already have from a spreadsheet saved as CSV. Get the template, paste or choose your file, and check the preview. After you press Import, any problem is listed by row and column and nothing is saved. The whole batch goes in or none of it does, so a bad row never leaves half an import behind.',
     tip: 'Imported pallets start with no rack. Staff place each one with a scan, so every location is confirmed by a person.',
   },
   {
@@ -397,7 +397,7 @@ export const STOPS: TourStop[] = [
     chapter: 'Finish',
     icon: 'checkCircle',
     title: 'You’re ready',
-    body: 'That is the whole portal. The quickest way to learn it is to use it: the practice shift walks one pallet from delivery to a job site and back, and ticks off each step as you really do it. Help has the video, tutorials and answers whenever you need them.',
+    body: 'That is the whole portal. The quickest way to learn it is to use it: the practice shift walks one pallet from delivery to a job site and back, and ticks off each step as you really do it. Help has tutorials, answers and the plan for the walkthrough video whenever you need them.',
   },
 ];
 

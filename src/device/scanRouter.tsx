@@ -1,6 +1,8 @@
 // Scan router: every way of reading a code (hardware scanner, serial scanner, camera, photo, typing) ends up here,
 // and the screen that is listening gets it. Screens register with useScanTarget; targets are tried by priority
 // (highest first), then most recently registered first, and each may pass a scan on by returning false.
+// While a modal window is open (a sheet, a dialog, the portal tour), only targets that asked for it are tried,
+// so the screen behind the window never acts on a scan the person cannot see.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { attachWedge } from './wedge';
@@ -67,7 +69,7 @@ interface ScanRouterApi {
   /** Feed a scan in from any source. Returns the name of the target that handled it, or null. */
   emit(text: string, source: ScanSource, extra?: { durationMs?: number }): string | null;
   /** Register a target; returns an unregister function. Prefer the useScanTarget hook. */
-  register(name: string, handler: ScanHandler, priority?: number): () => void;
+  register(name: string, handler: ScanHandler, priority?: number, options?: ScanTargetOptions): () => void;
   /** The last 30 scans, newest first. */
   recent: ScanEvent[];
   clearRecent(): void;
@@ -88,20 +90,37 @@ function loadSettings(): ScannerSettings {
   }
 }
 
+export interface ScanTargetOptions {
+  /** Also offer scans while a modal window is open. For targets that handle that case themselves (Scan anywhere) or change nothing (the test pad). */
+  whileModal?: boolean;
+}
+
 /** A registered receiver of scans. `seq` grows with each registration, so newer targets win ties. */
 export interface ScanTargetEntry {
   name: string;
   priority: number;
   seq: number;
+  whileModal?: boolean;
   handler: { current: ScanHandler };
+}
+
+/** True when a modal window (a sheet, a dialog, the portal tour) is open over the screen. */
+export function modalOpen(): boolean {
+  return typeof document !== 'undefined' && !!document.querySelector('[role="dialog"][aria-modal="true"]');
+}
+
+/** Remove the scanner's configured prefix from a code a scanner sent, when it starts with it. */
+export function stripScanPrefix(text: string, prefix: string): string {
+  return prefix && text.startsWith(prefix) ? text.slice(prefix.length) : text;
 }
 
 /**
  * Offer a scan to targets, highest priority first, then newest first, until one takes it.
+ * With `modal` set, only targets registered `whileModal` are offered it.
  * Sets `handledBy` and `outcome` on the event. A handler that throws counts as refusing the scan with an error.
  */
-export function dispatchScan(targets: readonly ScanTargetEntry[], ev: ScanEvent): ScanEvent {
-  const order = [...targets].sort((a, b) => b.priority - a.priority || b.seq - a.seq);
+export function dispatchScan(targets: readonly ScanTargetEntry[], ev: ScanEvent, modal = false): ScanEvent {
+  const order = targets.filter((t) => !modal || t.whileModal).sort((a, b) => b.priority - a.priority || b.seq - a.seq);
   for (const t of order) {
     let r: boolean | 'error';
     try {
@@ -151,7 +170,7 @@ export function ScanRouterProvider({ children }: { children: ReactNode }) {
     (text: string, source: ScanSource, extra: { durationMs?: number } = {}) => {
       const clean = text.replace(/[\r\n\t]+/g, '').trim();
       if (!clean) return null;
-      const ev = dispatchScan(targets.current, { id: ++seq.current, text: clean, source, at: Date.now(), durationMs: extra.durationMs, handledBy: null });
+      const ev = dispatchScan(targets.current, { id: ++seq.current, text: clean, source, at: Date.now(), durationMs: extra.durationMs, handledBy: null }, modalOpen());
       beep(ev.outcome === 'handled' ? 'good' : 'bad');
       setRecent((r) => [ev, ...r].slice(0, 30));
       setSessionCount((n) => n + 1);
@@ -160,8 +179,8 @@ export function ScanRouterProvider({ children }: { children: ReactNode }) {
     [beep],
   );
 
-  const register = useCallback((name: string, handler: ScanHandler, priority = 0) => {
-    const entry: ScanTargetEntry = { name, priority, seq: ++registrations.current, handler: { current: handler } };
+  const register = useCallback((name: string, handler: ScanHandler, priority = 0, options: ScanTargetOptions = {}) => {
+    const entry: ScanTargetEntry = { name, priority, seq: ++registrations.current, whileModal: !!options.whileModal, handler: { current: handler } };
     targets.current = [...targets.current, entry];
     return () => {
       targets.current = targets.current.filter((t) => t !== entry);
@@ -178,8 +197,8 @@ export function ScanRouterProvider({ children }: { children: ReactNode }) {
     );
   }, [settings.wedge, emit]);
 
-  // Scanners connected as a serial port (Scanner setup connects them).
-  useEffect(() => serialScanner.onLine((line) => void emit(line, 'serial')), [emit]);
+  // Scanners connected as a serial port (the Scanners page connects them). Keyboard scans lose their prefix in the wedge detector.
+  useEffect(() => serialScanner.onLine((line) => void emit(stripScanPrefix(line, settingsRef.current.prefix), 'serial')), [emit]);
 
   const clearRecent = useCallback(() => setRecent([]), []);
   const value = useMemo<ScanRouterApi>(
@@ -199,13 +218,15 @@ export function useScanRouter(): ScanRouterApi {
  * Make this screen the place scans go while it is mounted and `enabled`.
  * Higher `priority` goes first (Scan anywhere sits at -100, a test pad well above 0); equal priorities go newest first.
  * The handler always sees the latest props; return false to let the next target try.
+ * While a modal window is open the target is skipped, unless `options.whileModal` is set.
  */
-export function useScanTarget(name: string, handler: ScanHandler, enabled = true, priority = 0) {
+export function useScanTarget(name: string, handler: ScanHandler, enabled = true, priority = 0, options: ScanTargetOptions = {}) {
   const { register } = useScanRouter();
   const ref = useRef(handler);
   ref.current = handler;
+  const whileModal = !!options.whileModal;
   useEffect(() => {
     if (!enabled) return;
-    return register(name, (e) => ref.current(e), priority);
-  }, [name, enabled, register, priority]);
+    return register(name, (e) => ref.current(e), priority, { whileModal });
+  }, [name, enabled, register, priority, whileModal]);
 }

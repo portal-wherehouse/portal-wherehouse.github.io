@@ -61,7 +61,7 @@ export function SimplePage() {
 
           <Principle n={5} title="History is never erased" line="Mistakes get corrected in the open, not deleted." art={<CorrectionMock />}>
             <p>Every change is added to the pallet’s history with the time and the account that made it. Nothing is edited in place.</p>
-            <p>When something was recorded wrong, a supervisor adds a correction with a reason. The original stays, marked as corrected, so the story always adds up.</p>
+            <p>When something was recorded wrong, a supervisor adds a correction with a reason. The original stays in the history, and the correction points back to it, so the story always adds up.</p>
           </Principle>
 
           <Principle n={6} title="Nothing to install" line="A link on any phone or computer. That is the setup." art={<InstallArt />}>
@@ -191,7 +191,7 @@ const LEFT_OUT: { icon: IconName; title: string; why: string; instead: string }[
 const BEFORE_AFTER: { q: string; before: string; after: ReactNode }[] = [
   { q: 'Where is it?', before: 'Walk the yard, or call whoever stacked it.', after: 'Search the pallet or job. See the rack it was last confirmed at, when, and by whom.' },
   { q: 'Who moved it, and when?', before: 'Usually nobody wrote it down.', after: 'Every move is in the pallet’s history, with the time and the account.' },
-  { q: 'What came in today?', before: 'Delivery tickets in a folder, if they made it to the office.', after: 'Each received pallet in the Activity feed, with its job, description and photo.' },
+  { q: 'What came in today?', before: 'Delivery tickets in a folder, if they made it to the office.', after: 'Each received pallet in the Activity feed, with its code, the time and who received it. Open one to see its job, description and photo.' },
   { q: 'What is on hold?', before: 'A sticky note on the pallet, if it is still there.', after: 'An On hold list. Held pallets cannot be dispatched until a supervisor clears them.' },
   { q: 'What does this job still have here?', before: 'Filter a spreadsheet that was last updated who knows when.', after: 'The job’s page: on hand, missing, on hold and dispatched, with a pick list sorted by rack.' },
   { q: 'The person who knows is off today', before: 'Wait until they are back, or go looking.', after: 'Anyone with an account can look it up. The answer does not live in one head.' },
@@ -374,7 +374,7 @@ function InstallArt() {
           <span className="sp-sk w60" />
           <span className="sp-a2hs">
             <Icon name="plus" />
-            Add to Home Screen
+            Add to Home
           </span>
         </div>
       </div>

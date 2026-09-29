@@ -12,7 +12,7 @@ const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.g
 
 /** Local device time for display; the stored value stays UTC (page 10). */
 export function fmtTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return 'Not recorded';
   const d = new Date(iso);
   const now = new Date();
   const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -37,7 +37,7 @@ export function fmtAgo(iso: string | null | undefined): string {
 }
 
 export function fmtFull(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return 'Not recorded';
   return new Date(iso).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
 }
 
@@ -139,8 +139,11 @@ export function Avatar({ name }: { name: string }) {
 
 export const ROLE_LABEL: Record<Role, string> = { OWNER: 'Owner', SUPERVISOR: 'Supervisor', OPERATOR: 'Operator', VIEWER: 'Viewer' };
 
+/** For the account badge on phones, where Owner and Operator would both be "DO" as initials. */
+export const ROLE_SHORT: Record<Role, string> = { OWNER: 'OWN', SUPERVISOR: 'SUP', OPERATOR: 'OP', VIEWER: 'VW' };
+
 export const ROLE_DESC: Record<Role, string> = {
-  OWNER: 'Everything, including people and workspace settings.',
+  OWNER: 'Everything, including granting supervisor and owner access.',
   SUPERVISOR: 'Manage jobs and racks, fix mistakes, clear holds, export.',
   OPERATOR: 'Receive, place, move, dispatch, and record returns.',
   VIEWER: 'Search and look at records, photos, and history. No changes.',
@@ -213,13 +216,29 @@ export function Empty({ icon = 'box', title, children, actions }: { icon?: IconN
 }
 
 export function Field({ label, hint, children, count, max, htmlFor }: { label: ReactNode; hint?: ReactNode; children: ReactNode; count?: number; max?: number; htmlFor?: string }) {
+  const hintId = useId();
+  const hasHint = !!hint;
+  // Tie the hint (or the error that replaces it) to the control, so a screen reader reads the reason with it.
+  useEffect(() => {
+    const el = htmlFor && hasHint ? document.getElementById(htmlFor) : null;
+    if (!el) return;
+    const ids = (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    if (!ids.includes(hintId)) el.setAttribute('aria-describedby', [...ids, hintId].join(' '));
+    return () => {
+      const rest = (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((x) => x && x !== hintId);
+      if (rest.length) el.setAttribute('aria-describedby', rest.join(' '));
+      else el.removeAttribute('aria-describedby');
+    };
+  }, [htmlFor, hasHint, hintId]);
   return (
     <div className="field">
       <label htmlFor={htmlFor}>{label}</label>
       {children}
       {(hint || max) && (
         <div className="row nowrap" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <span className="hint">{hint}</span>
+          <span className="hint" id={hintId}>
+            {hint}
+          </span>
           {max !== undefined && count !== undefined && <span className={`counter ${count > max ? 'over' : ''}`}>{count.toLocaleString()} / {max.toLocaleString()}</span>}
         </div>
       )}
@@ -227,19 +246,40 @@ export function Field({ label, hint, children, count, max, htmlFor }: { label: R
   );
 }
 
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
 export function Sheet({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // Callers pass a new onClose on every render. Reading it through a ref lets the effect below run only
+  // on open and close, so a re-render (a scan, a toast, a busy flag) never moves focus.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return closeRef.current();
+      // Keep Tab inside the topmost sheet.
+      const box = ref.current;
+      const sheets = document.querySelectorAll('.sheet');
+      if (e.key !== 'Tab' || !box || sheets[sheets.length - 1] !== box) return;
+      const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const inside = box.contains(document.activeElement);
+      if (!inside || (e.shiftKey && document.activeElement === first) || (!e.shiftKey && document.activeElement === last)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
     document.addEventListener('keydown', onKey);
     const prev = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>('input, select, textarea, button:not(.icon-btn)')?.focus();
+    ref.current?.querySelector<HTMLElement>('input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(.icon-btn):not(:disabled)')?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`sheet ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
@@ -260,13 +300,28 @@ export function Spinner() {
 }
 
 export function PermissionDenied({ what, need }: { what: string; need: string }) {
-  const { role } = useApp();
+  const { role, canGoBack, back, setAccountsOpen } = useApp();
   return (
-    <div className="panel">
-      <Empty icon="lock" title={`${what} needs ${need} access`}>
+    <div className="panel" data-tour="locked">
+      <Empty
+        icon="lock"
+        title={`${what} needs ${need} access`}
+        actions={
+          <>
+            <button className="btn primary" onClick={() => setAccountsOpen(true)}>
+              <Icon name="user" /> Switch role
+            </button>
+            {canGoBack && (
+              <button className="btn" onClick={back}>
+                <Icon name="chevronLeft" /> Back
+              </button>
+            )}
+          </>
+        }
+      >
         <p>
-          You are signed in as a <strong>{role ? ROLE_LABEL[role] : 'person without access'}</strong>. The server checks your role on every change, so hiding or showing
-          buttons is only a convenience. Switch accounts from the menu in the top bar to try another role.
+          You are using the <strong>{role ? ROLE_LABEL[role] : 'demo'}</strong> account. Ask an owner for {need} access to use this screen. In this demo, Switch role
+          lets you try another role.
         </p>
       </Empty>
     </div>

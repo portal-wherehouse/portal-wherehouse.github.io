@@ -71,11 +71,11 @@ export function HardwarePage() {
               <strong>The job line.</strong> The job number and name in heavy type, so the crew can sort by eye.
             </li>
             <li>
-              <strong>The fallback line.</strong> The warehouse, and which code to type if the QR is damaged.
+              <strong>The fallback line.</strong> The warehouse, and which code to type if both codes are damaged.
             </li>
           </ol>
         </div>
-        <p className="hw-note">Rack labels, like the one shown here, carry the rack code and a QR. To move a pallet, scan the pallet first, then the rack.</p>
+        <p className="hw-note">Rack labels, like the one shown here, carry the rack code, a QR and a Code 128 barcode of the rack code. To move a pallet, scan the pallet first, then the rack.</p>
       </Section>
 
       <Section id="setup" eyebrow="Setup" title="Three steps, once per scanner" lede="Most scanners change settings by scanning setup barcodes printed in their manual.">
@@ -334,10 +334,10 @@ function ScannerTest() {
             <QrCode payload={SAMPLE_PALLET_PAYLOAD} className="hw-sample-qr" />
             <figcaption>
               <strong>Sample pallet label</strong>
-              <span>Scan the QR or the barcode. Both hold the same code.</span>
+              <span>Scan the QR or the barcode. The QR holds a random token, and the barcode holds the printed code, P-000042.</span>
             </figcaption>
           </div>
-          <Code128 text={SAMPLE_PALLET_PAYLOAD} caption={false} className="hw-sample-bar" />
+          <Code128 text="P-000042" caption={false} className="hw-sample-bar" />
         </figure>
         <p className="hw-test-tip">Most 2D imagers can read the sample straight off the screen. Laser scanners usually cannot, so try a printed label or the typing box instead.</p>
       </div>

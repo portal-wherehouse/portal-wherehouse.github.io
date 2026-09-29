@@ -163,7 +163,8 @@ class SerialScanner {
     let closed = false;
     // A non-fatal error (a garbled byte, a buffer overrun) ends one stream and the port offers a fresh one.
     while (!closed && this.port === port && port.readable) {
-      const reader = port.readable.getReader();
+      const stream = port.readable;
+      const reader = stream.getReader();
       this.reader = reader;
       try {
         for (;;) {
@@ -187,7 +188,12 @@ class SerialScanner {
           }
         }
       } catch (e) {
-        if (this.port === port) this.set({ state: 'error', message: `Lost the connection to the scanner. ${e instanceof Error ? e.message : ''}`.trim() });
+        // A fatal error (the device is gone) leaves the port with no fresh stream to read. Anything else (framing, parity,
+        // overrun, break) loses at most the code being read: drop that part and carry on with the fresh stream.
+        const fresh = port.readable && port.readable !== stream;
+        if (this.port === port && !fresh) this.set({ state: 'error', message: `Lost the connection to the scanner. ${e instanceof Error ? e.message : ''}`.trim() });
+        clearTimeout(this.flushTimer);
+        buffer = '';
       } finally {
         reader.releaseLock();
       }

@@ -71,7 +71,7 @@ export function SecurityPage() {
               The account that made the change and the exact time, shown in your local time.
             </Point>
             <Point icon="edit" title="Corrections, not deletions">
-              A supervisor adds a correction with a reason. The mistake stays, marked as corrected.
+              A supervisor adds a correction with a reason. The mistake stays in the history, and the correction points back to it.
             </Point>
             <Point icon="refresh" title="No double entries">
               If a signal drops mid-save, the retry is recognized as the same request, so a move is never recorded twice.
@@ -149,7 +149,7 @@ export function SecurityPage() {
             They can act right away from the People page in the portal. No call to us is needed.
           </Step>
           <Step n={2} title="Remove that person’s access">
-            Removing someone takes effect on their next request: they can no longer make changes. Once real sign-in arrives, they will also stop seeing new records. Add them back later when they have a new phone.
+            Removing someone takes effect on their next request: the server refuses every change and every read from that account. Add them back later when they have a new phone.
           </Step>
           <Step n={3} title="Check what changed">
             Every change from that phone is in the history with the time, so anything unexpected is easy to spot and correct.
@@ -285,7 +285,6 @@ function HistoryMock() {
           <li key={r.what} className={r.kind ?? ''}>
             <div className="sec-tl-top">
               <strong>{r.what}</strong>
-              {r.kind === 'struck' && <span className="sec-tag-corrected">Corrected</span>}
               <span className="sec-tl-when">{r.when}</span>
             </div>
             <div className="sec-tl-detail">{r.detail}</div>
@@ -295,7 +294,7 @@ function HistoryMock() {
           </li>
         ))}
       </ol>
-      <figcaption>Example only. The original move stays visible, marked as corrected.</figcaption>
+      <figcaption>Example only. The original move stays visible, and the correction points back to it.</figcaption>
     </figure>
   );
 }

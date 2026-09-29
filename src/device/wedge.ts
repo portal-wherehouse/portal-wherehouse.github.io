@@ -26,7 +26,11 @@ export interface WedgeKey {
 export interface WedgeStep {
   /** The scan this key completed, if any. */
   scan: WedgeScan | null;
-  /** True when the key was the scanner's own Enter or Tab: the caller should stop it from reaching the page. */
+  /**
+   * True when the key belongs to a scanner: its own Enter or Tab, or a character that continues a burst at scanner
+   * speed. The caller should stop it from reaching the page, where it could press a button or fire a shortcut
+   * (such as "/" for search) in the middle of a scan.
+   */
   consume: boolean;
 }
 
@@ -94,7 +98,8 @@ export class WedgeDetector {
     }
 
     let scan: WedgeScan | null = null;
-    if (this.chars.length && k.at - this.last > o.maxGapMs) {
+    const continues = this.chars.length > 0 && k.at - this.last <= o.maxGapMs;
+    if (this.chars.length && !continues) {
       // The previous burst is over. Without a suffix, it may have been a whole scan.
       if (o.suffix === 'none') scan = this.complete(o);
       this.reset();
@@ -102,7 +107,8 @@ export class WedgeDetector {
     if (!this.chars.length) this.first = k.at;
     this.chars.push(k.key);
     this.last = k.at;
-    return { scan, consume: false };
+    // The first character could be a person; one that follows it this fast is a scanner.
+    return { scan, consume: continues };
   }
 
   /** When the caller should call `idle()` to finish a scan that has no suffix, or null when nothing is waiting. */
@@ -160,8 +166,9 @@ function clock(e?: Event): number {
 
 /**
  * Listen for scanner bursts on a document. Keys typed into text fields are left alone (the field gets
- * them like normal typing). Elsewhere, a completed burst is reported and the scanner's Enter or Tab is
- * swallowed so it cannot press a focused button. Returns a function that stops listening.
+ * them like normal typing). Elsewhere, a completed burst is reported, and the rest of a burst after its first
+ * character, plus the scanner's Enter or Tab, is swallowed so it cannot press a focused button or fire a page
+ * shortcut. Returns a function that stops listening.
  */
 export function attachWedge(doc: Document, getOptions: () => WedgeOptions, onScan: (scan: WedgeScan) => void): () => void {
   const detector = new WedgeDetector(getOptions);

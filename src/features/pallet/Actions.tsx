@@ -25,7 +25,7 @@ export const ACTION_META: Partial<Record<PalletCommandKind, { title: string; ver
   retire: { title: 'Retire pallet', verb: 'Retire', explain: 'The identity stops being an active handling unit. History is kept, and the code is never reused. A supervisor can correct a mistaken retirement.', danger: true },
   archive: { title: 'Archive', verb: 'Archive', explain: 'Hides a retired pallet from default search. History stays available and “Include archived” brings it back.' },
   label_applied: { title: 'New label applied', verb: 'Confirm label applied', explain: 'Confirms the freshly printed label is stuck on this pallet, so it leaves the reprint list. Nothing else changes.' },
-  rotate_label: { title: 'Replace label', verb: 'Replace label', explain: 'For a compromised or duplicated label: the old QR token is revoked and a new one issued. The old physical label will stop working, so print and stick the new one right away. Ordinary reprints do not need this.', danger: true },
+  rotate_label: { title: 'Replace label', verb: 'Replace label', explain: 'For a compromised or duplicated label: the old QR token is revoked and a new one issued. The old QR stops working, but its barcode and printed code still find the pallet, so print and stick the new label right away and remove the old one. Ordinary reprints do not need this.', danger: true },
 };
 
 export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: PalletCommandKind; detail: PalletDetail; onClose: () => void; presetEvent?: PalletEvent | null }) {

@@ -1,7 +1,7 @@
 // Hardware scanner support: keyboard-wedge detection, scan routing priority, and the Code 128 encoder.
 import { describe, expect, it, vi } from 'vitest';
 import { WedgeDetector, attachWedge, createTypingMeter, isEditableTarget, type WedgeOptions } from '../../src/device/wedge';
-import { dispatchScan, type ScanEvent, type ScanHandler, type ScanTargetEntry } from '../../src/device/scanRouter';
+import { dispatchScan, stripScanPrefix, type ScanEvent, type ScanHandler, type ScanTargetEntry } from '../../src/device/scanRouter';
 import { CODE128_PATTERNS, CODE_B, CODE_C, START_A, START_B, START_C, STOP, canEncodeCode128, code128Checksum, code128Values, encodeCode128 } from '../../src/device/code128';
 
 const OPTS: WedgeOptions = { minLength: 4, maxGapMs: 50, suffix: 'either', prefix: '' };
@@ -213,6 +213,18 @@ describe('attachWedge', () => {
     expect(onScan).toHaveBeenCalledTimes(1);
   });
 
+  it('swallows the rest of a scanner-speed burst, so a "/" in a scanned address cannot fire a page shortcut', () => {
+    const doc = new FakeDoc();
+    attachWedge(doc as unknown as Document, () => OPTS, vi.fn());
+    const first = doc.press('h', 100);
+    const slash = doc.press('/', 104);
+    expect(first.defaultPrevented).toBe(false);
+    expect(slash.defaultPrevented).toBe(true);
+    expect((slash as KeyboardEvent & { stopped: boolean }).stopped).toBe(true);
+    // A person typing the same key a moment later gets it as normal.
+    expect(doc.press('/', 400).defaultPrevented).toBe(false);
+  });
+
   it('does not react to slow typing on the page', () => {
     const doc = new FakeDoc();
     const onScan = vi.fn();
@@ -302,6 +314,22 @@ describe('dispatchScan (scan router priority)', () => {
   it('reports unhandled when nothing takes it', () => {
     expect(dispatchScan([target('x', 0, () => false)], ev())).toMatchObject({ handledBy: null, outcome: 'unhandled' });
     expect(dispatchScan([], ev()).outcome).toBe('unhandled');
+  });
+
+  it('while a modal window is open, offers the scan only to targets that asked for it', () => {
+    const calls: string[] = [];
+    const station = target('station', 0, () => (calls.push('station'), true));
+    const anywhere = { ...target('scan-anywhere', -100, () => (calls.push('anywhere'), 'error' as const)), whileModal: true };
+    expect(dispatchScan([anywhere, station], ev(), true)).toMatchObject({ handledBy: 'scan-anywhere', outcome: 'error' });
+    expect(dispatchScan([station], ev(), true)).toMatchObject({ handledBy: null, outcome: 'unhandled' });
+    expect(dispatchScan([anywhere, station], ev(), false).handledBy).toBe('station');
+    expect(calls).toEqual(['anywhere', 'station']);
+  });
+
+  it('strips a scanner prefix once, and only when it is there', () => {
+    expect(stripScanPrefix(']C1P-000014', ']C1')).toBe('P-000014');
+    expect(stripScanPrefix('P-000014', ']C1')).toBe('P-000014');
+    expect(stripScanPrefix('P-000014', '')).toBe('P-000014');
   });
 });
 

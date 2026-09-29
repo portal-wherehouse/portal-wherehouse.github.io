@@ -130,6 +130,9 @@ interface AppState {
   startGuide(step?: number): void;
   setGuideStep(step: number): void;
   stopGuide(): void;
+  /** The Demo accounts sheet (switch role or company), opened from the top bar, Settings or a locked screen. */
+  accountsOpen: boolean;
+  setAccountsOpen(open: boolean): void;
   /** Warn before leaving a screen with unsaved input (page 10, navigation safety). */
   setLeaveGuard(message: string | null): void;
   blockedNav: { message: string; proceed: () => void; cancel: () => void } | null;
@@ -174,6 +177,76 @@ const ROUTE_TOKENS: RouteName[] = [
   'data',
 ];
 
+/** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them. */
+const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map'];
+/** Screens whose query rides along in the link, e.g. #find?q=J-214 or #station?q=count. */
+const Q_TOKENS: RouteName[] = ['find', 'station', 'help'];
+
+/** The address-bar hash for a route: '' for home, or for a screen that has no link of its own. */
+export function hashFor(r: Route): string {
+  const withId = ID_TOKENS.includes(r.name) && r.id;
+  if (!withId && !ROUTE_TOKENS.includes(r.name)) return '';
+  let h = `#${r.name}`;
+  if (withId) h += `/${encodeURIComponent(r.id!)}`;
+  if (Q_TOKENS.includes(r.name) && r.q) h += `?q=${encodeURIComponent(r.q)}`;
+  return h;
+}
+
+/** The route a hash links to; null for anchors that are not routes (a skip link's #main). */
+export function parseHash(hash: string): Route | null {
+  const raw = hash.replace(/^#/, '');
+  if (!raw || raw === 'home') return { name: 'home' };
+  try {
+    const cut = raw.indexOf('?');
+    const path = cut < 0 ? raw : raw.slice(0, cut);
+    const query = cut < 0 ? '' : raw.slice(cut + 1);
+    const [name, ...rest] = path.split('/') as [RouteName, ...string[]];
+    const id = rest.length ? decodeURIComponent(rest.join('/')) : undefined;
+    const q = Q_TOKENS.includes(name) ? (new URLSearchParams(query).get('q') ?? undefined) : undefined;
+    if (id && ID_TOKENS.includes(name)) return { name, id, ...(q ? { q } : {}) };
+    if (!id && ROUTE_TOKENS.includes(name)) return q ? { name, q } : { name };
+  } catch {
+    /* a malformed link is treated like any unknown anchor */
+  }
+  return null;
+}
+
+const sameRoute = (a: Route, b: Route) => a.name === b.name && (a.id ?? '') === (b.id ?? '') && (a.q ?? '') === (b.q ?? '');
+const sameStack = (a: Route[], b: Route[]) => a.length === b.length && a.every((r, i) => sameRoute(r, b[i]));
+
+/** Screens that start a fresh trail instead of stacking on the one before. */
+const PRIMARY: RouteName[] = ['receive', 'move', 'find', 'overview', 'more', 'signin', 'station'];
+
+function stackAfter(s: Route[], next: Route): Route[] {
+  const top = s[s.length - 1];
+  if (top && sameRoute(top, next)) return s;
+  if (PRIMARY.includes(next.name) || isSiteRoute(next.name)) return [next];
+  return [...s.slice(-20), next];
+}
+
+/**
+ * What each browser history entry remembers: the whole trail of screens (so Back, Forward and reload
+ * restore it), its position, whether the entry before it is its parent screen, and the scroll offset.
+ */
+interface HistState {
+  wh: 1;
+  idx: number;
+  stack: Route[];
+  up?: boolean;
+  y?: number;
+}
+
+function histState(): HistState | null {
+  try {
+    const s = history.state as HistState | null;
+    return s && s.wh === 1 && Array.isArray(s.stack) && s.stack.length ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+const urlFor = (r: Route) => hashFor(r) || location.pathname + location.search;
+
 export function AppProvider({ backend, children }: { backend: Backend; children: ReactNode }) {
   const v = useSyncExternalStore(
     (fn) => backend.subscribe(fn),
@@ -183,17 +256,32 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   const [actorId, setActor] = useState<string | null>(() => readLocalRaw('pl.actor'));
   const [workspaceId, setWs] = useState<string | null>(() => readLocalRaw('pl.workspace'));
   const [stack, setStack] = useState<Route[]>(() => {
-    const hash = typeof location !== 'undefined' ? (location.hash.replace('#', '') as RouteName) : null;
-    if (hash && ROUTE_TOKENS.includes(hash)) return [{ name: hash }];
-    // Everyone lands on the website's home page; the portal is one button away.
-    return [{ name: 'home' }];
+    if (typeof location === 'undefined') return [{ name: 'home' }];
+    const linked = parseHash(location.hash);
+    // A reload keeps the trail of screens behind this one: it lives in the history entry.
+    const saved = histState();
+    if (saved && linked && hashFor(saved.stack[saved.stack.length - 1]) === hashFor(linked)) return saved.stack;
+    // Everyone else lands on the website's home page; the portal is one button away.
+    return [linked ?? { name: 'home' }];
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [tourOpen, setTourOpenState] = useState<boolean>(() => readLocalRaw('pl.tour') === 'open');
   const [guideStep, setGuideStepState] = useState<number | null>(null);
+  const [accountsOpen, setAccountsOpen] = useState(false);
   const toastId = useRef(0);
   const guard = useRef<string | null>(null);
-  const [blocked, setBlocked] = useState<{ message: string; next: Route | RouteName | 'back' } | null>(null);
+  /** Where a held-back navigation goes: a route, the in-app Back, or a browser Back/Forward replayed by this many steps. */
+  const [blocked, setBlocked] = useState<{ message: string; next: Route | RouteName | 'back' | { steps: number } } | null>(null);
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+  /** Set for the next history write when it should replace the entry rather than add one. */
+  const replaceNext = useRef(false);
+  /** Scroll offset to put back once a Back/Forward has rendered. */
+  const restoreY = useRef<number | null>(null);
+  /** The address last handled, so the popstate and hashchange of one browser move act once. */
+  const seen = useRef('');
+  /** Position of the history entry on screen, to count how far a Back or Forward jumped. */
+  const curIdx = useRef(0);
 
   // Keep the session valid across resets: fall back to the first workspace the user belongs to.
   const db = backend.db;
@@ -222,29 +310,99 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   }, [prefs.theme, prefs.text]);
 
   const route = stack[stack.length - 1];
+  const addressKey = () => `${location.hash}|${histState()?.idx ?? ''}`;
+
+  // Each new screen gets its own browser history entry, so the browser's Back and Forward buttons
+  // walk through screens instead of leaving the app.
   useEffect(() => {
+    let forward = true;
     try {
-      const token = ROUTE_TOKENS.includes(route.name) ? route.name : '';
-      const want = token ? `#${token}` : '';
-      if (location.hash !== want) history.replaceState(null, '', want || location.pathname + location.search);
+      const st = histState();
+      if (st && sameStack(st.stack, stack)) {
+        // Arrived by Back, Forward or a reload: the entry already matches, so only the scroll is restored.
+        forward = false;
+        window.scrollTo?.({ top: restoreY.current ?? 0 });
+      } else if (!st || replaceNext.current) {
+        history.replaceState({ wh: 1, idx: st?.idx ?? curIdx.current, stack, up: false } satisfies HistState, '', urlFor(route));
+      } else {
+        history.replaceState({ ...st, y: window.scrollY }, '');
+        history.pushState({ wh: 1, idx: st.idx + 1, stack, up: sameStack(st.stack, stack.slice(0, -1)) } satisfies HistState, '', urlFor(route));
+      }
+      seen.current = addressKey();
+      curIdx.current = histState()?.idx ?? 0;
     } catch {
-      /* hash sync is cosmetic */
+      /* history is a convenience; the screen still changes */
     }
-    window.scrollTo?.({ top: 0 });
-  }, [route]);
+    replaceNext.current = false;
+    restoreY.current = null;
+    if (forward) window.scrollTo?.({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stack]);
 
   const rawGo = useCallback((r: Route | RouteName) => {
     const next = typeof r === 'string' ? { name: r } : r;
-    setStack((s) => {
-      const top = s[s.length - 1];
-      if (top.name === next.name && top.id === next.id && top.q === next.q) return s;
-      const primary: RouteName[] = ['receive', 'move', 'find', 'overview', 'more', 'signin', 'station'];
-      if (primary.includes(next.name) || isSiteRoute(next.name)) return [next];
-      return [...s.slice(-20), next];
-    });
+    setStack((s) => stackAfter(s, next));
   }, []);
 
-  const rawBack = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
+  const rawBack = useCallback(() => {
+    // The entry before this one is the parent screen: step back through the browser so both agree.
+    if (histState()?.up && stackRef.current.length > 1) return history.back();
+    replaceNext.current = true;
+    setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+  }, []);
+
+  // Back, Forward, and a hash typed or pasted into the address bar.
+  useEffect(() => {
+    try {
+      history.scrollRestoration = 'manual';
+    } catch {
+      /* not supported: the browser keeps its own scroll handling */
+    }
+    const onAddress = () => {
+      const key = addressKey();
+      if (key === seen.current) return;
+      seen.current = key;
+      const st = histState();
+      const cur = stackRef.current;
+      let target: Route[];
+      let steps: number;
+      if (st) {
+        target = st.stack;
+        steps = st.idx - curIdx.current;
+      } else {
+        // An anchor that is not a screen changes nothing; the new entry keeps the current screen.
+        const linked = parseHash(location.hash);
+        target = linked ? stackAfter(cur, linked) : cur;
+        steps = 1;
+      }
+      if (sameStack(target, cur) && st) return;
+      if (guard.current && !sameStack(target, cur)) {
+        // Put the address back to match the screen, and ask first.
+        setBlocked({ message: guard.current, next: { steps } });
+        if (steps) history.go(-steps);
+        return;
+      }
+      if (st) {
+        restoreY.current = st.y ?? 0;
+        curIdx.current = st.idx;
+      } else {
+        // A hash typed by hand opened a new entry: give it the trail and position the app keeps.
+        curIdx.current += 1;
+        history.replaceState({ wh: 1, idx: curIdx.current, stack: target, up: sameStack(cur, target.slice(0, -1)) } satisfies HistState, '', urlFor(target[target.length - 1]));
+        seen.current = addressKey();
+        if (target === cur) return;
+      }
+      stackRef.current = target;
+      setStack(target);
+    };
+    window.addEventListener('popstate', onAddress);
+    window.addEventListener('hashchange', onAddress);
+    return () => {
+      window.removeEventListener('popstate', onAddress);
+      window.removeEventListener('hashchange', onAddress);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const go = useCallback(
     (r: Route | RouteName) => {
@@ -279,9 +437,14 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
           const n = blocked.next;
           setBlocked(null);
           if (n === 'back') rawBack();
+          else if (typeof n === 'object' && 'steps' in n) history.go(n.steps);
           else rawGo(n);
         },
-        cancel: () => setBlocked(null),
+        cancel: () => {
+          setBlocked(null);
+          // The tour cannot go on without leaving this screen, so staying ends it.
+          setGuideStepState(null);
+        },
       }
     : null;
 
@@ -370,10 +533,8 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     writeLocal('pl.tour', open ? 'open' : 'closed');
   }, []);
 
-  const startGuide = useCallback((step = 0) => {
-    guard.current = null;
-    setGuideStepState(step);
-  }, []);
+  // Unsaved work still raises the usual "Leave this screen?" question when the tour moves on.
+  const startGuide = useCallback((step = 0) => setGuideStepState(step), []);
   const setGuideStep = useCallback((step: number) => setGuideStepState(step), []);
   const stopGuide = useCallback(() => setGuideStepState(null), []);
 
@@ -403,6 +564,8 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     startGuide,
     setGuideStep,
     stopGuide,
+    accountsOpen,
+    setAccountsOpen,
     setLeaveGuard,
     blockedNav,
     read,

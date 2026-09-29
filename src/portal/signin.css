@@ -111,9 +111,11 @@
 }
 .door-side-top {
   display: flex;
+  /* When the brand and the website pill do not both fit, the pill drops to its own line instead of overlapping. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 14px 16px;
 }
 @media (min-width: 960px) {
@@ -154,6 +156,8 @@
 }
 
 .door-back {
+  flex: none;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -177,12 +181,18 @@
 .door-back-short {
   display: none;
 }
-@media (max-width: 480px) {
+/* Phones, and the narrow side column of a small laptop, use the short "Website" label. */
+@media (max-width: 480px), (min-width: 960px) and (max-width: 1180px) {
   .door-back-full {
     display: none;
   }
   .door-back-short {
     display: inline;
+  }
+}
+@media (max-width: 400px) {
+  .door-brand-sub {
+    display: none;
   }
 }
 

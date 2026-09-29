@@ -1,21 +1,25 @@
 // Scan station side panel: the "type a code" box, the tray of pretend test labels, and the session log.
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useApp } from '../../app/state';
 import { makeLabelPayload } from '../../domain/codes';
 import type { Location, Pallet } from '../../domain/types';
 import { commandPayload, SCAN_COMMANDS, type ScanCommand } from '../../device/scanCommands';
-import { useScanRouter, type ScanSource } from '../../device/scanRouter';
+import { stripScanPrefix, useScanRouter, type ScanSource } from '../../device/scanRouter';
 import { createTypingMeter } from '../../device/wedge';
 import { Icon, type IconName } from '../../ui/icons';
 import type { LogEntry, StationMode, StationState, Tone } from './logic';
 
 // ------------------------------------------------------------------ type a code
 
+/** A scanner that ends each code with CR and LF presses Enter twice; the second lands on the box the first one emptied. */
+const SECOND_ENTER_MS = 300;
+
 export function TypeCode({ onEmptyEnter }: { onEmptyEnter: () => void }) {
   const { emit, settings } = useScanRouter();
   const [code, setCode] = useState('');
   const meter = useRef(createTypingMeter());
+  const lastSubmit = useRef(0);
   return (
     <form
       className="panel st-type"
@@ -24,14 +28,15 @@ export function TypeCode({ onEmptyEnter }: { onEmptyEnter: () => void }) {
         e.preventDefault();
         const text = code.trim();
         if (!text) {
-          onEmptyEnter();
+          if (Date.now() - lastSubmit.current >= SECOND_ENTER_MS) onEmptyEnter();
           return;
         }
-        // A scanner typing into this box still counts as a scanner.
+        lastSubmit.current = Date.now();
+        // A scanner typing into this box still counts as a scanner, and its prefix comes off as it does for any scan.
         const m = meter.current.result(text, settings);
         meter.current.reset();
         setCode('');
-        emit(text, m.fromScanner ? 'wedge' : 'typed', { durationMs: m.durationMs });
+        emit(m.fromScanner ? stripScanPrefix(text, settings.prefix) : text, m.fromScanner ? 'wedge' : 'typed', { durationMs: m.durationMs });
       }}
     >
       <label htmlFor="st-code" className="st-type-label">
@@ -89,7 +94,7 @@ function writeTray(open: boolean) {
   }
 }
 
-export function TestLabels({ s }: { s: StationState }) {
+export function TestLabels({ s, onTapped }: { s: StationState; onTapped?: (e: MouseEvent) => void }) {
   const { backend, workspaceId, v } = useApp();
   const { emit } = useScanRouter();
   const [open, setOpen] = useState(readTray);
@@ -141,7 +146,10 @@ export function TestLabels({ s }: { s: StationState }) {
   }, [backend, workspaceId, v, backend.network, mode, rackId]);
 
   if (!groups) return null;
-  const tap = (l: TestLabel) => emit(l.text, 'demo');
+  const tap = (l: TestLabel, e: MouseEvent) => {
+    emit(l.text, 'demo');
+    onTapped?.(e);
+  };
 
   return (
     <details
@@ -164,21 +172,22 @@ export function TestLabels({ s }: { s: StationState }) {
         <p className="st-hint">Pretend labels for real racks and pallets in this warehouse. A tap sends the label’s code exactly as a scanner would.</p>
         <TrayGroup title="Racks and areas" items={groups.racks} cols="narrow" onTap={tap} />
         <TrayGroup title={groups.title} items={groups.pallets} onTap={tap} />
-        <TrayGroup title="Command barcodes" items={groups.commands} onTap={tap} />
+        <TrayGroup title="Command barcodes" items={groups.commands} cols="single" onTap={tap} />
         <TrayGroup title="Something unknown" items={groups.other} onTap={tap} />
       </div>
     </details>
   );
 }
 
-function TrayGroup({ title, items, cols, onTap }: { title: string; items: TestLabel[]; cols?: 'narrow'; onTap: (l: TestLabel) => void }) {
+/** `single` lays every label out full width in one column (command barcodes, whose names vary a lot in length). */
+function TrayGroup({ title, items, cols, onTap }: { title: string; items: TestLabel[]; cols?: 'narrow' | 'single'; onTap: (l: TestLabel, e: MouseEvent) => void }) {
   if (!items.length) return null;
   return (
     <div className="st-tray-group">
       <h4>{title}</h4>
       <div className={`st-tray-items ${cols ?? ''}`}>
         {items.map((l) => (
-          <button key={l.key} type="button" className={`st-tl ${l.kind} ${l.code.length > 9 ? 'wide' : ''}`} onClick={() => onTap(l)} title={`Send ${l.text}`}>
+          <button key={l.key} type="button" className={`st-tl ${l.kind} ${cols !== 'single' && l.code.length > 9 ? 'wide' : ''}`} onClick={(e) => onTap(l, e)} title={`Send ${l.text}`}>
             <span className="st-tl-code">{l.code}</span>
             {l.sub && <small>{l.sub}</small>}
           </button>

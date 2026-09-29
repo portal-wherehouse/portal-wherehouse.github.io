@@ -6,6 +6,7 @@ import { BRAND } from '../../brand';
 import { useApp } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { CtaBand, Placeholder, PortalCTA, Section, PageHero, SiteLink } from '../kit';
+import { PLACEHOLDER_MONTHLY } from '../prices';
 import { Coming } from './d-kit';
 import './pages-d.css';
 
@@ -35,7 +36,7 @@ const PLANS: Plan[] = [
     id: 'starter',
     name: 'Starter',
     fit: 'One yard getting its first racks labeled. A small crew, with one or two people receiving.',
-    monthly: 49,
+    monthly: PLACEHOLDER_MONTHLY.starter,
     limits: [
       { icon: 'people', label: 'Users', value: '3' },
       { icon: 'pallet', label: 'Active pallets', value: '500' },
@@ -47,7 +48,7 @@ const PLANS: Plan[] = [
     id: 'team',
     name: 'Team',
     fit: 'A busy yard with a crew on every shift, and supervisors who need to see what is going on.',
-    monthly: 129,
+    monthly: PLACEHOLDER_MONTHLY.team,
     featured: true,
     limits: [
       { icon: 'people', label: 'Users', value: '15' },
@@ -60,7 +61,7 @@ const PLANS: Plan[] = [
     id: 'company',
     name: 'Company',
     fit: 'Larger operations, or more than one company or division under one login.',
-    monthly: 299,
+    monthly: PLACEHOLDER_MONTHLY.company,
     limits: [
       { icon: 'people', label: 'Users', value: '50' },
       { icon: 'pallet', label: 'Active pallets', value: '25,000' },
@@ -79,7 +80,7 @@ const PLANS: Plan[] = [
   {
     id: 'enterprise',
     name: 'Enterprise',
-    fit: 'Big or multi-site operations that need custom limits, a rollout plan and invoicing.',
+    fit: 'Big operations that need custom limits, a rollout plan and invoicing.',
     monthly: null,
     limits: [
       { icon: 'people', label: 'Users', value: 'Custom' },
@@ -337,7 +338,7 @@ function PriceLine({ plan, billing }: { plan: Plan; billing: Billing }) {
     return (
       <div className="pr-price">
         <span className="pr-amt">Custom</span>
-        <span className="pr-billed">Priced to fit your sites and your crew.</span>
+        <span className="pr-billed">Priced to fit your operation and your crew.</span>
       </div>
     );
   }
@@ -466,9 +467,13 @@ function CompareTable({ billing }: { billing: Billing }) {
         {COMPARE.map((g) => (
           <tbody key={g.group}>
             <tr className="pr-group">
-              <th scope="colgroup" colSpan={PLANS.length + 1}>
-                {g.group}
-              </th>
+              <th scope="rowgroup">{g.group}</th>
+              {/* The plan names again, so the columns stay labeled deep in the table on phones. */}
+              {PLANS.map((p) => (
+                <td key={p.id} aria-hidden="true">
+                  <span className="pr-group-plan">{p.name}</span>
+                </td>
+              ))}
             </tr>
             {g.rows.map((r, i) => (
               <tr key={i}>

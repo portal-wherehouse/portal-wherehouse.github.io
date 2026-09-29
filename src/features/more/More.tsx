@@ -41,7 +41,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
     items: [
       { route: 'help', label: 'Help', icon: 'help', hint: 'Video, tutorials, FAQ, contact' },
       { route: 'sync', label: 'Sync and offline', icon: 'sync', hint: 'Queue and network lab' },
-      { route: 'lab', label: 'Integrity lab', icon: 'lab', hint: 'Run the blueprint tests' },
+      { route: 'lab', label: 'Integrity lab', icon: 'lab', hint: 'Run the built-in safety tests' },
       { route: 'guide', label: 'Guide', icon: 'guide', hint: 'How it all works' },
       { route: 'settings', label: 'Settings', icon: 'settings', hint: 'Display and demo data' },
       { route: 'about', label: 'About', icon: 'about', hint: 'Credits' },

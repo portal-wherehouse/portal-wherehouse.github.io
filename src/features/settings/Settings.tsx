@@ -8,7 +8,7 @@ import { Icon } from '../../ui/icons';
 import { Explain, Notice, PageHead, Sheet, Spinner } from '../../ui/ui';
 
 export function Settings() {
-  const { prefs, setPrefs, backend, toast, setTourOpen, signOut } = useApp();
+  const { prefs, setPrefs, backend, toast, setTourOpen, setAccountsOpen } = useApp();
   const [confirm, setConfirm] = useState<FixtureName | null>(null);
   const [busy, setBusy] = useState(false);
   const counts = {
@@ -62,7 +62,7 @@ export function Settings() {
           <button className="btn" onClick={() => setTourOpen(true)}>
             <Icon name="tour" /> Start the practice shift
           </button>
-          <button className="btn" onClick={signOut}>
+          <button className="btn" onClick={() => setAccountsOpen(true)}>
             <Icon name="user" /> Choose another demo account
           </button>
         </div>

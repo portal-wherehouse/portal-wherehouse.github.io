@@ -611,6 +611,11 @@
 
 /* ------------------------------------------------------------------ command sheet */
 
+/* The header's "Command barcodes" button scrolls here; stop below the sticky top bar, not under it. */
+#command-sheet {
+  scroll-margin-top: 76px;
+}
+
 .scn-cmd-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));

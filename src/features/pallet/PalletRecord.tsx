@@ -65,7 +65,7 @@ export function PalletRecord() {
         <PageHead title="Pallet" />
         <div className="panel">
           <Empty icon="find" title="Pallet not found">
-            It may belong to another workspace, or the demo was reset. Search again from Find.
+            It may belong to another company, or the demo was reset. Search again from Find.
           </Empty>
         </div>
       </div>

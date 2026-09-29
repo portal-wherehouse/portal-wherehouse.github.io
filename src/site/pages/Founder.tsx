@@ -43,7 +43,7 @@ const WHY: { icon: IconName; title: string; body: string }[] = [
 const STORY: { title: string; body: string }[] = [
   {
     title: 'The blueprint',
-    body: `${BRAND.name} began as ${CREATOR.name}’s Pallet Locator build blueprint: a 42-page plan for tracking pallets in a construction warehouse. It covers receiving, moving and finding, labels, roles, working offline, and the rules that keep records honest.`,
+    body: `${BRAND.name} began as ${CREATOR.name}’s build blueprint: a 42-page plan for tracking pallets in a construction warehouse. It covers receiving, moving and finding, labels, roles, working offline, and the rules that keep records honest.`,
   },
   {
     title: 'The working app',
@@ -51,7 +51,7 @@ const STORY: { title: string; body: string }[] = [
   },
   {
     title: 'A new name',
-    body: `Pallet Locator became ${BRAND.name}: one name for knowing where everything in the warehouse is.`,
+    body: `The app took the name ${BRAND.name}: one name for knowing where everything in the warehouse is.`,
   },
   {
     title: 'Today',
@@ -62,8 +62,8 @@ const STORY: { title: string; body: string }[] = [
 const NEXT: { icon: IconName; title: string; body: string; tag: string }[] = [
   { icon: 'key', title: 'Accounts and real sign-in', body: 'An account for every person on your crew, with the same roles you see in the demo.', tag: 'Planned' },
   { icon: 'cloud', title: 'Cloud sync', body: 'Records kept in the cloud and shared across every phone, tablet and computer, instead of living in one browser.', tag: 'Planned' },
-  { icon: 'scanner', title: 'More scanner workflows', body: 'More ways to work hands-free, like putting away a whole delivery or counting a rack in one run.', tag: 'Planned' },
-  { icon: 'building', title: 'More than one warehouse', body: 'Several yards under one company, each with its own racks.', tag: 'Coming' },
+  { icon: 'scanner', title: 'More scanner workflows', body: 'More ways to work hands-free at the Scan station, beyond today’s Move, Put-away and Count modes.', tag: 'Planned' },
+  { icon: 'building', title: 'More than one warehouse', body: 'Several yards under one company, each with its own racks.', tag: 'Planned' },
 ];
 
 export function FounderPage() {

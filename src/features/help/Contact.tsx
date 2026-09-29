@@ -47,10 +47,12 @@ export function ContactSection({ prefill }: { prefill: ContactPrefill | null }) 
   const [copied, setCopied] = useState<string | null>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
 
-  // Keep the half-written request on this device.
+  // Keep the half-written request on this device. Sending cancels a save still waiting, so the sent
+  // message does not come back as a draft.
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    const t = setTimeout(() => saveDraft(draft.message.trim() || draft.name.trim() || draft.email.trim() ? draft : null), 250);
-    return () => clearTimeout(t);
+    draftTimer.current = setTimeout(() => saveDraft(draft.message.trim() || draft.name.trim() || draft.email.trim() ? draft : null), 250);
+    return () => clearTimeout(draftTimer.current);
   }, [draft]);
 
   // A question handed over from the FAQ search.
@@ -107,6 +109,7 @@ export function ContactSection({ prefill }: { prefill: ContactPrefill | null }) 
     const saved = saveTicket(ticket);
     setTickets(loadTickets());
     setDone({ ticket, saved });
+    clearTimeout(draftTimer.current);
     saveDraft(null);
     requestAnimationFrame(() => {
       confirmRef.current?.scrollIntoView({ block: 'nearest' });

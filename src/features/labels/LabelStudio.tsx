@@ -12,7 +12,7 @@ type Source = 'reprint' | 'job' | 'received' | 'racks' | 'pick';
 
 export function LabelStudio() {
   const { read, backend, v } = useApp();
-  const [source, setSource] = useState<Source>('reprint');
+  const [chosen, setSource] = useState<Source | null>(null);
   const [jobId, setJobId] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -31,6 +31,10 @@ export function LabelStudio() {
   );
   if (!data) return null;
 
+  const reprintCount = data.pallets.filter((p) => p.label_needs_reprint).length;
+  const receivedCount = data.pallets.filter((p) => p.state === 'RECEIVED').length;
+  // Open on a list that has something in it, rather than on an empty one with a disabled button.
+  const source: Source = chosen ?? (reprintCount === 0 && receivedCount > 0 ? 'received' : 'reprint');
   const palletIds =
     source === 'reprint'
       ? data.pallets.filter((p) => p.label_needs_reprint).map((p) => p.id)
@@ -47,8 +51,8 @@ export function LabelStudio() {
   const samplePayload = data.sample ? makeLabelPayload('P', data.sample) : 'PL1:P:ABCDEFGHIJKLMNOP';
 
   const SOURCES: { id: Source; label: string }[] = [
-    { id: 'reprint', label: `Needs reprint (${data.pallets.filter((p) => p.label_needs_reprint).length})` },
-    { id: 'received', label: `Waiting for placement (${data.pallets.filter((p) => p.state === 'RECEIVED').length})` },
+    { id: 'reprint', label: `Needs reprint (${reprintCount})` },
+    { id: 'received', label: `Waiting for placement (${receivedCount})` },
     { id: 'job', label: 'Everything on a job' },
     { id: 'pick', label: 'Pick pallets' },
     { id: 'racks', label: 'All rack labels' },
@@ -96,6 +100,11 @@ export function LabelStudio() {
           <button className="btn primary big" disabled={count === 0} onClick={() => setOpen(true)}>
             <Icon name="print" /> Preview {count} {count === 1 ? 'label' : 'labels'}
           </button>
+          {count === 0 && (
+            <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
+              {source === 'job' && !jobId ? 'Choose a job first.' : source === 'pick' ? 'Tick the pallets to print.' : 'Nothing to print in this list right now. Choose another one above.'}
+            </p>
+          )}
         </div>
         <div className="panel stack" data-tour="labels-anatomy">
           <div className="panel-title">What is on a label</div>
@@ -108,7 +117,7 @@ export function LabelStudio() {
                 The QR code holds <span className="mono" style={{ fontSize: 12.5 }}>PL1:P:</span> followed by a 16-character random token. It holds no job, description or location.
               </div>
               <div className="muted">
-                That means a label never goes stale when a pallet moves, and a photo of a label reveals nothing. Only someone signed in to this workspace can look the token up.
+                That means a label never goes stale when a pallet moves, and the QR itself reveals nothing beyond the printed text. Only someone with access to this company can look the token up.
               </div>
             </div>
           </div>
@@ -136,7 +145,10 @@ export function LabelStudio() {
                 <td>
                   <span className="mono">Barcode</span>
                 </td>
-                <td>A Code 128 barcode of the printed code (like P-000042 or A-03-02), for laser scanners that cannot read QR codes. It works just like typing the code.</td>
+                <td>
+                  A Code 128 barcode of the printed code (like <span className="code-nw">P-000042</span> or <span className="code-nw">A-03-02</span>), for laser scanners that cannot read QR codes. It
+                  works just like typing the code.
+                </td>
               </tr>
             </tbody>
           </table>
