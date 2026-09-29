@@ -41,14 +41,14 @@ export function People() {
         actions={
           canAdmin && (
             <button className="btn primary" onClick={() => setInvite(true)} disabled={offline}>
-              <Icon name="plus" /> Invite
+              <Icon name="plus" /> Add teammate
             </button>
           )
         }
       />
       <Explain refs="pages 5, 9, 20">
         <p>Access belongs to a membership in the company, and the server checks it on every read and every change. A removed person loses access on their very next request, even if their phone still shows the app. Only owners can grant or change supervisor and owner access, and a company always keeps at least one owner.</p>
-        <p>In this demo you can sign in as anyone below to see exactly what their role allows.</p>
+        <p>Each teammate needs their own account. Managers choose who can view or change warehouse records.</p>
       </Explain>
 
       <div className="stack" data-tour="people-list">
@@ -70,7 +70,7 @@ export function People() {
               </div>
             </div>
             <div className="row m-actions" style={{ gap: 6 }}>
-              {m.user_id !== actorId && (
+              {backend.mode === 'demo' && m.user_id !== actorId && (
                 <button className="btn small" onClick={() => signIn(m.user_id, data.ctx.workspace.id)} title="Demo only: switch to this account">
                   <Icon name="user" /> Sign in as
                 </button>
@@ -137,11 +137,11 @@ function InviteSheet({ isOwner, onClose }: { isOwner: boolean; onClose: () => vo
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   return (
     <AdminSheet
-      title="Invite someone"
+      title="Add teammate"
       kind="invite_member"
-      verb="Send invite"
+      verb="Add teammate"
       done={`${email.trim()} added as ${ROLE_LABEL[role]}`}
-      intro="In the real app this sends a sign-in link by email. In this demo the person is added at once, and you can sign in as them."
+      intro="Ask your teammate to create an account and verify their email, then enter that email here. Adding them grants access; no invitation email is sent."
       valid={!!name.trim() && emailOk}
       payload={() => ({ name, email, role })}
       onClose={onClose}

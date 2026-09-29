@@ -24,6 +24,7 @@ const SOURCE_VIA: Record<ScanSource, string> = {
 };
 
 interface LastScan {
+  scope?: string;
   text: string;
   source: ScanSource;
   ok: boolean;
@@ -65,9 +66,9 @@ export function ScanPanel({
   const [decoder, setDecoder] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
-  const [last, setLastState] = useState<LastScan | null>(() => (lastPanelScan && Date.now() - lastPanelScan.at < LAST_SCAN_SHOWN_MS ? lastPanelScan : null));
+  const [last, setLastState] = useState<LastScan | null>(() => (lastPanelScan && lastPanelScan.scope === `${actorId}:${workspaceId}` && Date.now() - lastPanelScan.at < LAST_SCAN_SHOWN_MS ? lastPanelScan : null));
   const setLast = (l: LastScan) => {
-    lastPanelScan = l;
+    lastPanelScan = { ...l, scope: `${actorId}:${workspaceId}` };
     setLastState(l);
   };
   const video = useRef<HTMLVideoElement>(null);
@@ -250,7 +251,7 @@ export function ScanPanel({
           </span>
         )}
       </div>
-      {demoTargets && demoTargets.length > 0 && (
+      {backend.mode === 'demo' && demoTargets && demoTargets.length > 0 && (
         <div className="stack" style={{ gap: 6 }}>
           <div className="eyebrow" style={{ margin: 0 }}>
             No printed labels handy? Tap one to scan it

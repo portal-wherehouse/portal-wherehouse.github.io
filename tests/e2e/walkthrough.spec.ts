@@ -7,8 +7,8 @@ import { nav, portalReady, signInAs, typeCode, watchErrors } from './helpers';
 /** The real way in: website home, "Try the demo", the front door, then a role. */
 async function enterPortalAs(page: Page, role: 'Owner' | 'Supervisor' | 'Operator' | 'Viewer') {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: /Find the right pallet/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Try the demo' }).first().click();
+  await expect(page.getByRole('heading', { level: 1, name: /Know where/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign in' }).first().click();
   await expect(page).toHaveURL(/#signin$/);
   await expect(page.getByRole('heading', { name: 'Welcome to the portal.' })).toBeVisible();
   // The role cards are labels around a visually hidden radio: click the card like a person would.

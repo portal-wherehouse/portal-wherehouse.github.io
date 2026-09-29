@@ -124,6 +124,7 @@ test.describe('keyboard-wedge scanner emulation', () => {
   test('the website Scanners page shows what a scanner sent', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/#hardware');
+    await page.getByText('Open scanner test',{exact:true}).click();
     const panel = page.locator('.hw-test');
     await panel.scrollIntoViewIfNeeded();
     await expect(panel.getByText('Listening for scans')).toBeVisible();

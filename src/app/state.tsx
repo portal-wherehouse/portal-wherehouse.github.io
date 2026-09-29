@@ -254,7 +254,8 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     () => backend.version,
   );
   const [prefs, setPrefsState] = useState<Prefs>(() => readLocal('pl.prefs', DEFAULT_PREFS));
-  const [actorId, setActor] = useState<string | null>(() => readLocalRaw('pl.actor'));
+  const [demoActorId, setActor] = useState<string | null>(() => readLocalRaw('pl.actor'));
+  const actorId = backend.mode === 'firebase' ? backend.authUid : demoActorId;
   const [workspaceId, setWs] = useState<string | null>(() => readLocalRaw('pl.workspace'));
   const [stack, setStack] = useState<Route[]>(() => {
     if (typeof location === 'undefined') return [{ name: 'home' }];
@@ -465,6 +466,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
 
   const signIn = useCallback(
     (userId: string, ws?: string) => {
+      if (backend.mode === 'firebase') return;
       setActor(userId);
       writeLocal('pl.actor', userId);
       if (ws) {
@@ -479,16 +481,18 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
 
   const signOut = useCallback(() => {
     guard.current = null;
+    void backend.logout();
     setActor(null);
     writeLocal('pl.actor', null);
     setStack([{ name: 'home' }]);
-  }, []);
+  }, [backend]);
 
   const setWorkspace = useCallback((id: string) => {
+    void backend.chooseWorkspace(id);
     setWs(id);
     writeLocal('pl.workspace', id);
     setStack([{ name: 'find' }]);
-  }, []);
+  }, [backend]);
 
   const envelope = useCallback(
     (kind: CommandKind, payload: Record<string, unknown>, pallet?: Pallet | null, opts: SendOptions = {}): CommandEnvelope => ({
@@ -552,7 +556,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     go,
     back,
     canGoBack: stack.length > 1,
-    prefs,
+    prefs: backend.mode === 'firebase' ? { ...prefs, advancedTools: false, explain: false } : prefs,
     setPrefs,
     toasts,
     toast,

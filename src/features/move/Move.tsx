@@ -216,7 +216,8 @@ export function Move() {
         </ul>
       </Explain>
 
-      {offline && (
+      {offline && backend.mode === 'firebase' && <Notice tone="warn" title="You’re offline">Reconnect before confirming a move. Nothing is saved while offline.</Notice>}
+      {offline && backend.mode === 'demo' && (
         <Notice tone="warn" icon="wifiOff" title="Offline: limited moves only">
           Moves and location checks for stored pallets can be saved on this device and sent later. They are <strong>queued, not confirmed</strong>, until the server accepts them. Everything else waits
           for the connection.
@@ -438,7 +439,7 @@ function Review({
   offline: boolean;
   confirmByRescan: boolean;
 }) {
-  const { read, prefs } = useApp();
+  const { read, prefs, backend } = useApp();
   const p = s.pallet!;
   const job = read((e) => e.db.jobs[p.job_id]);
   const verb = INTENT_VERB[s.intent!];
@@ -483,9 +484,9 @@ function Review({
         </div>
       ) : (
         <div className="row">
-          <button className="btn primary big wrap" onClick={onConfirm} disabled={busy}>
+          <button className="btn primary big wrap" onClick={onConfirm} disabled={busy || (offline && backend.mode === 'firebase')}>
             {busy ? <Spinner /> : <Icon name={s.intent === 'verify_location' ? 'check' : 'move'} />}
-            {busy ? 'Waiting for server…' : offline ? `Queue: ${verb.toLowerCase()} ${s.destination!.code}` : `${verb}${s.intent === 'verify_location' ? '' : `: ${s.destination!.code}`}`}
+            {busy ? 'Waiting for server…' : offline && backend.mode === 'firebase' ? 'Reconnect to save' : offline ? `Queue: ${verb.toLowerCase()} ${s.destination!.code}` : `${verb}${s.intent === 'verify_location' ? '' : `: ${s.destination!.code}`}`}
           </button>
           <button className="btn" onClick={onCancel} disabled={busy}>
             Change destination

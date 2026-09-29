@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import { AppProvider } from './app/state';
 import { ScanRouterProvider } from './device/scanRouter';
+import { FirebaseBackend } from './data/firebase';
 import { Backend } from './data/backend';
 import { BRAND } from './brand';
 import { setupInstallableShell } from './device/pwa';
@@ -12,7 +13,7 @@ setupInstallableShell();
 
 const root = createRoot(document.getElementById('root')!);
 
-Backend.open()
+(new URLSearchParams(location.search).get('demo') === '1' || import.meta.env.VITE_APP_MODE === 'demo' ? Backend.open() : FirebaseBackend.connect())
   .then((backend) => {
     root.render(
       <StrictMode>

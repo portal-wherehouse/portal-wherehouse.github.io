@@ -50,7 +50,7 @@ test('switch role from the top bar, then leave the portal', async ({ page }) => 
 
   await page.getByRole('button', { name: /^Account: .*Demo Viewer$/ }).click();
   await page.getByRole('dialog', { name: 'Demo accounts' }).getByRole('button', { name: 'Leave the portal' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Find the right pallet');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Know where');
   await expect(page.locator('.topbar')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('pl.actor'))).toBeNull();
   expect(errors).toEqual([]);
@@ -91,7 +91,7 @@ test('the busy sample data adds a second company, Harborline Supply, that stays 
   // And the main company never sees Harborline's.
   await page.getByRole('button', { name: /^Account:/ }).click();
   await page.getByRole('dialog', { name: 'Demo accounts' }).getByRole('button', { name: 'Leave the portal' }).click();
-  await page.getByRole('button', { name: 'Try the demo' }).first().click();
+  await page.getByRole('button', { name: 'Sign in' }).first().click();
   await roleCard(page, /^Owner$/).click();
   await page.getByRole('button', { name: 'Continue to the portal' }).click();
   await portalReady(page);

@@ -8,6 +8,10 @@ import { Icon } from '../../ui/icons';
 import { Explain, Notice, PageHead, Sheet, Spinner } from '../../ui/ui';
 
 export function Settings() {
+  const {backend}=useApp();
+  return backend.mode === 'firebase' ? <LiveSettings /> : <DemoSettings />;
+}
+function DemoSettings() {
   const { prefs, setPrefs, backend, toast, setTourOpen, setAccountsOpen, go, role, startGuide } = useApp();
   const [confirm, setConfirm] = useState<FixtureName | null>(null);
   const [busy, setBusy] = useState(false);
@@ -155,3 +159,5 @@ function Seg<T extends string>({ value, options, onChange }: { value: T; options
     </div>
   );
 }
+
+function LiveSettings() { const {prefs,setPrefs,go,signOut}=useApp(); return <div className="stack"><PageHead title="Settings" sub="Display choices for this device." /><div className="panel stack"><Setting label="Theme"><Seg<Prefs['theme']> value={prefs.theme} options={[["system","Match device"],["light","Light"],["dark","Dark"]]} onChange={theme=>setPrefs({theme})} /></Setting><Setting label="Text size"><Seg<Prefs['text']> value={prefs.text} options={[["normal","Standard"],["large","Large"]]} onChange={text=>setPrefs({text})} /></Setting><button className="btn" onClick={()=>go('scanners')}>Scanner setup</button><button className="btn" onClick={()=>go('contact')}>Remote support</button><button className="btn" onClick={signOut}>Sign out</button></div></div>; }

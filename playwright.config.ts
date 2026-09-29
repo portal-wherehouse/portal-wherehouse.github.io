@@ -11,7 +11,7 @@ export default defineConfig({
     launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
   webServer: {
-    command: 'npm run build && npx vite preview --port 4173 --strictPort',
+    command: 'VITE_APP_MODE=demo npm run build && npx vite preview --port 4173 --strictPort',
     port: 4173,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

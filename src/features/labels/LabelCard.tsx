@@ -61,9 +61,9 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
 /** The kind line printed on a location label, in the words the app uses elsewhere. */
 const KIND_LINE: Record<LocationKind, string> = { RACK: 'Rack location', RECEIVING: 'Receiving area', QUARANTINE: 'Quarantine area', STAGING: 'Staging area', FLOOR: 'Floor area' };
 
-export function RackLabel({ location, token, warehouse }: { location: Location; token: string; warehouse: string }) {
+export function RackLabel({ location, token, warehouse, format = 'sheet' }: { location: Location; token: string; warehouse: string; format?: LabelFormat }) {
   return (
-    <div className="label-card label-rack">
+    <div className={`label-card label-rack label-rack-${format}`}>
       <Qr payload={makeLabelPayload('L', token)} className="l-qr" />
       <div className="l-side">
         <div className="l-kind">{KIND_LINE[location.kind]}</div>

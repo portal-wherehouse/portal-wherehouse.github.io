@@ -50,6 +50,13 @@ interface Meta {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class Backend {
+  mode: 'demo' | 'firebase' = 'demo';
+  authUid: string | null = null;
+  loading = false;
+  cloudError = '';
+  configured = false;
+  async logout() {}
+  async chooseWorkspace(_id: string) {}
   db!: Db;
   engine!: Engine;
   meta!: Meta;
@@ -119,7 +126,7 @@ export class Backend {
     };
   }
 
-  private bump(broadcast: boolean, type: 'changed' | 'reset' = 'changed') {
+  protected bump(broadcast: boolean, type: 'changed' | 'reset' = 'changed') {
     this.version++;
     for (const fn of this.listeners) fn();
     if (broadcast) this.channel?.postMessage({ type });

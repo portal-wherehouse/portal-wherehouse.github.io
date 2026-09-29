@@ -13,7 +13,7 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose }: { pall
   return (
     <Sheet title={`Print ${palletIds.length + locationIds.length === 1 ? 'label' : `${palletIds.length + locationIds.length} labels`}`} onClose={onClose} wide>
       <div className="stack">
-        {palletIds.length > 0 && (
+        {(
           <div className="seg" role="group" aria-label="Label size">
             <button aria-pressed={format === '4x6'} onClick={() => setFormat('4x6')}>
               4 × 6 in label
@@ -45,6 +45,7 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose }: { pall
         )}
       </div>
       <PrintPortal>
+        <style>{`@media print { @page { size: ${format === '4x6' ? '4in 6in' : 'letter'}; margin: ${format === '4x6' ? '0' : '.25in'}; } .label-grid { display: ${format === '4x6' ? 'block' : 'grid'} !important; ${format === 'sheet' ? 'grid-template-columns: repeat(2, 4in) !important;' : ''} } .label-rack { break-after: ${format === '4x6' ? 'page' : 'auto'}; } }`}</style>
         <LabelSet palletIds={palletIds} locationIds={locationIds} format={format} forPrint />
       </PrintPortal>
     </Sheet>
@@ -68,7 +69,7 @@ export function LabelSet({ palletIds, locationIds, format, forPrint }: { palletI
         <PalletLabel key={p.id} pallet={p} job={job} token={token} format={format} warehouse={data.wh} />
       ))}
       {data.locs.map(({ l, token }) => (
-        <RackLabel key={l.id} location={l} token={token} warehouse={data.wh} />
+        <RackLabel key={l.id} location={l} token={token} warehouse={data.wh} format={format} />
       ))}
     </div>
   );

@@ -51,7 +51,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
 ];
 
 /** Navigation is task-oriented; permission checks still happen in the command engine. */
-export function visibleNavGroups(role: Role | null, advanced: boolean) {
+export function visibleNavGroups(role: Role | null, advanced: boolean, live = false) {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(role === 'VIEWER'
     ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
@@ -59,18 +59,18 @@ export function visibleNavGroups(role: Role | null, advanced: boolean) {
   if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
   if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
   return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title,
-    items: g.items.filter(i => allowed.has(i.route)) })).filter(g => g.items.length);
+    items: g.items.filter(i => allowed.has(i.route) && !(live && i.route === 'data')) })).filter(g => g.items.length);
 }
 
 /** Screens the phone's bottom tabs already reach. */
 const PHONE_TABS: RouteName[] = ['receive', 'move', 'find'];
 
 export function More() {
-  const { go, role, prefs } = useApp();
+  const { go, role, prefs, backend } = useApp();
   return (
     <div className="stack">
       <PageHead title="More" />
-      {visibleNavGroups(role, prefs.advancedTools).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
+      {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase').map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
         .filter((g) => g.items.length > 0)
         .map((g) => (
         <div key={g.title} className="stack" style={{ gap: 8 }}>

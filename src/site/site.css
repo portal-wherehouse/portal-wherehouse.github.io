@@ -317,3 +317,16 @@
 .tone-ink .portal-cta-note {
   color: #c3c9cf;
 }
+
+.page-enter { animation: page-arrive .22s ease-out both; }
+@keyframes page-arrive { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.route-progress { position:fixed; top:0; left:0; right:0; z-index:1000; content: ''; display: block; height: 2px; background: var(--accent, #f2c84b); transform-origin: left; animation: route-line .45s ease-out both; }
+@keyframes route-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.walkthrough-video { margin: 0 0 2rem; }
+.walkthrough-video video { display:block; width:100%; aspect-ratio:16/9; border-radius:16px; background:#1b2228; }
+.walkthrough-video figcaption { margin-top:12px; color:var(--muted); }
+.pilot-price { border:1px solid var(--line); padding:clamp(24px,5vw,56px); border-radius:20px; }
+.pilot-price li { margin-block:12px; }
+@media (prefers-reduced-motion: reduce) { .page-enter, .route-progress { animation:none; } }
+.site-inner.site-hero { padding:48px 16px 24px; }
+@media(min-width:720px){.site-inner.site-hero{padding:56px 32px 32px;}}

@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
+import { getStorage, connectStorageEmulator, ref, uploadBytes, getBytes } from 'firebase/storage';
+const require=createRequire(new URL('../../firebase/functions/package.json',import.meta.url));
+process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
+const {initializeApp:adminInit}=require('firebase-admin/app');const {getAuth:adminAuth}=require('firebase-admin/auth');
+adminInit({projectId:'demo-wherehouse'});
+const apps=[];const password='Warehouse-test-123!';const suffix=Date.now();
+async function client(label,verified=true){
+ const user=await adminAuth().createUser({email:`${label}-${suffix}@example.com`,password,emailVerified:verified,displayName:label});
+ const app=initializeApp({apiKey:'demo-key',projectId:'demo-wherehouse',authDomain:'demo-wherehouse.firebaseapp.com',storageBucket:'demo-wherehouse.appspot.com'},label);apps.push(app);
+ const auth=getAuth(app);connectAuthEmulator(auth,'http://127.0.0.1:9099',{disableWarnings:true});await signInWithEmailAndPassword(auth,user.email,password);
+ const db=getFirestore(app);connectFirestoreEmulator(db,'127.0.0.1',8080);
+ const fn=getFunctions(app);connectFunctionsEmulator(fn,'127.0.0.1',5001);
+ const storage=getStorage(app);connectStorageEmulator(storage,'127.0.0.1',9199);
+ return {user,auth,db,storage,call:async(name,data)=>(await httpsCallable(fn,name)(data)).data};
+}
+let checks=0;const ok=label=>{checks++;console.log(`PASS ${label}`);};
+try {
+ const owner=await client('owner'),operator=await client('operator'),outsider=await client('outsider'),viewer=await client('viewer'),unverified=await client('unverified',false);
+ await assert.rejects(unverified.call('createWarehouse',{name:'Blocked'}));ok('unverified email cannot create warehouse');
+ const {workspaceId:ws}=await owner.call('createWarehouse',{name:'Test receiving warehouse',timezone:'America/New_York'});
+ assert.equal((await owner.call('createWarehouse',{name:'Retry'})).workspaceId,ws);ok('warehouse creation is idempotent');
+ const {workspaceId:otherWs}=await outsider.call('createWarehouse',{name:'Other warehouse'});
+ const envelope=(kind,payload,more={})=>({schema_version:1,command_id:randomUUID(),workspace_id:ws,kind,payload,...more});
+ const send=(who,kind,payload,more)=>who.call('command',envelope(kind,payload,more));
+ for(const [person,role] of [[operator,'OPERATOR'],[viewer,'VIEWER']]) assert.equal((await send(owner,'invite_member',{name:person.user.displayName,email:person.user.email,role})).ok,true);
+ await assert.rejects(getDoc(doc(outsider.db,'workspaces',ws)));await assert.rejects(getDoc(doc(owner.db,'workspaces',otherWs)));ok('warehouse isolation blocks cross-account reads');
+ await assert.rejects(setDoc(doc(owner.db,'workspaces',ws,'pallets','fake'),{state:'STORED'}));ok('even owners cannot bypass server writes');
+ const job=await send(owner,'create_job',{code:'J-214',name:'School renovation'});assert.equal(job.ok,true);
+ const a=await send(owner,'create_location',{code:'A-01-01',kind:'RACK'}),b=await send(owner,'create_location',{code:'A-01-02',kind:'RACK'});assert.equal(a.ok,true);assert.equal(b.ok,true);
+ const cmd=envelope('receive',{job_id:job.target_id,description:'Lighting fixtures'});
+ const received=await owner.call('command',cmd);assert.equal(received.ok,true,JSON.stringify(received));
+ const replay=await owner.call('command',cmd);assert.equal(replay.current_state.id,received.current_state.id);
+ assert.equal((await getDocs(collection(owner.db,'workspaces',ws,'pallets'))).size,1);ok('replayed receive creates exactly one pallet');
+ const changed=await owner.call('command',{...cmd,payload:{...cmd.payload,description:'Different'}});assert.equal(changed.code,'COMMAND_KEY_REUSED');ok('request ID cannot be reused for another action');
+ const denied=await send(viewer,'receive',{job_id:job.target_id,description:'Not allowed'});assert.equal(denied.code,'FORBIDDEN');ok('viewer cannot receive');
+ const p=received.current_state;const version={pallet_id:p.id,expected_version:p.version};
+ const race=await Promise.all([send(owner,'place',{location_id:a.target_id},version),send(operator,'place',{location_id:b.target_id},version)]);
+ assert.equal(race.filter(r=>r.ok).length,1);assert.equal(race.filter(r=>r.code==='VERSION_CONFLICT').length,1);ok('simultaneous changes accept one and reject stale version');
+ let latest=race.find(r=>r.ok).current_state;
+ const seen=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{stop();reject(new Error('listener timed out'));},10000);const stop=onSnapshot(doc(operator.db,'workspaces',ws,'pallets',p.id),snap=>{if(snap.data()?.version===latest.version+1){clearTimeout(timeout);stop();resolve(snap.data());}},reject);});
+ const moved=await send(owner,'move',{location_id:latest.current_location_id===a.target_id?b.target_id:a.target_id},{pallet_id:p.id,expected_version:latest.version});assert.equal(moved.ok,true);await seen;latest=moved.current_state;ok('another signed-in device receives shared changes');
+ const path=`workspaces/${ws}/photos/${owner.user.uid}/${randomUUID()}.png`;const bytes=new Uint8Array([137,80,78,71,13,10,26,10]);
+ await uploadBytes(ref(owner.storage,path),bytes,{contentType:'image/png',customMetadata:{uploadedBy:owner.user.uid}});
+ const photo=await send(owner,'add_photo',{attachment_id:randomUUID(),data_url:`storage://${path}`,thumb_url:`storage://${path}`,media_type:'image/png',bytes:bytes.length},{pallet_id:p.id,expected_version:latest.version});assert.equal(photo.ok,true,JSON.stringify(photo));
+ assert.equal((await getBytes(ref(operator.storage,path))).byteLength,bytes.length);await assert.rejects(getBytes(ref(outsider.storage,path)));ok('photos use member-only cloud storage');
+ const removed=await send(owner,'remove_member',{user_id:operator.user.uid});assert.equal(removed.ok,true);
+ await assert.rejects(getDoc(doc(operator.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(operator,'receive',{job_id:job.target_id,description:'Blocked'}));await assert.rejects(getBytes(ref(operator.storage,path)));ok('removed teammate loses reads, writes and photos');
+ await signOut(owner.auth);await assert.rejects(owner.call('createWarehouse',{name:'No session'}));ok('signed-out account cannot write');
+ console.log(`${checks} Firebase integration checks passed.`);
+} finally {await Promise.all(apps.map(deleteApp));}

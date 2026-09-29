@@ -1,26 +1,11 @@
 rules_version = '2';
 
-// DRAFT. NOT DEPLOYED. Cloud Firestore security rules for the planned Firebase backend.
-// Design and reasoning: docs/data-storage.md, section 5.
-//
-// The model:
-//   - Deny by default (the last match block).
-//   - Clients NEVER write records. Every change goes through the `command` Cloud Function, which uses
-//     the Admin SDK (not subject to these rules) and runs the command engine in one transaction.
-//   - Clients may READ only the workspaces they are an active member of. Membership lives in
-//     workspaces/{ws}/members/{uid}, written only by the function, and is re-read on every request,
-//     so removing someone takes effect on their very next read.
-//   - Where the local engine limits a read by role (audit log, imports, invitations), so do these rules.
-//
-// Each get()/exists() below is a billed document read, cached within one request.
-// Before deploying: run the rules unit tests in the Firebase Emulator Suite (two workspaces that reuse
-// the same job and rack codes, every role, removed members).
-
+// Live clients read only their warehouses. All record writes go through authenticated functions.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
     function memberPath(ws) {

@@ -95,6 +95,8 @@ export interface Faults {
 }
 
 export interface EngineOptions {
+  /** Server-only: authenticated Cloud Storage object prefix. Never set by demo clients. */
+  photoPrefix?: string;
   clock?: () => string;
   newId?: () => string;
   newToken?: () => string;
@@ -198,6 +200,7 @@ export class Engine {
   newId: () => string;
   newToken: () => string;
   faults: Faults;
+  photoPrefix?: string;
 
   constructor(
     public db: Db,
@@ -207,6 +210,7 @@ export class Engine {
     this.newId = opts.newId ?? (() => uuid());
     this.newToken = opts.newToken ?? (() => generateToken());
     this.faults = opts.faults ?? {};
+    this.photoPrefix = opts.photoPrefix;
   }
 
   // ---------------------------------------------------------------- identity
@@ -390,7 +394,7 @@ export class Engine {
       const bytes = Number(p.bytes);
       if (bytes > 5 * 1024 * 1024) return reject('INVALID_INPUT', 'Photos are limited to 5 MB.');
       const dataUrl = String(p.data_url);
-      if (!dataUrl.startsWith(`data:${media};base64,`)) return reject('INVALID_INPUT', 'Photo content does not match its type.');
+      if (!(this.photoPrefix ? dataUrl.startsWith(this.photoPrefix) : dataUrl.startsWith(`data:${media};base64,`))) return reject('INVALID_INPUT', 'Photo content does not match its type.');
       const attId = String(p.attachment_id);
       if (this.db.attachments[attId]) return reject('INVALID_INPUT', 'That photo was already added.');
       tx.put('attachments', attId, {

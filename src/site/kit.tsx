@@ -10,13 +10,13 @@ import './site.css';
  * The way into the app for existing customers: a small line ("Already a customer?") over the
  * "Open Wherehouse Portal" button. `variant` changes the size to suit where it sits.
  */
-export function PortalCTA({ variant = 'hero', note = 'No account or credit card needed' }: { variant?: 'hero' | 'nav' | 'band' | 'inline'; note?: ReactNode }) {
+export function PortalCTA({ variant = 'hero', note = '' }: { variant?: 'hero' | 'nav' | 'band' | 'inline'; note?: ReactNode }) {
   const { go } = useApp();
   return (
     <div className={`portal-cta portal-cta-${variant}`}>
       {note && <span className="portal-cta-note">{note}</span>}
       <button className="portal-cta-btn" onClick={() => go('signin')} data-portal-cta>
-        <span>Try the demo</span>
+        <span>Sign in</span>
         <Icon name="chevronRight" />
       </button>
     </div>
@@ -42,7 +42,7 @@ export function SiteLink({ to, children, className = 'site-link', hash }: { to: 
 /** The big opening block of a page. `art` sits beside the text on wide screens and below it on phones. */
 export function PageHero({ eyebrow, title, lede, children, art }: { eyebrow?: ReactNode; title: ReactNode; lede?: ReactNode; children?: ReactNode; art?: ReactNode }) {
   return (
-    <header className={`site-hero ${art ? 'with-art' : ''}`}>
+    <header className={`site-inner site-hero ${art ? 'with-art' : ''}`}>
       <div className="site-hero-text">
         {eyebrow && <div className="site-eyebrow">{eyebrow}</div>}
         <h1 className="site-h1">{title}</h1>
@@ -100,7 +100,7 @@ export function Placeholder({ label = 'Placeholder', children, minHeight }: { la
 }
 
 /** The closing band on most pages: a sales ask for new visitors and the portal button for customers. */
-export function CtaBand({ title = BRAND.tagline, body = 'Explore the sample warehouse today, or discuss a limited pilot using your own racks once shared accounts are ready.' }: { title?: ReactNode; body?: ReactNode }) {
+export function CtaBand({ title = BRAND.tagline, body = 'Remote setup, training and ongoing support are included.' }: { title?: ReactNode; body?: ReactNode }) {
   const { go } = useApp();
   return (
     <section className="site-section tone-ink cta-band">
@@ -110,7 +110,7 @@ export function CtaBand({ title = BRAND.tagline, body = 'Explore the sample ware
           <p className="site-lede">{body}</p>
           <div className="site-hero-actions">
             <button className="site-btn primary" onClick={() => go('contact')}>
-              Book a walkthrough
+              Get started
             </button>
             <button className="site-btn ghost" onClick={() => go('pricing')}>
               See pricing

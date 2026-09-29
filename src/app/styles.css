@@ -3100,3 +3100,18 @@ table.t td svg,
 .nav-group summary{padding:10px 12px;cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .nav-group details:not([open]) summary{border-bottom:1px solid var(--line)}
 .nav-group summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.auth-shell { max-width:640px; margin:40px auto; padding:20px; }
+.auth-card { margin-top:24px; padding:clamp(24px,5vw,48px); }
+.auth-card h1 { margin:0 0 12px; line-height:1.12; }
+.auth-card label { display:grid; gap:8px; font-weight:600; }
+.auth-card input { width:100%; min-height:48px; }
+.auth-error { color:var(--danger,#af3030); }
+.cloud-loading { padding:30px 0; animation:cloud-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes cloud-pulse { to { opacity:.4; } }
+@media (prefers-reduced-motion:reduce){.cloud-loading{animation:none;}}
+.label-rack-4x6 { width:4in; height:6in; flex-direction:column; justify-content:center; }
+.label-rack-4x6 .l-qr { width:2.6in; height:2.6in; }
+.label-rack-4x6 .l-side, .label-rack-sheet .l-side { width:100%; }
+.label-rack-sheet { width:4in; height:3.33in; gap:.1in; }
+.label-rack-sheet .l-qr { width:1.45in; height:1.45in; }

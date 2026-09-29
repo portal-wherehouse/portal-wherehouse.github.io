@@ -958,3 +958,6 @@
 .home-founder-text {
   min-width: 0;
 }
+.home-price { margin:18px 0 12px; font-size:15px; }
+.home-phone-code { white-space:nowrap; font-size:20px; }
+.home-label-code { font-size:38px; white-space:nowrap; }

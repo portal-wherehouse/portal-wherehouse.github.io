@@ -1,98 +1,20 @@
-// Website home: the warehouse problem, a working demo, and a focused pilot offer.
-
 import { useEffect, useState } from 'react';
-import { useApp, type SiteRouteName } from '../app/state';
 import { qrSvg } from '../device/output';
-import { Icon, type IconName } from '../ui/icons';
 import { Plate, StateBadge } from '../ui/ui';
-import { CtaBand, FeatureCards, PortalCTA, Section, SiteLink } from './kit';
-import { TryIt } from './TryIt';
+import { Icon, type IconName } from '../ui/icons';
+import { encodeCode128 } from '../device/code128';
+import { FeatureCards, Section, SiteLink, PortalCTA } from './kit';
+import { PRICING } from './prices';
 import './home.css';
 import './pilot.css';
-import { encodeCode128 } from '../device/code128';
-import { PRICING } from './prices';
-
-export function Home() {
-  return (
-    <>
-      <Hero />
-
-      <Section id="tour" tone="surface" eyebrow="Guided tour" title="Take the guided tour" lede="Six steps, about two minutes, right here on this page. No account needed.">
-        <TryIt />
-      </Section>
-
-      <Verbs />
-      <Applications />
-      <Customers />
-      <Pricing />
-
-      <CtaBand title="See it in your own yard." />
-    </>
-  );
-}
-
-/** A button to the page a teaser summarizes, set the same way at the end of every section. */
-function More({ to, children, tone = 'ghost' }: { to: SiteRouteName; children: string; tone?: 'ghost' | 'primary' }) {
-  return (
-    <div className="home-more">
-      <SiteLink to={to} className={`site-btn ${tone}`}>
-        {children}
-        <Icon name="arrowRight" />
-      </SiteLink>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ hero
-
-function scrollToTour() {
-  const el = document.getElementById('tour');
-  if (!el) return;
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-  // Move keyboard and screen reader focus along with the scroll.
-  const heading = el.querySelector<HTMLElement>('h2');
-  if (heading) {
-    heading.setAttribute('tabindex', '-1');
-    heading.focus({ preventScroll: true });
-  }
-}
-
-function Hero() {
-  const { go } = useApp();
-  return (
-    <div className="home-hero-wrap">
-      <div className="site-inner home-hero">
-        <div className="home-hero-text">
-          <p className="site-eyebrow">Pallet tracking for construction warehouses</p>
-          <h1 className="home-hello">
-            <span className="home-hello-sub">Find the right pallet.</span>
-            <span className="home-hello-sub">Get the job moving<span className="home-dot">.</span></span>
-          </h1>
-          <p className="site-lede home-pitch">
-            Track material from receiving to dispatch, organized by job. Scan a pallet and its rack, then find its last confirmed location without walking every aisle.
-          </p>
-          <div className="site-hero-actions home-actions">
-            <button className="site-btn primary" onClick={scrollToTour}>
-              <Icon name="play" />
-              Take the guided tour
-            </button>
-            <button className="site-btn ghost" onClick={() => go('product')}>
-              How it works
-              <Icon name="arrowRight" />
-            </button>
-          </div>
-          <div className="home-portal">
-            <PortalCTA variant="hero" />
-            <p className="home-portal-note">Try a sample warehouse. This demo does not sync between devices.</p>
-          </div>
-        </div>
-        <HeroArt />
-      </div>
-    </div>
-  );
-}
-
+export function Home() { return <>
+<div className="home-hero-wrap"><div className="site-inner home-hero"><div className="home-hero-text"><p className="site-eyebrow">Warehouse organization, kept simple</p><h1 className="home-hello"><span className="home-hello-sub">Know where</span><span className="home-hello-sub">the job is<span className="home-dot">.</span></span></h1><p className="site-lede home-pitch">Label the pallet. Scan the rack. Find your material without walking every aisle.</p><div className="site-hero-actions"><SiteLink to="contact" className="site-btn primary">Set up your warehouse</SiteLink><SiteLink to="product" className="site-btn ghost">How it works →</SiteLink></div><p className="home-price">${PRICING.monthly}/warehouse/month. Remote setup and support included.</p><PortalCTA variant="inline" /></div><HeroArt /></div></div>
+<Section tone="surface"><FeatureCards items={[
+{icon:'receive',title:'Receive',body:'Choose the job and print the pallet label.'},
+{icon:'move',title:'Move',body:'Scan the pallet and the rack where you put it.'},
+{icon:'find',title:'Find',body:'Search the job. See the last recorded location.'}
+]} /><div className="site-hero-actions"><SiteLink to="hardware">Printing & scanning →</SiteLink><SiteLink to="simple">What we leave out →</SiteLink><SiteLink to="showcase">Process walkthrough →</SiteLink></div></Section>
+</>; }
 /** A printed pallet label next to a phone showing where that pallet was last confirmed. */
 function HeroArt() {
   const [qr, setQr] = useState('');
@@ -230,103 +152,4 @@ function Barcode({ text }: { text: string }) {
       <span>{text}</span>
     </div>
   );
-}
-
-// ------------------------------------------------------------------ receive, move, find
-
-const VERBS: { n: string; icon: IconName; title: string; body: string; from: string; to: string }[] = [
-  {
-    n: '01',
-    icon: 'receive',
-    title: 'Receive',
-    body: 'A delivery shows up. Pick the job, say what came in, and print a QR label for each pallet.',
-    from: 'J-214',
-    to: 'P-000042',
-  },
-  {
-    n: '02',
-    icon: 'move',
-    title: 'Move',
-    body: 'Scan the pallet, scan the rack, confirm. The new spot is saved with who moved it and when.',
-    from: 'P-000042',
-    to: 'A-03-02',
-  },
-  {
-    n: '03',
-    icon: 'find',
-    title: 'Find',
-    body: 'Search by job, pallet code, rack or description. Each result shows where it was last confirmed.',
-    from: 'J-214',
-    to: 'A-03-02',
-  },
-];
-
-function Verbs() {
-  return (
-    <Section eyebrow="How it works" title="Receive. Move. Find." lede="The daily work comes down to three jobs. Each one is a scan or two and a tap.">
-      <ol className="home-verbs">
-        {VERBS.map((v) => (
-          <li key={v.title} className="home-verb">
-            <div className="home-verb-top">
-              <span className="home-verb-icon">
-                <Icon name={v.icon} />
-              </span>
-              <span className="home-verb-n">{v.n}</span>
-            </div>
-            <h3>{v.title}</h3>
-            <p>{v.body}</p>
-            <div className="home-verb-flow" aria-hidden="true">
-              <span className="home-code">{v.from}</span>
-              <Icon name="arrowRight" />
-              <span className="home-code">{v.to}</span>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <More to="product">See how the product works</More>
-    </Section>
-  );
-}
-
-// ------------------------------------------------------------------ applications
-
-function Applications() {
-  return (
-    <Section eyebrow="Applications" title="Made for yards that stage material by job" lede="If deliveries wait on racks until a crew needs them, Wherehouse fits.">
-      <FeatureCards
-        columns={4}
-        items={[
-          { icon: 'hardhat', title: 'General contractors', body: 'Hold material for several jobs at once and send the right pallets to the right site.' },
-          { icon: 'bolt', title: 'Specialty trades', body: 'Electrical, mechanical and plumbing shops that stage fixtures and parts ahead of install.' },
-          { icon: 'truck', title: 'Supply yards', body: 'Suppliers that hold customer orders on racks until pickup or delivery.' },
-          { icon: 'building', title: 'Facilities teams', body: 'Campuses, districts and public works that store furniture, spares and project stock.' },
-        ]}
-      />
-      <More to="industries">See applications</More>
-    </Section>
-  );
-}
-
-// Pilot and pricing: no invented customers or testimonials.
-function Customers() {
-  return <Section tone="surface" eyebrow="Pilot program" title="Start with one rack, one crew, one job."
-    lede="We are looking for a warehouse that stages construction material by job. First, try the sample workflow. Then help test it against a real shift.">
-    <FeatureCards items={[
-      { icon: 'receive', title: 'Watch one delivery', body: 'Identify where labels, job references and pallet movements are recorded today.' },
-      { icon: 'find', title: 'Measure the difference', body: 'Compare retrieval time, missed scans and recorded locations with physical checks.' },
-      { icon: 'checklist', title: 'Decide with evidence', body: 'Review search time and location accuracy together before deciding whether to continue.' },
-    ]} />
-    <More to="customers">Explore the pilot program</More>
-  </Section>;
-}
-function Pricing() {
-  return <Section eyebrow="Simple pricing" title="One warehouse. One proposed plan."
-    lede="Try the browser demo for free. Shared warehouse accounts are still in development; there is nothing to buy today.">
-    <div className="home-early">
-      <div><span className="home-early-tag">Proposed launch price</span>
-      <p><strong className="pilot-price">${PRICING.monthly}</strong> / warehouse / month · up to {PRICING.users} users</p>
-      <p>A {PRICING.pilotDays}-day free pilot can be agreed once shared accounts are ready. No automatic paid enrollment.</p></div>
-      <SiteLink to="pricing" className="site-btn primary">See pricing and pilot terms<Icon name="arrowRight" /></SiteLink>
-    </div>
-  </Section>;
 }

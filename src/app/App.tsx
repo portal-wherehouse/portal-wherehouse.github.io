@@ -1,7 +1,7 @@
 // App shell. Website pages get the site header and footer; everything else is the portal:
 // demo strip, top bar with "Take the tour", navigation, the current screen, and the sheets above it.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BRAND } from '../brand';
 import { isSiteRoute, useApp, type RouteName, type SiteRouteName } from './state';
 import { IS_PREVIEW } from '../device/output';
@@ -34,9 +34,12 @@ import { Help } from '../features/help/Help';
 import { Scanners } from '../features/scanners/Scanners';
 import { Station } from '../features/station/Station';
 import { DataStorage } from '../features/data/DataStorage';
+import { LiveSignIn } from '../portal/LiveSignIn';
 import { SignIn } from '../portal/SignIn';
 import { SiteShell } from '../site/SiteShell';
 import { Home } from '../site/Home';
+import { ShowcasePage } from '../site/pages/Showcase';
+import { SimplePage } from '../site/pages/Simple';
 import { ProductPage } from '../site/pages/Product';
 import { HardwarePage } from '../site/pages/Hardware';
 import { IndustriesPage } from '../site/pages/Industries';
@@ -49,8 +52,8 @@ import { SecurityPage } from '../site/pages/Security';
 const SITE_PAGES: Record<SiteRouteName, () => React.ReactNode> = {
   home: Home,
   product: ProductPage,
-  showcase: ProductPage,
-  simple: ProductPage,
+  showcase: ShowcasePage,
+  simple: SimplePage,
   hardware: HardwarePage,
   industries: IndustriesPage,
   customers: CustomersPage,
@@ -104,7 +107,7 @@ function tabFor(name: RouteName): RouteName {
 }
 
 export function App() {
-  const { route, actorId } = useApp();
+  const { route, actorId, backend, workspaceId } = useApp();
   if (isSiteRoute(route.name)) {
     const Page = SITE_PAGES[route.name];
     return (
@@ -117,6 +120,7 @@ export function App() {
       </>
     );
   }
+  if (backend.mode === 'firebase' && (route.name === 'signin' || !actorId || !workspaceId || backend.loading || backend.cloudError)) return <LiveSignIn />;
   if (route.name === 'signin' || !actorId) {
     return (
       <>
@@ -155,7 +159,7 @@ function Portal() {
   const pending = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).length + backend.pendingFor(actorId, workspaceId).length : 0;
   const needsDecision = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).filter((e) => e.status === 'conflict' || e.status === 'blocked').length : 0;
 
-  const Screen = SCREENS[route.name as keyof typeof SCREENS] ?? Find;
+  const Screen = backend.mode === 'firebase' && ['lab','sync','data','guide','about','help'].includes(route.name) ? LiveHelp : SCREENS[route.name as keyof typeof SCREENS] ?? Find;
   const removed = signedIn && !role && !['about', 'guide', 'help'].includes(route.name);
   const me = actorId ? backend.db.users[actorId] : null;
   const myWorkspaces = actorId ? backend.db.memberships.filter((m) => m.user_id === actorId && m.active) : [];
@@ -164,7 +168,7 @@ function Portal() {
 
   return (
     <div className="shell">
-      <div className="demo-strip" role="note">
+      {backend.mode === 'demo' && <div className="demo-strip" role="note">
         <strong>DEMO</strong>
         <span className="grow">
           {IS_PREVIEW ? 'Hosted preview. ' : ''}Sign-in is off while we test. Data and network are simulated in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account${multiCompany && companyName ? ` at ${companyName}` : ''}` : ''}.
@@ -174,7 +178,7 @@ function Portal() {
             Switch role
           </button>
         )}
-      </div>
+      </div>}
 
       <header className="topbar">
         <button className="brand" onClick={() => go(app.prefs.startTab)} aria-label={`${BRAND.portal} home`}>
@@ -190,7 +194,7 @@ function Portal() {
                 <Icon name="locations" /> {ctx.warehouse.code}
               </span>
             )}
-            {app.prefs.advancedTools || offline || pending > 0 ? <button
+            {backend.mode === 'demo' && (app.prefs.advancedTools || offline || pending > 0) ? <button
               className={`chip net-chip ${offline ? 'offline' : ''}`}
               onClick={() => go('sync')}
               title={offline ? `Offline. Showing what this device cached at ${fmtTime(backend.cache?.at)}` : 'Online'}
@@ -199,13 +203,13 @@ function Portal() {
               {offline ? <Icon name="wifiOff" /> : <span className="dot" />}
               <span className="net-label">{offline ? 'Offline' : 'Online'}</span>
               {pending > 0 && <span className="tag warn" style={{ marginLeft: 2 }}>{pending}</span>}
-            </button> : <span className="chip static" title="Sample records are saved in this browser only">Local demo</span>}
+            </button> : <span className="chip static" title="Records are saved to your warehouse account">{backend.mode === 'firebase' ? 'Shared warehouse' : 'Local demo'}</span>}
           </>
         )}
-        <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>
+        {backend.mode === 'demo' && <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>
           <Icon name="tour" />
           <span className="tour-chip-label">{app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}</span>
-        </button>
+        </button>}
         {me && (
           <button className="chip acct-chip" onClick={() => setAccount(true)} aria-label={`Account: ${role ? `${ROLE_LABEL[role]}, ` : ''}${me.name}`} data-tour="account">
             <Avatar name={me.name} />
@@ -220,7 +224,7 @@ function Portal() {
         )}
       </header>
 
-      {offline && signedIn && (
+      {offline && signedIn && backend.mode === 'demo' && (
         <div className="notice warn" style={{ borderRadius: 0, borderLeft: 0, borderRight: 0, margin: 0 }} role="status">
           <Icon name="wifiOff" />
           <div className="n-body">
@@ -235,7 +239,7 @@ function Portal() {
       <div className={signedIn ? 'body' : 'body no-side'}>
         {signedIn && (
           <nav className="sidebar" aria-label="Main">
-            {visibleNavGroups(role, app.prefs.advancedTools).map((g) => (
+            {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
               <div key={g.title} className="nav-group">
                 <details open={g.title === 'Floor' || g.title === 'Support'}>
                 <summary>{g.title}</summary>
@@ -255,8 +259,9 @@ function Portal() {
             ))}
           </nav>
         )}
-        <main className="main" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
+        <main className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
           {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
+          {backend.mode === 'firebase' && <PendingCloudRequests />}
           {removed ? <RemovedAccess /> : <Screen key={`${route.name}:${route.id ?? ''}`} />}
         </main>
       </div>
@@ -273,7 +278,7 @@ function Portal() {
         </nav>
       )}
 
-      {account && me && (
+      {account && me && backend.mode === 'demo' && (
         <Sheet title="Demo accounts" onClose={() => setAccount(false)}>
           <div className="stack">
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>
@@ -344,8 +349,10 @@ function Portal() {
         </Sheet>
       )}
 
-      {signedIn && <Tour />}
-      <PortalTour />
+      {account && backend.mode === 'firebase' && <Sheet title="Your account" onClose={()=>setAccount(false)}><p>{me?.name} · {me?.email}</p><button className="btn primary" onClick={()=>{setAccount(false);app.signOut();}}>Sign out</button></Sheet>}
+      {backend.mode === 'firebase' && offline && <Notice tone="warn">You’re offline. Reconnect before making changes.</Notice>}
+      {signedIn && backend.mode === 'demo' && <Tour />}
+      {backend.mode === 'demo' && <PortalTour />}
       <ScanAnywhere />
       <Toasts />
       <div className="print-root" id="print-root" />
@@ -368,3 +375,7 @@ function RemovedAccess() {
     </div>
   );
 }
+
+function LiveHelp() { const {go}=useApp();return <div className="panel stack"><h1>Setup & support</h1><p>Live records are saved to your shared warehouse. An internet connection is required.</p><p>Need help with labels, scanning or your crew?</p><button className="btn primary" onClick={()=>go('contact')}>Contact remote support</button></div>; }
+
+function PendingCloudRequests() { const {backend,actorId,workspaceId,toast}=useApp();const [busy,setBusy]=useState(false);const requests=actorId&&workspaceId?backend.pendingFor(actorId,workspaceId):[];if(!requests.length)return null;return <Notice tone="warn" title="A save is waiting for confirmation"><p>Check its result before repeating the action.</p><button className="btn" disabled={busy} onClick={async()=>{setBusy(true);try{for(const p of requests){const r=await backend.recover(actorId!,workspaceId!,p.command.command_id);toast(r.status==='result'?(r.result.ok?'Change saved.':r.result.message):r.status==='unknown'||r.status==='offline'?r.message:'Still waiting.',r.status==='result'&&r.result.ok?'ok':'info');}}finally{setBusy(false);}}}>{busy?'Checking…':'Check saved result'}</button></Notice>; }

@@ -5,3 +5,8 @@ test-results
 playwright-report
 *.log
 *.tsbuildinfo
+
+firebase/functions/lib/
+firebase/functions/node_modules/
+*-debug.log
+.env.local

@@ -31,7 +31,15 @@ jobs:
       - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=1
+      - run: npm ci --prefix firebase/functions
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm run test:firebase
       - run: npm run build
+        env:
+          VITE_FIREBASE_CONFIG: ${{ vars.VITE_FIREBASE_CONFIG }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

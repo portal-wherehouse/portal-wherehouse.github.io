@@ -14,7 +14,7 @@ const ALL_PAGES = [...SITE_NAV, ...SITE_FOOTER_EXTRA];
 const label = (route: SiteRouteName) => ALL_PAGES.find((p) => p.route === route)?.label ?? route;
 
 const FOOTER_COLUMNS: { title: string; routes: SiteRouteName[]; portal?: boolean }[] = [
-  { title: 'Product', routes: ['product', 'hardware'] },
+  { title: 'Product', routes: ['product', 'hardware', 'simple', 'showcase'] },
   { title: 'Company', routes: ['customers', 'founder', 'contact'] },
   { title: 'Resources', routes: ['pricing', 'security'], portal: true },
 ];
@@ -61,7 +61,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <div className="shell-ribbon" role="note">
         <span className="shell-ribbon-stripes" aria-hidden="true" />
         <span className="shell-ribbon-text">
-          <strong>Try the working demo.</strong> Sample data stays in this browser. Shared accounts are in development.
+          <strong>Remote help included.</strong> Setup, labels, printers and your crew.
         </span>
       </div>
 
@@ -92,7 +92,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
       {menuOpen && <SiteMenu current={route.name as SiteRouteName} onGo={open} onClose={() => (setMenuOpen(false), menuButton.current?.focus())} />}
 
-      <main id="main" ref={mainRef} tabIndex={-1} className="shell-main">
+      <div key={`transition-${route.name}`} className="route-progress" aria-hidden="true" />
+      <main id="main" ref={mainRef} tabIndex={-1} className="shell-main page-enter" key={route.name}>
         {children}
       </main>
 
@@ -237,7 +238,7 @@ function SiteFooter({ onGo }: { onGo: (r: SiteRouteName) => void }) {
               <span className="shell-brand-name">{BRAND.name}</span>
             </button>
             <p className="shell-footer-tagline">{BRAND.tagline}</p>
-            <p className="shell-footer-about">Pallet tracking for construction warehouses. Receive deliveries against the job, move pallets with two scans, and find anything in seconds.</p>
+            <p className="shell-footer-about">Keep the job, the pallet and its location together.</p>
           </div>
           <nav className="shell-footer-cols" aria-label="Footer">
             {FOOTER_COLUMNS.map((col) => (
@@ -291,7 +292,7 @@ function SiteFooter({ onGo }: { onGo: (r: SiteRouteName) => void }) {
         </div>
 
         <p className="shell-footer-base">
-          {BRAND.name} is in early testing. Sign-in is off, and the demo keeps its data in this browser only. Launch pricing is proposed; no payment is collected.
+          © {new Date().getFullYear()} {BRAND.name}. Warehouse organization, kept simple.
         </p>
       </div>
     </footer>
