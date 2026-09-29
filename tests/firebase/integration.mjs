@@ -1,3 +1,4 @@
+import {issueKey,licenseStore} from './keys.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
@@ -24,9 +25,13 @@ let checks=0;const ok=label=>{checks++;console.log(`PASS ${label}`);};
 try {
  const owner=await client('owner'),operator=await client('operator'),outsider=await client('outsider'),viewer=await client('viewer'),unverified=await client('unverified',false);
  await assert.rejects(unverified.call('createWarehouse',{name:'Blocked'}));ok('unverified email cannot create warehouse');
- const {workspaceId:ws}=await owner.call('createWarehouse',{name:'Test receiving warehouse',timezone:'America/New_York'});
+ await assert.rejects(owner.call('createWarehouse',{name:'Missing key'}));ok('verified account cannot create warehouse without usage key');
+ const wrongKey=await issueKey(outsider.user.email);await assert.rejects(owner.call('createWarehouse',{name:'Wrong account',usageKey:wrongKey}));ok('usage key is bound to the authorized account');
+ const ownerKey=await issueKey(owner.user.email);
+ const {workspaceId:ws}=await owner.call('createWarehouse',{name:'Test receiving warehouse',timezone:'America/New_York',usageKey:ownerKey});
+ await assert.rejects(owner.call('createWarehouse',{name:'Reused key',usageKey:ownerKey}));ok('activation key cannot be reused');
  assert.equal((await owner.call('createWarehouse',{name:'Retry'})).workspaceId,ws);ok('warehouse creation is idempotent');
- const {workspaceId:otherWs}=await outsider.call('createWarehouse',{name:'Other warehouse'});
+ const {workspaceId:otherWs}=await outsider.call('createWarehouse',{name:'Other warehouse',usageKey:wrongKey});
  const envelope=(kind,payload,more={})=>({schema_version:1,command_id:randomUUID(),workspace_id:ws,kind,payload,...more});
  const send=(who,kind,payload,more)=>who.call('command',envelope(kind,payload,more));
  for(const [person,role] of [[operator,'OPERATOR'],[viewer,'VIEWER']]) assert.equal((await send(owner,'invite_member',{name:person.user.displayName,email:person.user.email,role})).ok,true);
@@ -52,6 +57,19 @@ try {
  assert.equal((await getBytes(ref(operator.storage,path))).byteLength,bytes.length);await assert.rejects(getBytes(ref(outsider.storage,path)));ok('photos use member-only cloud storage');
  const removed=await send(owner,'remove_member',{user_id:operator.user.uid});assert.equal(removed.ok,true);
  await assert.rejects(getDoc(doc(operator.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(operator,'receive',{job_id:job.target_id,description:'Blocked'}));await assert.rejects(getBytes(ref(operator.storage,path)));ok('removed teammate loses reads, writes and photos');
+ const manager=await client('manager');
+ await owner.call('authorizeEmail',{workspaceId:ws,email:manager.user.email,name:'Manager',role:'SUPERVISOR'});
+ const futureEmail=`future-${suffix}@example.com`;
+ await manager.call('authorizeEmail',{workspaceId:ws,email:futureEmail,name:'Future manager',role:'SUPERVISOR'});
+ await assert.rejects(manager.call('authorizeEmail',{workspaceId:ws,email:`ownergrant-${suffix}@example.com`,name:'Forbidden',role:'OWNER'}));
+ const future=await client('future');await future.call('joinAuthorizedWarehouses',{});
+ assert.equal((await getDoc(doc(future.db,'workspaces',ws,'members',future.user.uid))).data().role,'SUPERVISOR');ok('manager authorizes another manager by verified email before registration');
+ const cancelledEmail=`cancelled-${suffix}@example.com`;await manager.call('authorizeEmail',{workspaceId:ws,email:cancelledEmail,name:'Cancelled',role:'OPERATOR'});await manager.call('cancelAuthorization',{workspaceId:ws,email:cancelledEmail});const cancelled=await client('cancelled');await cancelled.call('joinAuthorizedWarehouses',{});await assert.rejects(getDoc(doc(cancelled.db,'workspaces',ws)));ok('cancelled authorization grants no access');
+ const {db:adminDb,Timestamp}=licenseStore();
+ await adminDb.doc(`licenses/${ws}`).update({active:false});
+ await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Inactive license'}));await assert.rejects(getBytes(ref(owner.storage,path)));ok('revoked license blocks reads, commands and photos');
+ await adminDb.doc(`licenses/${ws}`).update({active:true,expires_at:Timestamp.fromMillis(Date.now()-1000)});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Expired license'}));await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws)));ok('expired license blocks warehouse access');
+ await owner.call('createWarehouse',{name:'Renewed',usageKey:await issueKey(owner.user.email)});assert.equal((await getDoc(doc(owner.db,'workspaces',ws,'pallets',p.id))).exists(),true);ok('renewal restores the same warehouse and its data');
  await signOut(owner.auth);await assert.rejects(owner.call('createWarehouse',{name:'No session'}));ok('signed-out account cannot write');
  console.log(`${checks} Firebase integration checks passed.`);
 } finally {await Promise.all(apps.map(deleteApp));}

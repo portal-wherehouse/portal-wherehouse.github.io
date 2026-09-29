@@ -37,6 +37,8 @@ import { DataStorage } from '../features/data/DataStorage';
 import { LiveSignIn } from '../portal/LiveSignIn';
 import { SignIn } from '../portal/SignIn';
 import { SiteShell } from '../site/SiteShell';
+import { MissionPage } from '../site/pages/Mission';
+import './customer.css';
 import { Home } from '../site/Home';
 import { ShowcasePage } from '../site/pages/Showcase';
 import { SimplePage } from '../site/pages/Simple';
@@ -51,6 +53,7 @@ import { SecurityPage } from '../site/pages/Security';
 
 const SITE_PAGES: Record<SiteRouteName, () => React.ReactNode> = {
   home: Home,
+  mission: MissionPage,
   product: ProductPage,
   showcase: ShowcasePage,
   simple: SimplePage,
@@ -167,12 +170,13 @@ function Portal() {
   const companyName = workspaceId ? backend.db.workspaces[workspaceId]?.name : null;
 
   return (
-    <div className="shell">
+    <div className="shell customer-app">
       {backend.mode === 'demo' && <div className="demo-strip" role="note">
-        <strong>DEMO</strong>
+        <strong>Sample warehouse</strong>
         <span className="grow">
-          {IS_PREVIEW ? 'Hosted preview. ' : ''}Sign-in is off while we test. Data and network are simulated in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account${multiCompany && companyName ? ` at ${companyName}` : ''}` : ''}.
+          {IS_PREVIEW ? 'Hosted preview. ' : ''}Practice data stays in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account${multiCompany && companyName ? ` at ${companyName}` : ''}` : ''}.
         </span>
+        <a className="sample-signin" href={`${location.pathname}#signin`}>Customer sign in</a>
         {signedIn && (
           <button onClick={() => setAccount(true)} aria-label="Switch demo account">
             Switch role
@@ -184,7 +188,7 @@ function Portal() {
         <button className="brand" onClick={() => go(app.prefs.startTab)} aria-label={`${BRAND.portal} home`}>
           <BrandMark className="brand-mark" />
           <span className="brand-name">{BRAND.name}</span>
-          <span className="brand-sub">Portal</span>
+          <span className="brand-sub">{companyName || 'Warehouse'}</span>
         </button>
         <span className="spacer" />
         {signedIn && ctx && (
@@ -241,7 +245,7 @@ function Portal() {
           <nav className="sidebar" aria-label="Main">
             {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
               <div key={g.title} className="nav-group">
-                <details open={g.title === 'Floor' || g.title === 'Support'}>
+                <details open={g.title === 'Floor' || g.title === 'Warehouse' || g.title === 'Support'}>
                 <summary>{g.title}</summary>
                 {g.items.map((i) => {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');

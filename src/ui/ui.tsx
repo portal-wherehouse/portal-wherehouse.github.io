@@ -137,14 +137,14 @@ export function Avatar({ name }: { name: string }) {
   );
 }
 
-export const ROLE_LABEL: Record<Role, string> = { OWNER: 'Owner', SUPERVISOR: 'Supervisor', OPERATOR: 'Operator', VIEWER: 'Viewer' };
+export const ROLE_LABEL: Record<Role, string> = { OWNER: 'Owner', SUPERVISOR: 'Manager', OPERATOR: 'Operator', VIEWER: 'Viewer' };
 
 /** For the account badge on phones, where Owner and Operator would both be "DO" as initials. */
-export const ROLE_SHORT: Record<Role, string> = { OWNER: 'OWN', SUPERVISOR: 'SUP', OPERATOR: 'OP', VIEWER: 'VW' };
+export const ROLE_SHORT: Record<Role, string> = { OWNER: 'OWN', SUPERVISOR: 'MGR', OPERATOR: 'OP', VIEWER: 'VW' };
 
 export const ROLE_DESC: Record<Role, string> = {
-  OWNER: 'Everything, including granting supervisor and owner access.',
-  SUPERVISOR: 'Manage jobs and racks, fix mistakes, clear holds, export.',
+  OWNER: 'Everything, including granting manager and owner access.',
+  SUPERVISOR: 'Manage the team, jobs and racks. Fix mistakes, clear holds and export.',
   OPERATOR: 'Receive, place, move, dispatch, and record returns.',
   VIEWER: 'Search and look at records, photos, and history. No changes.',
 };

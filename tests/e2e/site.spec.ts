@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { watchErrors } from './helpers';
-const pages=[['product','A place for every pallet.'],['hardware','Start with a printer and a phone.'],['pricing','One warehouse. One price.'],['customers','Start small. Make it routine.'],['founder','Less time looking. More time moving.'],['contact','Tell us how your warehouse works.'],['security','Shared with your crew. Controlled by you.'],['simple','You need to find a pallet. Not run another system.'],['showcase','From delivery to dispatch.']];
+const pages=[['mission','Make warehouse work easier.'],['product','A place for every pallet.'],['hardware','Start with a printer and a phone.'],['pricing','One warehouse. One price.'],['customers','Start small. Make it routine.'],['founder','Less time looking. More time moving.'],['contact','Tell us how your warehouse works.'],['security','Shared with your crew. Controlled by you.'],['simple','You need to find a pallet. Not run another system.'],['showcase','From delivery to dispatch.']];
 test('short public pages load, pricing is consistent, and contact opens a real email draft',async({page})=>{
- const errors=watchErrors(page);await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('Know where');
+ const errors=watchErrors(page);await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('Keep your');
  await expect(page.locator('.home-hero')).toContainText('$29/warehouse/month');
  for(const [route,heading] of pages){await page.goto(`/#${route}`);await expect(page.getByRole('heading',{level:1})).toHaveText(heading);}
  await page.goto('/#pricing');await expect(page.locator('main')).toContainText('$29');await expect(page.locator('main')).toContainText('Ongoing remote support');

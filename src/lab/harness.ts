@@ -33,7 +33,7 @@ export class Harness {
     this.db = db ?? seedTiny({ now: FIXED_NOW });
     this.t = FIXED_NOW;
     this.engine = new Engine(this.db, { clock: () => new Date((this.t += 60_000)).toISOString() });
-    this.ws = Object.values(this.db.workspaces).find((w) => w.name === 'Northfield Builders')!.id;
+    this.ws = Object.values(this.db.workspaces).find((w) => w.name === 'Sample warehouse')!.id;
   }
 
   note(label: string, detail: string, ok?: boolean) {

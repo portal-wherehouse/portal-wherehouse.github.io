@@ -36,7 +36,7 @@ function FrontDoor() {
       const m = active.find((x) => x.workspace_id === main && x.role === r);
       if (m) list.push({ key: `${m.workspace_id}:${m.user_id}`, userId: m.user_id, workspaceId: m.workspace_id, role: r });
     }
-    // The busy sample data adds a second company (Harborline Supply) to show that companies stay apart.
+    // The busy sample data adds a second company (Second sample warehouse) to show that companies stay apart.
     const other = active.find((m) => m.workspace_id !== main && m.role === 'OWNER');
     if (other) {
       list.push({ key: `${other.workspace_id}:${other.user_id}`, userId: other.user_id, workspaceId: other.workspace_id, role: 'OWNER', second: backend.db.workspaces[other.workspace_id]?.name ?? 'Second company' });
@@ -73,13 +73,13 @@ function FrontDoor() {
   const signedInCompany = signedIn ? backend.db.workspaces[workspaceId!]?.name : null;
 
   return (
-    <div className="door">
+    <div className="door customer-app">
       <aside className="door-side">
         <div className="door-side-top">
           <button className="door-brand" onClick={() => go('home')} aria-label={`${BRAND.name} website home`}>
             <BrandMark className="door-brand-mark" />
             <span className="door-brand-name">{BRAND.name}</span>
-            <span className="door-brand-sub">Portal</span>
+            <span className="door-brand-sub">Sample</span>
           </button>
           <button className="door-back door-back-top" onClick={() => go('home')} aria-label="Back to the website">
             <Icon name="chevronLeft" />
@@ -88,9 +88,9 @@ function FrontDoor() {
           </button>
         </div>
         <div className="door-side-body">
-          <p className="door-eyebrow">{BRAND.portal}</p>
+          <a href={`${location.pathname}#signin`} className="site-link">Already a customer? Sign in to your warehouse →</a>
           <h1 className="door-title" ref={heading} tabIndex={-1}>
-            Welcome to the portal.
+            Sample warehouse
           </h1>
           <p className="door-lede">Receive deliveries, move pallets with two scans, and find anything by job, code or rack.</p>
           <ul className="door-facts">
@@ -133,7 +133,7 @@ function FrontDoor() {
               <span className="door-test-icon">
                 <Icon name="unlock" />
               </span>
-              <h2 id="door-test-h">Sign-in is off while we test</h2>
+              <h2 id="door-test-h">Explore the sample warehouse</h2>
               <p>
                 Pick a role to see what it can do{mainName ? ` at ${mainName}, the sample company` : ''}. These are simulated roles, not real accounts. Switch roles any time from the top bar.
               </p>
@@ -164,7 +164,7 @@ function FrontDoor() {
             </form>
           </section>
 
-          <p className="door-note">This is a local demo. Real accounts and shared records are not connected yet.</p>
+          <p className="door-note">This sample is separate from customer accounts. Its practice records stay in this browser.</p>
 
           <nav className="door-links" aria-label="Leave the portal">
             <button className="door-back" onClick={() => go('home')}>

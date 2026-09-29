@@ -37,7 +37,7 @@ const USERS: Record<Role, string> = { OWNER: 'user-owner', SUPERVISOR: 'user-sup
 function setup(role: Role = 'OPERATOR', confirmByRescan = true) {
   const db = seedFixture('tiny', { now: NOW });
   const engine = new Engine(db);
-  const ws = Object.values(db.workspaces).find((w) => w.name === 'Northfield Builders')!.id;
+  const ws = Object.values(db.workspaces).find((w) => w.name === 'Sample warehouse')!.id;
   const actor = USERS[role];
   let t = NOW;
   const ctx = () => makeCtx(engine.db, ws, role, confirmByRescan);

@@ -450,7 +450,7 @@ add({
   proves: 'Reads, writes and label lookups are denied without leaking the other company’s description.',
   setup: twoWorkspaces,
   run(h) {
-    const wsB = Object.values(h.db.workspaces).find((w) => w.name === 'Harborline Supply')!.id;
+    const wsB = Object.values(h.db.workspaces).find((w) => w.name === 'Second sample warehouse')!.id;
     const foreign = Object.values(h.db.pallets).find((p) => p.workspace_id === wsB)!;
     const token = h.engine.activeLabel(foreign.id)!.token;
     let leaked = '';
@@ -544,13 +544,15 @@ add({
   group: 'Security',
   title: 'Owner removal and role grants',
   page: 4,
-  proves: 'A workspace never ends with zero owners, and only an owner grants supervisor access.',
+  proves: 'A warehouse keeps an owner. Managers can add managers; only owners grant ownership.',
   run(h) {
     const r = h.cmd(h.users.owner, 'remove_member', { user_id: h.users.owner, reason: 'Testing' });
     h.expect(!r.ok && r.code === 'INVALID_STATE', 'Last owner cannot be removed', r.ok ? '' : r.message);
     const g = h.cmd(h.users.supervisor, 'change_role', { user_id: h.users.operator, role: 'SUPERVISOR', reason: 'Promotion' });
-    h.expect(!g.ok && g.code === 'FORBIDDEN', 'Supervisor cannot grant supervisor');
-    const o = h.cmd(h.users.owner, 'change_role', { user_id: h.users.operator, role: 'SUPERVISOR', reason: 'Promotion' });
+    h.expect(g.ok, 'Manager can grant manager access');
+    const blocked = h.cmd(h.users.supervisor, 'change_role', { user_id: h.users.operator, role: 'OWNER', reason: 'Blocked escalation' });
+    h.expect(!blocked.ok && blocked.code === 'FORBIDDEN', 'Manager cannot grant ownership');
+    const o = h.cmd(h.users.owner, 'change_role', { user_id: h.users.operator, role: 'OWNER', reason: 'Promotion' });
     h.expect(o.ok, 'Owner can');
     h.expect(h.db.audit.some((a) => a.action === 'change_role' && a.target_id === h.users.operator), 'Role change is in the audit log');
   },
@@ -870,7 +872,7 @@ add({
     const db = emptyDb();
     const e = new Engine(db, { clock: () => new Date(FIXED_NOW).toISOString() });
     const owner = DEMO_USERS[0];
-    const { workspace } = e.createWorkspace(owner, 'Northfield Builders', { code: 'WH-01', name: 'Main yard', timezone: 'America/Chicago' });
+    const { workspace } = e.createWorkspace(owner, 'Sample warehouse', { code: 'WH-01', name: 'Main yard', timezone: 'America/Chicago' });
     for (const u of DEMO_USERS.slice(1)) e.addMember(workspace.id, u, u.id === 'user-viewer' ? 'VIEWER' : u.id === 'user-supervisor' ? 'SUPERVISOR' : 'OPERATOR');
     const run = (kind: CommandKind, payload: Record<string, unknown>, p?: Pallet) =>
       e.execute(owner.id, { schema_version: 1, command_id: uuid(), workspace_id: workspace.id, kind, payload, ...(p ? { pallet_id: p.id, expected_version: p.version } : {}) });

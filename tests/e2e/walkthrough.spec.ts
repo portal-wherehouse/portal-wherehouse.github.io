@@ -5,12 +5,12 @@ import { expect, test, type Page } from '@playwright/test';
 import { nav, portalReady, signInAs, typeCode, watchErrors } from './helpers';
 
 /** The real way in: website home, "Try the demo", the front door, then a role. */
-async function enterPortalAs(page: Page, role: 'Owner' | 'Supervisor' | 'Operator' | 'Viewer') {
+async function enterPortalAs(page: Page, role: 'Owner' | 'Manager' | 'Operator' | 'Viewer') {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: /Know where/ })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /Keep your/ })).toBeVisible();
   await page.getByRole('button', { name: 'Sign in' }).first().click();
   await expect(page).toHaveURL(/#signin$/);
-  await expect(page.getByRole('heading', { name: 'Welcome to the portal.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sample warehouse', exact: true })).toBeVisible();
   // The role cards are labels around a visually hidden radio: click the card like a person would.
   const radio = page.getByRole('radio', { name: new RegExp(`^${role}\\b`) });
   await page.locator('label.door-role').filter({ has: page.locator('.door-role-name', { hasText: new RegExp(`^${role}$`) }) }).click();

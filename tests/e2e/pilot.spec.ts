@@ -10,7 +10,7 @@ test('operator receives matching pallets, prints both labels, places and retriev
   await expect(page.getByRole('button', {name:'Take the tour',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button', {name:'Online. Open Sync and offline'})).toHaveCount(0);
   await expect(page.getByText('Local demo', {exact:true})).toBeVisible();
-  await expect(sidebar.getByRole('button', {name:'People',exact:true})).toHaveCount(0);
+  await expect(sidebar.getByRole('button', {name:'Manager dashboard',exact:true})).toHaveCount(0);
   await expect(sidebar.getByRole('button', {name:'Integrity lab',exact:true})).toHaveCount(0);
   await page.locator('#rcv-job').selectOption({label:'J-214 · School renovation'});
   await page.locator('#rcv-desc').fill('Pilot lighting fixtures');

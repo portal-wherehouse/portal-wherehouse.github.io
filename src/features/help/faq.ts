@@ -284,7 +284,7 @@ export const FAQ: FaqCategory[] = [
       {
         id: 'companies',
         q: 'Can two companies see each other’s records?',
-        a: ['No. Each company is its own workspace, and nothing crosses between them, not even whether a code exists. Load the busy warehouse in Settings and switch to the Harborline Owner account to see a second company that uses some of the same job and rack codes.'],
+        a: ['No. Each company is its own workspace, and nothing crosses between them, not even whether a code exists. Load the busy warehouse in Settings and switch to the Second warehouse owner account to see a second company that uses some of the same job and rack codes.'],
       },
       {
         id: 'reset',

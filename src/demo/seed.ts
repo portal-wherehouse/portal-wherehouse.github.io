@@ -21,10 +21,10 @@ export interface FixtureInfo {
 }
 
 export const DEMO_USERS: User[] = [
-  { id: 'user-owner', name: 'Demo Owner', email: 'owner@northfield.example' },
-  { id: 'user-supervisor', name: 'Demo Supervisor', email: 'supervisor@northfield.example' },
-  { id: 'user-operator', name: 'Demo Operator', email: 'operator@northfield.example' },
-  { id: 'user-viewer', name: 'Demo Viewer', email: 'viewer@northfield.example' },
+  { id: 'user-owner', name: 'Demo Owner', email: 'owner@sample.example' },
+  { id: 'user-supervisor', name: 'Demo Manager', email: 'manager@sample.example' },
+  { id: 'user-operator', name: 'Demo Operator', email: 'operator@sample.example' },
+  { id: 'user-viewer', name: 'Demo Viewer', email: 'viewer@sample.example' },
 ];
 
 const JOBS: [string, string, string][] = [
@@ -183,7 +183,7 @@ export function seedTiny(opts: { now?: number; seed?: number } = {}): Db {
   db.seed = seed;
   const d = new Driver(db, seed, dayStart(now, 6, 7));
   const [dana, marcus, priya, tom] = DEMO_USERS;
-  d.setupWorkspace(dana, 'Northfield Builders', [
+  d.setupWorkspace(dana, 'Sample warehouse', [
     [marcus, 'SUPERVISOR'],
     [priya, 'OPERATOR'],
     [tom, 'VIEWER'],
@@ -235,7 +235,7 @@ export function seedScenario(opts: { now?: number; seed?: number } = {}): Db {
   db.seed = seed;
   const d = new Driver(db, seed, dayStart(now, 20, 7));
   const [dana, marcus, priya, tom] = DEMO_USERS;
-  d.setupWorkspace(dana, 'Northfield Builders', [
+  d.setupWorkspace(dana, 'Sample warehouse', [
     [marcus, 'SUPERVISOR'],
     [priya, 'OPERATOR'],
     [tom, 'VIEWER'],
@@ -294,11 +294,11 @@ export function seedScenario(opts: { now?: number; seed?: number } = {}): Db {
   }
 
   // Workspace B reuses readable codes (J-214, A-03-02, P-000001...) under different identities.
-  const rosa: User = { id: 'user-harbor', name: 'Harborline Owner', email: 'owner@harborline.example' };
+  const rosa: User = { id: 'user-harbor', name: 'Second warehouse owner', email: 'owner@harborline.example' };
   const wsA = d.ws;
   d.jobs = new Map();
   d.locs = new Map();
-  d.setupWorkspace(rosa, 'Harborline Supply', [[marcus, 'VIEWER']]);
+  d.setupWorkspace(rosa, 'Second sample warehouse', [[marcus, 'VIEWER']]);
   d.addLocations(rosa.id, [['RECEIVING-01', 'RECEIVING'], ['A-03-02', 'RACK'], ['B-01-01', 'RACK']]);
   d.addJobs(rosa.id, [['J-214', 'Marina boardwalk', 'Pier 4'], ['J-300', 'Ferry terminal', 'Terminal B']]);
   for (let i = 0; i < 12; i++) {

@@ -6,12 +6,13 @@ import type { AdminAudit, Role } from '../../domain/types';
 import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
 import { Avatar, Explain, Field, PageHead, ROLE_DESC, ROLE_LABEL, fmtAgo, fmtFull } from '../../ui/ui';
+import { AuthorizedEmails } from './AuthorizedEmails';
 import { AdminSheet } from './AdminSheet';
 
 const ROLES: Role[] = ['OWNER', 'SUPERVISOR', 'OPERATOR', 'VIEWER'];
 
 export function People() {
-  const { read, role, actorId, signIn, backend, v } = useApp();
+  const { read, role, actorId, signIn, backend, v, go } = useApp();
   const [invite, setInvite] = useState(false);
   const [change, setChange] = useState<{ userId: string; name: string; role: Role } | null>(null);
   const [remove, setRemove] = useState<{ userId: string; name: string } | null>(null);
@@ -31,23 +32,26 @@ export function People() {
   const canAdmin = roleAllows(role, 'invite_member');
   const isOwner = role === 'OWNER';
   const offline = backend.network === 'offline';
-  const manageable = (target: Role) => canAdmin && (isOwner || (target !== 'OWNER' && target !== 'SUPERVISOR'));
+  const manageable = (target: Role) => canAdmin && (isOwner || target !== 'OWNER');
 
   return (
     <div className="stack">
       <PageHead
-        title="People"
-        sub={`${members.length} people have access to ${data.ctx.workspace.name}.`}
+        title="Manager dashboard"
+        sub={`${members.length} ${members.length === 1 ? 'person has' : 'people have'} access to ${data.ctx.workspace.name}.`}
         actions={
-          canAdmin && (
+          canAdmin && backend.mode === 'demo' && (
             <button className="btn primary" onClick={() => setInvite(true)} disabled={offline}>
               <Icon name="plus" /> Add teammate
             </button>
           )
         }
       />
+      {canAdmin && <div className="manager-shortcuts"><button className="btn" onClick={()=>go('overview')}>Warehouse overview</button><button className="btn" onClick={()=>go('locations')}>Racks & locations</button><button className="btn" onClick={()=>go('labels')}>Print labels</button><button className="btn" onClick={()=>go('activity')}>Movement log</button></div>}
+      {canAdmin && backend.mode === 'firebase' && <AuthorizedEmails />}
+      <h2 className="panel-title">Your team</h2>
       <Explain refs="pages 5, 9, 20">
-        <p>Access belongs to a membership in the company, and the server checks it on every read and every change. A removed person loses access on their very next request, even if their phone still shows the app. Only owners can grant or change supervisor and owner access, and a company always keeps at least one owner.</p>
+        <p>Access belongs to a membership in the company, and the server checks it on every read and every change. A removed person loses access on their very next request, even if their phone still shows the app. Only owners can grant or change owner access, and a company always keeps at least one owner.</p>
         <p>Each teammate needs their own account. Managers choose who can view or change warehouse records.</p>
       </Explain>
 
@@ -133,7 +137,7 @@ function InviteSheet({ isOwner, onClose }: { isOwner: boolean; onClose: () => vo
   const [email, setEmail] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [role, setRole] = useState<Role>('OPERATOR');
-  const allowed = ROLES.filter((r) => isOwner || (r !== 'OWNER' && r !== 'SUPERVISOR'));
+  const allowed = ROLES.filter((r) => isOwner || r !== 'OWNER');
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   return (
     <AdminSheet
@@ -170,13 +174,13 @@ function InviteSheet({ isOwner, onClose }: { isOwner: boolean; onClose: () => vo
           ))}
         </select>
       </Field>
-      {!isOwner && <p className="muted" style={{ fontSize: 13 }}>Only an owner can invite supervisors or owners.</p>}
+      {!isOwner && <p className="muted" style={{ fontSize: 13 }}>Only an owner can grant owner access.</p>}
     </AdminSheet>
   );
 }
 
 function RoleSheet({ target, isOwner, onClose }: { target: { userId: string; name: string; role: Role }; isOwner: boolean; onClose: () => void }) {
-  const allowed = ROLES.filter((r) => isOwner || (r !== 'OWNER' && r !== 'SUPERVISOR'));
+  const allowed = ROLES.filter((r) => isOwner || r !== 'OWNER');
   const [role, setRole] = useState<Role>(allowed.find((r) => r !== target.role) ?? target.role);
   return (
     <AdminSheet
@@ -210,8 +214,8 @@ const MATRIX: { what: string; min: Role }[] = [
   { what: 'Clear holds, record where a missing pallet was found', min: 'SUPERVISOR' },
   { what: 'Correct history, change job, split, retire, replace labels', min: 'SUPERVISOR' },
   { what: 'Manage jobs and locations, import, export', min: 'SUPERVISOR' },
-  { what: 'Invite operators and viewers', min: 'SUPERVISOR' },
-  { what: 'Grant supervisor or owner access', min: 'OWNER' },
+  { what: 'Authorize employees and managers', min: 'SUPERVISOR' },
+  { what: 'Grant owner access', min: 'OWNER' },
 ];
 
 export function RoleMatrix() {

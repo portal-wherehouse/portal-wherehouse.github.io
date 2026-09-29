@@ -17,7 +17,7 @@ const PORTAL: [hash: string, h1: string][] = [
   ['labels', 'Labels'],
   ['import', 'Import'],
   ['export', 'Export'],
-  ['people', 'People'],
+  ['people', 'Manager dashboard'],
   ['sync', 'Sync and offline'],
   ['lab', 'Integrity lab'],
   ['guide', 'Guide'],
@@ -30,7 +30,7 @@ const PORTAL: [hash: string, h1: string][] = [
   ['data', 'Data and storage'],
 ];
 
-const SITE = ['', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'signin'];
+const SITE = ['', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'signin'];
 
 /** A fresh document for each link, like opening it in a new tab. */
 async function open(page: import('@playwright/test').Page, hash: string) {

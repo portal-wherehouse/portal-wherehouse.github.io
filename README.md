@@ -11,13 +11,17 @@ Warehouse organization by job: receive a pallet, label it, scan its rack, find i
 
 $29 per warehouse per month, up to ten people. Remote setup, crew training, printer/scanner help and ongoing remote support are included. Hardware is separate. The first 30 days are free by arrangement; billing is handled directly, with no automatic website charge.
 
+## Mission
+
+Make warehouse work easier: help crews receive, organize and find material without extra paperwork or another complicated system.
+
 ## Application
 
-React, TypeScript and Vite, hosted on GitHub Pages. Live accounts use Firebase Authentication, Firestore, Cloud Storage and callable Cloud Functions. Server-side transactions enforce permissions, record versions, pallet transitions and idempotent request receipts. Photos are private to active warehouse members. Live changes require a connection.
+React, TypeScript and Vite, hosted on GitHub Pages. Live accounts use Firebase Authentication, Firestore, Cloud Storage and callable Cloud Functions. Server-side transactions enforce permissions, record versions, pallet transitions and idempotent request receipts. Photos are private to active warehouse members. Live changes require a connection and an active warehouse license. A single-use usage key is bound to the account owner’s verified email; authorized employees sign in under that warehouse license.
 
 The browser demo remains available explicitly through `?demo=1`. Its data and account picker are isolated from Firebase. Normal sign-in never silently falls back to a demo if configuration is missing.
 
-Operators see Receive, Move, Find and Scan station. Managers also have jobs, racks, labels, exports, people and warehouse views. Demo fault controls are unavailable in live mode.
+Operators have Receive, Move, Find, Scan station, warehouse map, rack contents, jobs, labels and movement history. Managers also have a team dashboard, authorized email lists, editing tools, imports and exports. Demo fault controls are unavailable in live mode.
 
 ## Development
 

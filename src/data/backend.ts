@@ -98,6 +98,8 @@ export class Backend {
       this.db = seedFixture('tiny');
       this.meta = { fixture: 'tiny', created_at: new Date().toISOString() };
     }
+    for(const u of Object.values(this.db.users)){if(u.name==='Demo Supervisor')u.name='Demo Manager';if(u.email.endsWith('@northfield.example'))u.email=u.email.replace('@northfield.example','@sample.example').replace('supervisor@','manager@');}
+    for(const ws of Object.values(this.db.workspaces)){if(ws.name === 'Northfield Builders')ws.name='Sample warehouse';if(ws.name === 'Harborline Supply')ws.name='Second sample warehouse';}
     this.engine = new Engine(this.db);
     const storage: OutboxStorage = {
       load: async () => (this.store ? ((await get<OutboxEntry[]>(OUTBOX_KEY, this.store)) ?? []) : []),

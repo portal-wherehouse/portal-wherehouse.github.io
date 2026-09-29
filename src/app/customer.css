@@ -1,0 +1,46 @@
+/* The working application has its own quiet interface, independent of the marketing site. */
+.customer-app, .auth-shell {
+ --ground:#f7f9fc; --surface:#fff; --surface-2:#f8fafc; --surface-3:#eef2f6;
+ --ink:#243247; --ink-2:#536277; --ink-3:#65748a; --line:#e0e6ed; --line-strong:#bbc8d6;
+ --accent:#3266a4; --accent-hover:#264f82; --accent-soft:#edf4fc; --accent-ink:#fff;
+ --ok:#23744a; --ok-soft:#f0f8f3; --warn:#8a630e; --warn-soft:#fff9eb; --bad:#ad3434; --bad-soft:#fff3f3;
+ --font-display:system-ui,-apple-system,'Segoe UI',sans-serif;
+ --font-body:system-ui,-apple-system,'Segoe UI',sans-serif;
+ --shadow:0 1px 3px #1b345008; --shadow-lift:0 10px 30px #1b345015;
+ background:var(--ground);color:var(--ink);font-family:var(--font-body);color-scheme:light;
+}
+.customer-app .topbar { background:#fff; border-bottom:1px solid var(--line);box-shadow:none; }
+.customer-app .brand-name {font-size:19px;font-weight:650;letter-spacing:-.4px;text-transform:none;}
+.customer-app .brand-sub {background:transparent;color:var(--ink-3);font:400 13px var(--font-body);letter-spacing:0;text-transform:none;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.customer-app .sidebar {background:#fff;}
+.customer-app .nav-group summary,.customer-app .eyebrow {font-family:var(--font-body);font-size:12px;font-weight:550;letter-spacing:.02em;text-transform:none;color:var(--ink-3);}
+.customer-app .nav-item {font-weight:450;border-radius:7px;}
+.customer-app .page-title {font-family:var(--font-body);font-size:28px;font-weight:550;letter-spacing:-.65px;line-height:1.25;text-transform:none;}
+.customer-app .panel-title,.customer-app .sheet-title {font-family:var(--font-body);font-weight:550;letter-spacing:0;text-transform:none;}
+.customer-app .btn {font-family:var(--font-body);font-weight:500;box-shadow:none;letter-spacing:0;text-transform:none;border-radius:7px;}
+.customer-app .btn.big {font-size:15px;min-height:46px;text-transform:none;}
+.customer-app .panel {box-shadow:none;border:1px solid var(--line);border-radius:10px;}
+.customer-app .panel strong,.customer-app .result strong {font-weight:600;}
+.customer-app .plate {border-color:#ced9e5;border-radius:6px;box-shadow:none;}
+.customer-app .plate .code {font-family:var(--font-body);font-size:26px;font-weight:600;letter-spacing:-.5px;}
+.customer-app .state,.customer-app .tag,.customer-app .chip {font-weight:500;}
+.customer-app .t th {font-weight:550;text-transform:none;letter-spacing:0;background:#f8fafc;}
+.customer-app .demo-strip {background:#f0f5fb;color:#536277;border-bottom:1px solid #dee7f0;font-size:12px;}
+.customer-app .demo-strip strong {background:transparent;color:#3266a4;letter-spacing:0;font-weight:550;}
+.customer-app .demo-strip a {color:#24568e;white-space:nowrap;}
+.customer-app .demo-strip::before,.customer-app .demo-strip::after {display:none;}
+.customer-app .door-side {background:#f5f8fc;color:var(--ink);border-right:1px solid var(--line);}
+.customer-app .door-side::before,.customer-app .door-side::after {display:none;}
+.customer-app .door-title {font:550 38px/1.15 var(--font-body);letter-spacing:-1px;text-transform:none;}
+.customer-app .door-card-title {font:550 22px/1.3 var(--font-body);text-transform:none;}
+.customer-app .door-role,.customer-app .door-form {background:#fff;box-shadow:none;}
+.customer-app .door-main {background:#fff;}
+.customer-app .door-lede,.customer-app .door-facts,.customer-app .door-eyebrow {color:var(--ink-2);}
+.customer-app .door-brand-name {text-transform:none;font:600 23px var(--font-body);}
+.access-form {display:grid;grid-template-columns:1fr 1.4fr 1fr auto;gap:14px;align-items:end;}
+.access-form label {display:grid;gap:6px;font-size:13px;font-weight:500;}
+.manager-shortcuts {display:flex;gap:10px;flex-wrap:wrap;}
+@media(max-width:800px){.access-form{grid-template-columns:1fr 1fr;}.customer-app .brand-sub{max-width:135px;}.customer-app .page-title{font-size:25px;}}
+@media(max-width:520px){.access-form{grid-template-columns:1fr;}.customer-app .demo-strip .grow{display:none;}}
+/* Printed labels retain their physical measurements and high contrast. */
+@media print{.customer-app{background:#fff;}.customer-app .label-card{color:#000;background:#fff;}}

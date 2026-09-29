@@ -23,6 +23,9 @@ export class FirebaseBackend extends Backend {
   functions: Functions | null=null;
   storage: FirebaseStorage | null=null;
   workspaceIds: string[]=[];
+  invitations: {email:string;name:string;role:string}[]=[];
+  licenseBlocked=false;
+  private expiryTimer: ReturnType<typeof setTimeout> | null=null;
   activeWorkspace: string | null=null;
   private unsubscribe: Unsubscribe[]=[];
   private profileStop: Unsubscribe | null=null;
@@ -56,6 +59,8 @@ export class FirebaseBackend extends Backend {
       try { b.pending=(await get<PendingSend[]>(`${b.scope}:${uid}`,b.liveStore)) ?? []; }
       catch { b.cloudError='This browser cannot save recovery requests. Enable browser storage before making changes.'; }
       if(b.authUid!==uid) return;
+      try { await httpsCallable(b.functions!,'joinAuthorizedWarehouses')({}); } catch { b.cloudError='Could not check authorized warehouse access. Try Refresh access.'; }
+      if(b.authUid!==uid)return;
       b.profileStop=onSnapshot(doc(b.firestore!,'users',uid), snapshot=>{
         if(b.authUid!==uid)return;
         b.workspaceIds=snapshot.data()?.workspaces ?? [];
@@ -68,6 +73,7 @@ export class FirebaseBackend extends Backend {
     return b;
   }
   private clear() {
+    if(this.expiryTimer)clearTimeout(this.expiryTimer);this.expiryTimer=null;this.invitations=[];
     this.generation++; this.unsubscribe.forEach(f=>f());this.unsubscribe=[];
     for(const url of this.photoUrls.values()) URL.revokeObjectURL(url);
     this.photoUrls.clear(); this.db=emptyDb(); this.engine=new Engine(this.db);this.activeWorkspace=null;
@@ -75,16 +81,27 @@ export class FirebaseBackend extends Backend {
   private fail(message:string) { this.clear();this.cloudError=message;this.loading=false;this.bump(false); }
   override async logout() { this.profileStop?.();this.profileStop=null;this.clear();this.authUid=null;this.pending=[];this.workspaceIds=[];this.bump(false);if(this.auth) await signOut(this.auth); }
   override async chooseWorkspace(ws:string) {
-    this.clear();this.cloudError='';
+    this.clear();this.cloudError='';this.licenseBlocked=false;
     if(!ws || !this.authUid || !this.firestore) {this.loading=false;this.bump(false);return;}
     this.activeWorkspace=ws;this.loading=true;this.bump(false);
     const gen=this.generation;
     try {
+      const licenseRef=doc(this.firestore,'licenses',ws);
+      const checkLicense=(data:any)=>{
+        if(gen!==this.generation)return false;
+        if(this.expiryTimer)clearTimeout(this.expiryTimer);
+        const remaining=(data?.expires_at?.toMillis() || 0)-Date.now();
+        if(!data?.active||remaining<=0){this.licenseBlocked=true;this.fail('This warehouse needs an active usage key. Contact the account owner.');return false;}
+        this.expiryTimer=setTimeout(()=>checkLicense(data),Math.min(remaining,2147483647));
+        return true;
+      };
+      const license=await getDoc(licenseRef);if(!checkLicense(license.data()))return;
+      this.unsubscribe.push(onSnapshot(licenseRef,snap=>checkLicense(snap.data()),()=>{if(gen===this.generation)this.fail('Could not verify warehouse access. Sign in again.');}));
       const membership=await getDoc(doc(this.firestore,'workspaces',ws,'members',this.authUid));
       if(gen!==this.generation) return;
       if(!membership.data()?.active) {this.fail('Your access to this warehouse was removed.');return;}
       const manager=['OWNER','SUPERVISOR'].includes(membership.data()?.role);
-      const names:string[]=[...collections,...(manager?['audit','imports']:[])];
+      const names:string[]=[...collections,...(manager?['audit','imports','invites']:[])];
       const data=new Map<string,Record<string,unknown>[]>();
       const update=()=>{ if(gen!==this.generation || data.size<names.length+1)return;this.rebuild(ws,data);this.loading=false;this.cloudError='';this.lastSync=new Date().toISOString();this.bump(false); };
       const error=()=>{if(gen===this.generation)this.fail('Your connection or warehouse access changed. Sign in again to reload.');};
@@ -104,12 +121,14 @@ export class FirebaseBackend extends Backend {
     const db=emptyDb();
     for(const [table,values] of data) for(const raw of values as any[]) {
       const v=structuredClone(raw);
+      if(table==='invites'){continue;}
       if(table==='members'){db.memberships.push({workspace_id:ws,user_id:v.user_id,role:v.role,active:v.active});db.users[v.user_id]=v.user;}
       else if(table==='events')(db.events[v.pallet_id]??=[]).push(v);
       else if(table==='audit'||table==='lineage')db[table].push(v);
       else (db[table as keyof Db] as Record<string,unknown>)[v.id ?? v.token]=v;
     }
     for(const list of Object.values(db.events))list.sort((a,b)=>a.revision-b.revision);
+    this.invitations=(data.get('invites') || []) as unknown as typeof this.invitations;
     this.db=db;this.engine=new Engine(db);
     for(const a of Object.values(db.attachments)) {
       if(a.state!=='ready')continue;
@@ -167,7 +186,7 @@ export class FirebaseBackend extends Backend {
   override async reset():Promise<void>{throw new Error('Sample-data reset is disabled for live warehouses.');}
   override async seed():Promise<void>{throw new Error('Sample data cannot be added to a live warehouse.');}
   override async importSnapshot(){return {ok:false as const,problems:['Local backups cannot replace a live warehouse. Use the CSV import.']};}
-  override async reload(){if(this.activeWorkspace)await this.chooseWorkspace(this.activeWorkspace);}
+  override async reload(){const ws=this.activeWorkspace || this.workspaceIds[0];if(ws)await this.chooseWorkspace(ws);}
 }
 export function cloudMessage(err:unknown):string {
   const code=(err as {code?:string}).code || '';

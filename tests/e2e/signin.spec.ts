@@ -11,7 +11,7 @@ const roleCard = (page: import('@playwright/test').Page, name: RegExp) =>
 test('a portal link opened without an account asks for a role, then opens that page', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/#receive');
-  await expect(page.getByRole('heading', { name: 'Welcome to the portal.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sample warehouse', exact: true })).toBeVisible();
   await expect(page.getByText('Then we will open Receive, the page you asked for.')).toBeVisible();
   await roleCard(page, /^Operator$/).click();
   await page.getByRole('button', { name: 'Continue to the portal' }).click();
@@ -25,10 +25,10 @@ test('the front door offers to carry on when already signed in', async ({ page }
   await signInAs(page, 'supervisor');
   await page.goto('/#signin');
   await expect(page.getByRole('heading', { name: 'You are already in' })).toBeVisible();
-  await expect(page.getByText('Using the Supervisor account')).toBeVisible();
-  await page.getByRole('button', { name: /^Continue as Supervisor/ }).click();
+  await expect(page.getByText('Using the Manager account')).toBeVisible();
+  await page.getByRole('button', { name: /^Continue as Manager/ }).click();
   await portalReady(page);
-  await expect(page.locator('.demo-strip')).toContainText('You are using the Supervisor account');
+  await expect(page.locator('.demo-strip')).toContainText('You are using the Manager account');
 });
 
 test('switch role from the top bar, then leave the portal', async ({ page }) => {
@@ -42,7 +42,7 @@ test('switch role from the top bar, then leave the portal', async ({ page }) => 
   const sheet = page.getByRole('dialog', { name: 'Demo accounts' });
   await expect(sheet.locator('.person')).toHaveCount(4);
   // Demo accounts carry role names, never people's names.
-  for (const name of await sheet.locator('.p-name').allTextContents()) expect(name).toMatch(/^Demo (Owner|Supervisor|Operator|Viewer)$/);
+  for (const name of await sheet.locator('.p-name').allTextContents()) expect(name).toMatch(/^Demo (Owner|Manager|Operator|Viewer)$/);
   await sheet.locator('.person', { has: page.locator('.p-role', { hasText: /^Viewer$/ }) }).click();
   await expect(page.getByText('Now signed in as Demo Viewer (Viewer)')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Account: .*Demo Viewer$/ })).toBeVisible();
@@ -50,13 +50,13 @@ test('switch role from the top bar, then leave the portal', async ({ page }) => 
 
   await page.getByRole('button', { name: /^Account: .*Demo Viewer$/ }).click();
   await page.getByRole('dialog', { name: 'Demo accounts' }).getByRole('button', { name: 'Leave the portal' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Know where');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Keep your');
   await expect(page.locator('.topbar')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('pl.actor'))).toBeNull();
   expect(errors).toEqual([]);
 });
 
-test('the busy sample data adds a second company, Harborline Supply, that stays apart', async ({ page }) => {
+test('the busy sample data adds a second company, Second sample warehouse, that stays apart', async ({ page }) => {
   test.setTimeout(90_000);
   await signInAs(page, 'owner');
   await page.goto('/#settings');
@@ -68,17 +68,17 @@ test('the busy sample data adds a second company, Harborline Supply, that stays 
   // Settings opens the account sheet, which now lists the second company's owner.
   await page.getByRole('button', { name: 'Choose another demo account' }).click();
   const sheet = page.getByRole('dialog', { name: 'Demo accounts' });
-  await expect(sheet.getByText('Harborline Supply').first()).toBeVisible();
+  await expect(sheet.getByText('Second sample warehouse').first()).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
 
   // The front door has its own card for the second company too.
   await page.goto('/#signin');
   await expect(page.getByRole('group', { name: 'Or try the second company' })).toBeVisible();
-  await roleCard(page, /^Harborline Supply/).click();
+  await roleCard(page, /^Second sample warehouse/).click();
   await page.getByRole('button', { name: 'Continue to the portal' }).click();
   await portalReady(page);
-  await expect(page.locator('.wh-chip')).toHaveAttribute('title', /^Harborline Supply/);
+  await expect(page.locator('.wh-chip')).toHaveAttribute('title', /^Second sample warehouse/);
 
   // Its records are its own: its J-214 is the Marina boardwalk, and none of the main yard's pallets show.
   await page.locator('.sidebar').getByRole('button', { name: 'Find', exact: true }).click();
@@ -95,7 +95,7 @@ test('the busy sample data adds a second company, Harborline Supply, that stays 
   await roleCard(page, /^Owner$/).click();
   await page.getByRole('button', { name: 'Continue to the portal' }).click();
   await portalReady(page);
-  await expect(page.locator('.wh-chip')).toHaveAttribute('title', /^Northfield Builders/);
+  await expect(page.locator('.wh-chip')).toHaveAttribute('title', /^Sample warehouse/);
   await page.locator('.sidebar').getByRole('button', { name: 'Find', exact: true }).click();
   await page.locator('#find-q').fill('Ceiling tile');
   await expect(page.locator('.result').first()).toBeVisible();

@@ -90,7 +90,7 @@ function DemoSettings() {
         </p>
         <Explain title="What resetting does">
           <p>Resetting rebuilds the demo warehouse from a fixed seed, so it always starts the same. It clears this device's offline queue too. It only touches this app's own storage in this browser.</p>
-          <p>The busy warehouse adds 200 pallets and a second company, Harborline Supply, that reuses some of the same job and rack codes. Switch to the Harborline Owner account to confirm the two companies never see each other's data.</p>
+          <p>The busy warehouse adds 200 pallets and a second company, Second sample warehouse, that reuses some of the same job and rack codes. Switch to the Second warehouse owner account to confirm the two companies never see each other's data.</p>
         </Explain>
         <div className="row">
           <button className="btn" onClick={() => setConfirm('tiny')}>

@@ -1,4 +1,4 @@
-// Fictional Northfield Builders shift. This validates software behavior, not customer ROI.
+// Fictional Sample warehouse shift. This validates software behavior, not customer ROI.
 import { expect, test } from 'vitest';
 import { Harness } from '../../src/lab/harness';
 

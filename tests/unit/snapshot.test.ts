@@ -22,7 +22,7 @@ async function open() {
 }
 
 function wsOf(b: Backend) {
-  return Object.values(b.db.workspaces).find((w) => w.name === 'Northfield Builders')!.id;
+  return Object.values(b.db.workspaces).find((w) => w.name === 'Sample warehouse')!.id;
 }
 
 function viaFile(s: Snapshot): unknown {
@@ -50,7 +50,7 @@ describe('snapshot export', () => {
     const check = validateSnapshot(viaFile(s));
     expect(check.ok).toBe(true);
     if (check.ok) {
-      expect(check.workspaces).toEqual(['Northfield Builders']);
+      expect(check.workspaces).toEqual(['Sample warehouse']);
       expect(check.warnings).toEqual([]);
     }
   });

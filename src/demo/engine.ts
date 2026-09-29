@@ -696,7 +696,7 @@ export class Engine {
         if (!name) return reject('INVALID_INPUT', 'Enter a name.');
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reject('INVALID_INPUT', 'Enter a valid email address.');
         if (!['OWNER', 'SUPERVISOR', 'OPERATOR', 'VIEWER'].includes(role)) return reject('INVALID_INPUT', 'Choose a role.');
-        if ((role === 'OWNER' || role === 'SUPERVISOR') && actor.role !== 'OWNER') return reject('FORBIDDEN', 'Only an owner can grant supervisor or owner access.');
+        if (role === 'OWNER' && actor.role !== 'OWNER') return reject('FORBIDDEN', 'Only an owner can grant owner access.');
         const existingUser = Object.values(this.db.users).find((u) => u.email.toLowerCase() === email);
         if (existingUser && this.db.memberships.some((m) => m.workspace_id === ws && m.user_id === existingUser.id && m.active)) {
           return reject('INVALID_INPUT', `${email} already has access.`);
@@ -714,11 +714,11 @@ export class Engine {
         const actor = this.membership(actorId, ws)!;
         const target = this.db.memberships.find((m) => m.workspace_id === ws && m.user_id === p.user_id && m.active);
         if (!target) return reject('NOT_FOUND', 'Person not found.');
-        const privileged = (r: Role) => r === 'OWNER' || r === 'SUPERVISOR';
+        const privileged = (r: Role) => r === 'OWNER';
         const newRole = cmd.kind === 'change_role' ? ((p.role ?? '') as Role) : null;
         if (newRole && !['OWNER', 'SUPERVISOR', 'OPERATOR', 'VIEWER'].includes(newRole)) return reject('INVALID_INPUT', 'Choose a role.');
         if (actor.role !== 'OWNER' && (privileged(target.role) || (newRole && privileged(newRole)))) {
-          return reject('FORBIDDEN', 'Only an owner can change supervisor or owner access.');
+          return reject('FORBIDDEN', 'Only an owner can change owner access.');
         }
         const leavesOwner = target.role === 'OWNER' && (cmd.kind === 'remove_member' || newRole !== 'OWNER');
         if (leavesOwner) {

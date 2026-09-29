@@ -12,9 +12,20 @@ service cloud.firestore {
       return /databases/$(database)/documents/workspaces/$(ws)/members/$(request.auth.uid);
     }
 
-    // An active member of this workspace, any role.
+    function licensed(ws) {
+      return exists(/databases/$(database)/documents/licenses/$(ws))
+        && get(/databases/$(database)/documents/licenses/$(ws)).data.active == true
+        && get(/databases/$(database)/documents/licenses/$(ws)).data.expires_at > request.time;
+    }
+
+    match /licenses/{ws} {
+      allow get: if signedIn() && exists(memberPath(ws)) && get(memberPath(ws)).data.active == true;
+      allow list, write: if false;
+    }
+
+    // An active member of a licensed warehouse.
     function isMember(ws) {
-      return signedIn()
+      return signedIn() && licensed(ws)
         && exists(memberPath(ws))
         && get(memberPath(ws)).data.active == true;
     }

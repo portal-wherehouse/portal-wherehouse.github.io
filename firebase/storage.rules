@@ -3,6 +3,9 @@ service firebase.storage {
   match /b/{bucket}/o {
     function member(ws) {
       return request.auth != null && request.auth.token.email_verified == true
+        && firestore.exists(/databases/(default)/documents/licenses/$(ws))
+        && firestore.get(/databases/(default)/documents/licenses/$(ws)).data.active == true
+        && firestore.get(/databases/(default)/documents/licenses/$(ws)).data.expires_at > request.time
         && firestore.exists(/databases/(default)/documents/workspaces/$(ws)/members/$(request.auth.uid))
         && firestore.get(/databases/(default)/documents/workspaces/$(ws)/members/$(request.auth.uid)).data.active == true;
     }

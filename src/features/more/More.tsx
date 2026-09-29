@@ -19,8 +19,10 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
     title: 'Warehouse',
     items: [
       { route: 'overview', label: 'Overview', icon: 'overview', hint: 'Counts and attention' },
-      { route: 'map', label: 'Map', icon: 'map', hint: 'Racks and what is on them' },
+      { route: 'map', label: 'Warehouse map', icon: 'map', hint: 'Racks and what is on them' },
       { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
+      { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },
+      { route: 'labels', label: 'Labels', icon: 'labels', hint: 'Print pallet and rack labels' },
       { route: 'activity', label: 'Activity', icon: 'activity', hint: 'Every accepted change' },
     ],
   },
@@ -28,11 +30,9 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
     title: 'Manage',
     items: [
       { route: 'jobs', label: 'Jobs', icon: 'jobs', hint: 'Projects and pick lists' },
-      { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },
-      { route: 'labels', label: 'Labels', icon: 'labels', hint: 'Print pallet and rack labels' },
       { route: 'import', label: 'Import', icon: 'import', hint: 'CSV in' },
       { route: 'export', label: 'Export', icon: 'export', hint: 'CSV out' },
-      { route: 'people', label: 'People', icon: 'people', hint: 'Roles and access' },
+      { route: 'people', label: 'Manager dashboard', icon: 'people', hint: 'Roles and access' },
       { route: 'scanners', label: 'Scanners', icon: 'qr', hint: 'Connect and test scanners' },
       { route: 'data', label: 'Data and storage', icon: 'database', hint: 'Where records live, backups' },
     ],
@@ -44,7 +44,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
       { route: 'sync', label: 'Sync and offline', icon: 'sync', hint: 'Queue and network lab' },
       { route: 'lab', label: 'Integrity lab', icon: 'lab', hint: 'Run the built-in safety tests' },
       { route: 'guide', label: 'Guide', icon: 'guide', hint: 'How it all works' },
-      { route: 'settings', label: 'Settings', icon: 'settings', hint: 'Display and demo data' },
+      { route: 'settings', label: 'Settings', icon: 'settings', hint: 'Display and account' },
       { route: 'about', label: 'About', icon: 'about', hint: 'Credits' },
     ],
   },
@@ -55,10 +55,10 @@ export function visibleNavGroups(role: Role | null, advanced: boolean, live = fa
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(role === 'VIEWER'
     ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
-    : ['receive', 'move', 'find', 'station', 'help', 'settings']);
+    : ['receive', 'move', 'find', 'station', 'map', 'locations', 'labels', 'jobs', 'activity', 'scanners', 'help', 'settings']);
   if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
   if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
-  return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title,
+  return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title === 'Manage' && !manager ? 'Tools' : g.title,
     items: g.items.filter(i => allowed.has(i.route) && !(live && i.route === 'data')) })).filter(g => g.items.length);
 }
 
