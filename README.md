@@ -6,10 +6,11 @@ Warehouse organization by job: receive a pallet, label it, scan its rack, find i
 - Live sign-in: https://portal-wherehouse.github.io/#signin
 - Isolated sample warehouse: https://portal-wherehouse.github.io/?demo=1#signin
 - [Firebase activation walkthrough](docs/firebase-setup.md)
+- [Measured usage and cost estimates](docs/firebase-cost-report.md)
 
 ## Offer
 
-$29 per warehouse per month, up to ten people. Remote setup, crew training, printer/scanner help and ongoing remote support are included. Hardware is separate. The first 30 days are free by arrangement; billing is handled directly, with no automatic website charge.
+$29 per warehouse per month, up to ten people. Remote setup, crew training, printer/scanner help and ongoing remote support are included. Use your own hardware and labels, or have them supplied in an agreed equipment/setup quote; on-site help can also be arranged. The first 30 days of software are free by arrangement; billing is handled directly, with no automatic website charge.
 
 ## Mission
 
@@ -25,16 +26,19 @@ Operators have Receive, Move, Find, Scan station, warehouse map, rack contents, 
 
 ## Development
 
-Node 22 is used in CI. Install dependencies with `npm ci` and `npm ci --prefix firebase/functions`. Use `npm run dev` for local development. For live local development, copy `.env.example` to `.env.local` and fill in the public Firebase web config. Read the setup guide before deploying.
+Development/testing has a **$0 Firebase budget**. Do not enable billing or deploy Firebase services during development. Node 22 is used in CI; Firebase emulators also need Java 21. Install dependencies with `npm ci` and `npm ci --prefix firebase/functions`. Use `npm run dev` and the explicit sample link for browser-local development. Test shared accounts/data with the guarded `demo-wherehouse` emulator commands below. Live Blaze activation requires a separate decision accepting possible charges; the setup guide explains that future step.
 
 ```bash
 npm test
 npm run test:e2e -- --workers=1
 npm run test:firebase
+npm run test:firebase:load
 npm run build
 ```
 
 GitHub Actions verifies the app and backend, runs browser tests, then builds the production website using the `VITE_FIREBASE_CONFIG` repository variable. Firebase deployment remains a separate command using the project owner's Google login.
+
+Automated Firebase tests reject live project settings and require loopback emulators. Browser UI tests force the local sample build, reject live Firebase settings, and start their own server. The large load suite runs locally, not against a billed project.
 
 ## Printing
 

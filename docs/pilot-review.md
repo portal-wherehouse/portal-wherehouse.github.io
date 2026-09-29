@@ -1,5 +1,7 @@
 # Simulated pilot and production readiness
 
+> Historical first-pass review, retained to show the sequence of work. Its $99 proposal, sample name and backend-readiness statements were superseded later on September 29. The current offer is $29/month, the public sample uses generic example records, and Firebase is implemented and emulator-tested but has not been activated by this work. See the [current setup guide](firebase-setup.md) and [cost report](firebase-cost-report.md). The prospect below has not been contacted.
+
 Date: 2026-09-29. Northfield Builders is a **fictional sample warehouse**, not a customer or a prospect contacted by this project.
 
 ## Scenario
