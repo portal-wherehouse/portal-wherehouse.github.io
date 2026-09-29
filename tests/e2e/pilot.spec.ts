@@ -45,7 +45,7 @@ test('operator receives matching pallets, prints both labels, places and retriev
 });
 
 test('price and included remote support are visible on desktop and phone', async ({page})=>{
- await page.goto('/#pricing');await expect(page.locator('main')).toContainText('$29');await expect(page.locator('main')).toContainText('Help with printers, labels and scanners');await page.screenshot({path:'test-results/pricing-desktop.png',fullPage:true});
+ await page.goto('/#pricing');await expect(page.locator('main')).toContainText('$29');await expect(page.locator('main')).toContainText('Remote support for the whole app');await page.screenshot({path:'test-results/pricing-desktop.png',fullPage:true});
  await page.goto('/');await expect(page.locator('.home-hero')).toContainText('$29/warehouse/month');await expect(page.getByText('Customer logo',{exact:true})).toHaveCount(0);await page.screenshot({path:'test-results/home-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/home-phone.png',fullPage:true});
 });

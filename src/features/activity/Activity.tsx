@@ -1,6 +1,7 @@
 // Workspace activity: every accepted pallet change, newest first, grouped by day.
 
-import { useMemo, useState } from 'react';
+import { FirebaseBackend } from '../../data/firebase';
+import { useEffect, useMemo, useState } from 'react';
 import { EVENT_LABEL } from '../../domain/transitions';
 import type { EventType, PalletEvent } from '../../domain/types';
 import { useApp } from '../../app/state';
@@ -20,11 +21,12 @@ export function Activity() {
   const [group, setGroup] = useState('all');
   const [person, setPerson] = useState('');
   const [limit, setLimit] = useState(150);
+  useEffect(()=>{if(backend instanceof FirebaseBackend)void backend.loadActivity(GROUPS.find(g=>g.id===group)!.types,person);},[backend,group,person]);
 
   const data = useMemo(
     () =>
       read((e, a, ws) => ({
-        events: e.activity(a, ws, 5000),
+        events: e.activity(a, ws, backend.mode==='firebase'?Number.MAX_SAFE_INTEGER:5000),
         members: e.context(a, ws).members,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -34,7 +36,7 @@ export function Activity() {
 
   const g = GROUPS.find((x) => x.id === group)!;
   const filtered = data.events.filter((ev) => (!g.types.length || g.types.includes(ev.type)) && (!person || ev.actor_id === person));
-  const shown = filtered.slice(0, limit);
+  const shown = backend.mode==='firebase'?filtered:filtered.slice(0, limit);
   const days: { key: string; label: string; events: PalletEvent[] }[] = [];
   for (const ev of shown) {
     const d = new Date(ev.accepted_at);
@@ -51,7 +53,7 @@ export function Activity() {
 
   return (
     <div className="stack">
-      <PageHead title="Activity" sub={`${filtered.length} accepted changes${person ? ` by ${users[person]?.name}` : ''}. Rejected attempts never appear here, because they changed nothing.`} />
+      <PageHead title="Activity" sub={`${filtered.length} ${backend.mode==='firebase'?'loaded':'accepted'} changes${person ? ` by ${users[person]?.name}` : ''}. Rejected attempts never appear here, because they changed nothing.`} />
       <Explain refs="pages 13, 21">
         <p>Each line is one accepted command, written in the same transaction as the change itself. The log is append-only. A mistake is fixed by a later correction entry, so the original stays visible.</p>
       </Explain>

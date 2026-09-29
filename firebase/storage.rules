@@ -11,12 +11,16 @@ service firebase.storage {
     }
     match /workspaces/{ws}/photos/{uid}/{filename} {
       allow get: if member(ws);
+      allow create, update, delete, list: if false;
+    }
+    match /workspaces/{ws}/photos/{uid}/{uploadId}/{filename} {
+      function upload() { return firestore.get(/databases/(default)/documents/workspaces/$(ws)/uploads/$(uploadId)).data; }
+      allow get: if member(ws);
       allow create: if member(ws) && request.auth.uid == uid
-        && firestore.get(/databases/(default)/documents/workspaces/$(ws)/members/$(uid)).data.role in ['OWNER','SUPERVISOR','OPERATOR']
-        && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp)')
-        && request.resource.metadata.uploadedBy == uid
-        && filename.matches('[a-zA-Z0-9_-]+[.](jpeg|png|webp)');
+        && upload().uid == uid && upload().state == 'reserved' && upload().expires_at > request.time
+        && request.resource.metadata.uploadedBy == uid && request.resource.contentType == 'image/jpeg'
+        && ((filename == 'full.jpeg' && request.resource.size == upload().bytes && request.resource.size <= 5*1024*1024)
+          || (filename == 'thumb.jpeg' && request.resource.size == upload().thumbBytes && request.resource.size <= 128*1024));
       allow update, delete, list: if false;
     }
     match /{allPaths=**} { allow read, write: if false; }

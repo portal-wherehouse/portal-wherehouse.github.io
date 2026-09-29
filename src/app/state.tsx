@@ -7,7 +7,7 @@ import type { Backend, Outcome } from '../data/backend';
 import { ReadError, type Engine } from '../demo/engine';
 
 /** Public website pages (no account needed). */
-export const SITE_ROUTES = ['home', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security'] as const;
+export const SITE_ROUTES = ['home', 'why', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security'] as const;
 export type SiteRouteName = (typeof SITE_ROUTES)[number];
 
 export function isSiteRoute(name: RouteName): name is SiteRouteName {

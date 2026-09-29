@@ -998,6 +998,7 @@ export class Engine {
     for (const p of Object.values(this.db.pallets)) {
       if (p.workspace_id === workspaceId && p.current_location_id) out[p.current_location_id] = (out[p.current_location_id] ?? 0) + 1;
     }
+    for(const l of Object.values(this.db.locations))if(l.workspace_id===workspaceId&&'pallet_count' in l)out[l.id]=(l as any).pallet_count;
     return out;
   }
 
@@ -1009,6 +1010,7 @@ export class Engine {
       c[p.state] = (c[p.state] ?? 0) + 1;
       if (p.hold && p.state !== 'RETIRED') c.HOLD = (c.HOLD ?? 0) + 1;
     }
+    for(const j of Object.values(this.db.jobs))if(j.workspace_id===workspaceId&&'counts' in j)out[j.id]=(j as any).counts;
     return out;
   }
 

@@ -9,7 +9,7 @@ import { BRAND } from '../brand';
 import { canonicalJson, hashString, uuid } from '../domain/codes';
 import { PALLET_STATES, type CommandEnvelope, type CommandKind, type CommandResult, type Pallet } from '../domain/types';
 import { Engine, type Db, DB_SCHEMA_VERSION } from '../demo/engine';
-import { seedFixture, type FixtureName } from '../demo/seed';
+import { seedFixture, seedSample, type FixtureName } from '../demo/seed';
 import { Outbox, type OutboxEntry, type OutboxStorage } from './outbox';
 
 export type NetworkMode = 'online' | 'offline';
@@ -50,6 +50,7 @@ interface Meta {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class Backend {
+  sampleMode=false;
   mode: 'demo' | 'firebase' = 'demo';
   authUid: string | null = null;
   loading = false;
@@ -74,15 +75,15 @@ export class Backend {
   private store: UseStore | null = null;
   private channel: BroadcastChannel | null = null;
 
-  static async open(): Promise<Backend> {
-    const b = new Backend();
+  static async open(sampleMode=false): Promise<Backend> {
+    const b = new Backend();b.sampleMode=sampleMode;
     await b.init();
     return b;
   }
 
   private async init() {
     try {
-      this.store = createStore('pallet-locator-demo', 'kv');
+      this.store = createStore(this.sampleMode?'wherehouse-sample-v2':'pallet-locator-demo', 'kv');
       const [db, meta, pending] = await Promise.all([get<Db>(DB_KEY, this.store), get<Meta>(META_KEY, this.store), get<PendingSend[]>(PENDING_KEY, this.store)]);
       if (db && meta && db.schema === DB_SCHEMA_VERSION) {
         this.db = db;
@@ -364,7 +365,7 @@ export class Backend {
   }
 
   async seed(fixture: FixtureName) {
-    this.db = seedFixture(fixture);
+    this.db = this.sampleMode&&fixture==='tiny'?seedSample():seedFixture(fixture);
     this.meta = { fixture, created_at: new Date().toISOString() };
     this.engine = new Engine(this.db);
     this.pending = [];

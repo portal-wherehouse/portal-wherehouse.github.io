@@ -330,3 +330,19 @@
 @media (prefers-reduced-motion: reduce) { .page-enter, .route-progress { animation:none; } }
 .site-inner.site-hero { padding:48px 16px 24px; }
 @media(min-width:720px){.site-inner.site-hero{padding:56px 32px 32px;}}
+/* Buyer pages use readable editorial type, with the product doing the explaining. */
+.site-h1{font-family:var(--font-body);font-size:clamp(28px,4.2vw,44px);font-weight:550;text-transform:none;letter-spacing:-.035em;line-height:1.15;max-width:24ch;}
+.site-h2{font-family:var(--font-body);font-size:clamp(23px,3vw,30px);font-weight:550;text-transform:none;letter-spacing:-.025em;line-height:1.2;}
+.site-eyebrow{font-family:var(--font-body);font-size:12px;font-weight:550;text-transform:none;letter-spacing:.025em;color:var(--ink-2);}
+.site-lede{font-size:16px;line-height:1.6;max-width:57ch;}
+.site-hero{padding-top:55px;padding-bottom:30px;}.site-section{padding:40px 0;}.site-section-head{margin-bottom:22px;}
+.site .feature-card h3,.site .site-btn{font-family:var(--font-body);text-transform:none;font-weight:550;letter-spacing:0;}
+.plan-options,.contact-layout,.buyer-columns{display:grid;grid-template-columns:1fr 1fr;gap:28px;}
+.plan-option,.contact-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:28px;}
+.plan-option h2,.contact-layout h2,.buyer-columns h2,.workflow-rows h2{font-size:23px;line-height:1.25;font-weight:550;letter-spacing:-.025em;margin:0 0 12px;}
+.plan-price{font-size:32px;font-weight:550;letter-spacing:-.03em;margin:20px 0 12px;}.plan-price span{font-size:14px;font-weight:400;letter-spacing:0;}
+.plan-option p,.plan-option li,.contact-layout p,.contact-layout dd,.buyer-columns p,.workflow-rows p{font-size:15px;line-height:1.65;}.plan-option ul{padding-left:18px;margin:20px 0 26px;}.plan-option li{padding:3px 0;}.plan-note{font-size:13px;color:var(--ink-2);margin-top:18px;max-width:70ch;}
+.buyer-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;}.buyer-table{border-collapse:collapse;width:100%;text-align:left;}.buyer-table th,.buyer-table td{padding:16px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5;vertical-align:top;}.buyer-table th{font-weight:550;}.buyer-table thead{background:var(--surface-2);}.buyer-table tr:last-child td,.buyer-table tr:last-child th{border-bottom:0;}
+.contact-email{font-size:clamp(16px,2vw,20px);overflow-wrap:anywhere;}.contact-details dl{margin:0;}.contact-details dt{font-weight:550;margin:14px 0 4px;}.contact-details dd{margin:0 0 14px;color:var(--ink-2);}
+.workflow-rows{max-width:800px;}.workflow-rows article{display:flex;gap:24px;border-top:1px solid var(--line);padding:25px 0;}.workflow-rows article>span{color:var(--ink-3);font-size:14px;padding-top:5px;}.workflow-rows p{margin:0;max-width:62ch;}
+@media(max-width:650px){.site-hero{padding-top:32px;padding-bottom:12px;}.site-section{padding:28px 0;}.site-h1{font-size:29px;font-weight:500;}.site-h2{font-size:23px;font-weight:500;}.site-lede{font-size:15px;}.plan-options,.contact-layout,.buyer-columns{grid-template-columns:1fr;gap:18px;}.plan-option,.contact-card{padding:20px;}.plan-option h2,.contact-layout h2,.buyer-columns h2,.workflow-rows h2{font-size:21px;font-weight:500;}.plan-price{font-size:29px;}.buyer-table th,.buyer-table td{padding:10px;font-size:12px;}.buyer-table{min-width:0;table-layout:fixed;}.site .site-btn{font-size:14px;}.workflow-rows article{gap:15px;}}

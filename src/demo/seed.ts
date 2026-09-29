@@ -323,3 +323,18 @@ export function fixtureInfo(db: Db, name: FixtureName): FixtureInfo {
 export function seedFixture(name: FixtureName, opts: { now?: number; seed?: number } = {}): Db {
   return name === 'scenario' ? seedScenario(opts) : seedTiny(opts);
 }
+
+/** The public sample is deliberately small; stress fixtures remain available to development tests. */
+export function seedSample():Db{
+ const db=emptyDb(),d=new Driver(db,DEFAULT_SEED,dayStart(Date.now(),1,9));const [owner,manager,employee,viewer]=DEMO_USERS;
+ d.setupWorkspace(owner,'Sample warehouse',[[manager,'SUPERVISOR'],[employee,'OPERATOR'],[viewer,'VIEWER']]);
+ d.addJobs(manager.id,[['JOB-1','Example job 1','Example delivery address'],['JOB-2','Example job 2','Example delivery address']]);
+ d.addLocations(owner.id,[['A-01-01','RACK'],['A-01-02','RACK'],['B-01-01','RACK'],['RECEIVING-01','RECEIVING']]);
+ for(let i=1;i<=6;i++){
+  let p=d.run(employee.id,'receive',{job_id:d.jobs.get(i<=3?'JOB-1':'JOB-2')!.id,description:`Example pallet ${i}`})!;
+  if(i!==2)p=d.run(employee.id,'place',{location_id:d.locs.get(i<=3?'A-01-01':'A-01-02')!.id},p)!;
+  if(i===1)d.run(employee.id,'move',{location_id:d.locs.get('B-01-01')!.id},p);
+  if(i===5)d.run(employee.id,'apply_hold',{reason:'Example: waiting for a damage check.'},p);
+  if(i===6)d.run(employee.id,'dispatch',{destination:'Example job 2'},p);
+ }return db;
+}

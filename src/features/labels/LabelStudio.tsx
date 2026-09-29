@@ -1,6 +1,8 @@
+import { where } from 'firebase/firestore';
+import { FirebaseBackend } from '../../data/firebase';
 // Label studio: build a print run of pallet or rack labels, check calibration, and learn what a label carries (page 16).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { makeLabelPayload } from '../../domain/codes';
 import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
@@ -16,6 +18,9 @@ export function LabelStudio() {
   const [jobId, setJobId] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  useEffect(()=>{if(!(backend instanceof FirebaseBackend))return;const filters=[where('archived_at','==',null)];
+  if(chosen==='job'&&jobId)filters.push(where('job_id','==',jobId));else if(chosen==='reprint')filters.push(where('label_needs_reprint','==',true));else if(!chosen||chosen==='received')filters.push(where('state','==','RECEIVED'));
+  void backend.filteredList('records',filters);},[backend,chosen,jobId]);
 
   const data = useMemo(
     () =>
@@ -53,9 +58,9 @@ export function LabelStudio() {
   const SOURCES: { id: Source; label: string }[] = [
     { id: 'reprint', label: `Needs reprint (${reprintCount})` },
     { id: 'received', label: `Waiting for placement (${receivedCount})` },
-    { id: 'job', label: 'Everything on a job' },
+    { id: 'job', label: 'Pallets for a job' },
     { id: 'pick', label: 'Pick pallets' },
-    { id: 'racks', label: 'All rack labels' },
+    { id: 'racks', label: 'Loaded rack labels' },
   ];
 
   return (

@@ -1,3 +1,5 @@
+import { SampleHints } from '../portal/SampleHints';
+import { LiveView } from '../data/LiveView';
 // App shell. Website pages get the site header and footer; everything else is the portal:
 // demo strip, top bar with "Take the tour", navigation, the current screen, and the sheets above it.
 
@@ -57,6 +59,7 @@ const SITE_PAGES: Record<SiteRouteName, () => React.ReactNode> = {
   product: ProductPage,
   showcase: ShowcasePage,
   simple: SimplePage,
+  why: SimplePage,
   hardware: HardwarePage,
   industries: IndustriesPage,
   customers: CustomersPage,
@@ -210,7 +213,7 @@ function Portal() {
             </button> : <span className="chip static" title="Records are saved to your warehouse account">{backend.mode === 'firebase' ? 'Shared warehouse' : 'Local demo'}</span>}
           </>
         )}
-        {backend.mode === 'demo' && <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>
+        {backend.mode === 'demo' && !backend.sampleMode && <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>
           <Icon name="tour" />
           <span className="tour-chip-label">{app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}</span>
         </button>}
@@ -266,7 +269,7 @@ function Portal() {
         <main className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
           {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
           {backend.mode === 'firebase' && <PendingCloudRequests />}
-          {removed ? <RemovedAccess /> : <Screen key={`${route.name}:${route.id ?? ''}`} />}
+          {removed ? <RemovedAccess /> : signedIn ? <LiveView><Screen key={`${route.name}:${route.id ?? ''}`} /></LiveView> : <Screen />}
         </main>
       </div>
 
@@ -283,10 +286,10 @@ function Portal() {
       )}
 
       {account && me && backend.mode === 'demo' && (
-        <Sheet title="Demo accounts" onClose={() => setAccount(false)}>
+        <Sheet title={backend.sampleMode?"Sample views":"Demo accounts"} onClose={() => setAccount(false)}>
           <div className="stack">
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>
-              Sign-in is turned off while {BRAND.name} is being tested. Switch roles to see what each kind of account can do. Later, each person signs in with their own email.
+              Switch between the management and employee views. These practice records stay in this browser. Customer accounts use their own warehouse.
             </p>
             {myWorkspaces.length > 1 && (
               <div className="stack" style={{ gap: 6 }}>
@@ -302,7 +305,7 @@ function Portal() {
             )}
             <div className="people">
               {backend.db.memberships
-                .filter((m) => m.active)
+                .filter((m) => m.active && (!backend.sampleMode || ['OWNER','OPERATOR'].includes(m.role)))
                 .map((m) => {
                   const u = backend.db.users[m.user_id];
                   const here = m.user_id === actorId && m.workspace_id === workspaceId;
@@ -355,8 +358,9 @@ function Portal() {
 
       {account && backend.mode === 'firebase' && <Sheet title="Your account" onClose={()=>setAccount(false)}><p>{me?.name} · {me?.email}</p><button className="btn primary" onClick={()=>{setAccount(false);app.signOut();}}>Sign out</button></Sheet>}
       {backend.mode === 'firebase' && offline && <Notice tone="warn">You’re offline. Reconnect before making changes.</Notice>}
-      {signedIn && backend.mode === 'demo' && <Tour />}
-      {backend.mode === 'demo' && <PortalTour />}
+      {signedIn && backend.mode === 'demo' && !backend.sampleMode && <Tour />}
+      {signedIn && backend.sampleMode && <SampleHints key={`${route.name}:${route.id||''}`} />}
+      {backend.mode === 'demo' && !backend.sampleMode && <PortalTour />}
       <ScanAnywhere />
       <Toasts />
       <div className="print-root" id="print-root" />

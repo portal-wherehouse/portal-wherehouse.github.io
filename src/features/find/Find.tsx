@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Find: search by job, pallet code, rack, or description; location first (blueprint page 13).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +20,8 @@ export function Find() {
   const [holdOnly, setHoldOnly] = useState(false);
   const [archived, setArchived] = useState(false);
   const [pages, setPages] = useState(1);
+  const cloud=backend instanceof FirebaseBackend?backend:null;
+  useEffect(()=>{if(!cloud)return;const timer=setTimeout(()=>void cloud.search({q,states,job_id:jobId||undefined,location_id:locId||undefined,include_archived:archived,hold:holdOnly}),300);return()=>clearTimeout(timer);},[cloud,q,states,jobId,locId,archived,holdOnly]);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function Find() {
       const items: RankedRow[] = [];
       let cursor: string | null = null;
       let total = 0;
-      for (let i = 0; i < pages; i++) {
+      for (let i = 0; i < (cloud ? Math.ceil(Object.keys(cloud.db.pallets).length/50)+1 : pages); i++) {
         const r: ReturnType<typeof e.search> = e.search(a, ws, { q, states, job_id: jobId || undefined, location_id: locId || undefined, include_archived: archived, cursor, limit: 50 });
         total = r.total;
         items.push(...r.items);
@@ -52,7 +55,7 @@ export function Find() {
         if (!cursor) break;
       }
       const filtered = holdOnly ? items.filter((r) => r.pallet.hold) : items;
-      return { items: filtered, more: !!cursor, total: holdOnly ? filtered.length : total };
+      return { items: filtered, more: cloud ? cloud.pageMore('search') : !!cursor, total: holdOnly ? filtered.length : total };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, states, jobId, locId, holdOnly, archived, pages, v, backend.network]);
@@ -153,13 +156,13 @@ export function Find() {
             Quick views:
           </span>
           <button className="btn small" onClick={() => setStates(['RECEIVED'])}>
-            Needs placement · {quick.received}
+            Needs placement{!cloud && <> · {quick.received}</>}
           </button>
           <button className="btn small" onClick={() => setHoldOnly(true)}>
-            On hold · {quick.hold}
+            On hold{!cloud && <> · {quick.hold}</>}
           </button>
           <button className="btn small" onClick={() => setStates(['MISSING'])}>
-            Missing · {quick.missing}
+            Missing{!cloud && <> · {quick.missing}</>}
           </button>
         </div>
       )}
@@ -181,7 +184,7 @@ export function Find() {
       {result && (
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <span className="muted num" style={{ fontSize: 13.5 }}>
-            {result.total} {result.total === 1 ? 'pallet' : 'pallets'}
+            {cloud ? 'Showing ' : ''}{result.total} {result.total === 1 ? 'pallet' : 'pallets'}
             {q ? ` for “${q.trim()}”` : ''}
           </span>
           <span className="faint" style={{ fontSize: 12.5 }}>
@@ -190,7 +193,8 @@ export function Find() {
         </div>
       )}
 
-      {result && result.items.length === 0 ? (
+      {cloud?.viewLoading && <p role="status">Searching…</p>}
+      {result && result.items.length === 0 && !cloud?.viewLoading ? (
         <div className="panel">
           <Empty icon="find" title={q ? `No pallets match “${q.trim()}”` : 'No pallets match these filters'}>
             <p>Check the spelling, or type the code printed on the label. Filters above may also be hiding results.</p>
@@ -214,7 +218,7 @@ export function Find() {
         </div>
       )}
       {result?.more && (
-        <button className="btn block" onClick={() => setPages((p) => p + 1)}>
+        <button className="btn block" onClick={() => cloud ? void cloud.more('search') : setPages((p) => p + 1)}>
           Show more
         </button>
       )}
@@ -232,9 +236,9 @@ export function ResultRow({
   onOpen: () => void;
   compact?: boolean;
 }) {
-  const { read } = useApp();
+  const { read,backend } = useApp();
   const p = row.pallet;
-  const thumb = read((e) => Object.values(e.db.attachments).find((a) => a.pallet_id === p.id && a.state === 'ready')?.thumb_url ?? null);
+  const thumb = backend.mode==='firebase'?null:read((e) => Object.values(e.db.attachments).find((a) => a.pallet_id === p.id && a.state === 'ready')?.thumb_url ?? null);
   return (
     <button className={`result ${compact ? 'compact' : ''}`} onClick={onOpen}>
       {!compact && (

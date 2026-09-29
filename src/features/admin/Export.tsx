@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Export (page 28): four CSV files plus a manifest, protected against spreadsheet formula injection.
 
 import { useMemo, useState } from 'react';
@@ -20,6 +21,7 @@ const FILES: { id: FileId; title: string; what: string }[] = [
 
 export function Export() {
   const { read, role, toast, backend, v } = useApp();
+  const [exportReady,setExportReady]=useState(backend.mode==='demo');const [progress,setProgress]=useState<number|null>(null);const [error,setError]=useState('');
   const [view, setView] = useState<FileId | null>(null);
   const data = useMemo(
     () => (roleAllows(role, 'close_job') ? read((e, a, ws) => e.exportData(a, ws)) : null),
@@ -36,6 +38,7 @@ export function Export() {
   }
   if (!data) return null;
 
+  if(!exportReady)return <div className="stack"><PageHead title="Export warehouse records" sub="Download pallets, jobs, locations and the complete movement history."/><p>Records are read in pages when you prepare the export. Photos are kept in the warehouse and are not included in CSV files.</p><button className="btn primary" disabled={progress!==null} onClick={async()=>{setProgress(0);try{await (backend as FirebaseBackend).prepareExport(setProgress);setExportReady(true);}catch(e){setError((e as Error).message);setProgress(null);}}}>{progress===null?'Prepare complete export':`Preparing: ${progress.toLocaleString()} records`}</button>{error&&<p role="alert">{error}</p>}</div>;
   const content = (id: FileId) => (id === 'manifest' ? JSON.stringify({ ...data.manifest, files: FILES.filter((f) => f.id !== 'manifest').map((f) => ({ name: f.title, rows: data[f.id as Exclude<FileId, 'manifest'>].length })) }, null, 2) : toCsv(data[id]));
   const rows = (id: FileId) => (id === 'manifest' ? 1 : data[id].length);
   const stamp = data.manifest.generated_at.slice(0, 16).replace(/[:T]/g, '-');

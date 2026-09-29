@@ -14,7 +14,7 @@ const ALL_PAGES = [...SITE_NAV, ...SITE_FOOTER_EXTRA];
 const label = (route: SiteRouteName) => ALL_PAGES.find((p) => p.route === route)?.label ?? route;
 
 const FOOTER_COLUMNS: { title: string; routes: SiteRouteName[]; portal?: boolean }[] = [
-  { title: 'Product', routes: ['product', 'hardware', 'simple', 'showcase'] },
+  { title: 'Product', routes: ['product', 'why', 'hardware', 'showcase'] },
   { title: 'Company', routes: ['mission', 'customers', 'founder', 'contact'] },
   { title: 'Resources', routes: ['pricing', 'security'], portal: true },
 ];

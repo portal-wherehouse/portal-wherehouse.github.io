@@ -1,3 +1,4 @@
+import './local-only.mjs';
 import {createRequire} from 'node:module';
 import {createHash,randomBytes} from 'node:crypto';
 const require=createRequire(new URL('../../firebase/functions/package.json',import.meta.url));

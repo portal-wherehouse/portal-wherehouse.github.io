@@ -1,6 +1,8 @@
+import { where } from 'firebase/firestore';
+import { FirebaseBackend } from '../../data/firebase';
 // Reconciliation (page 15): the short lists a supervisor works through to keep records matching the floor.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { SearchRow } from '../../domain/search';
 import type { Pallet } from '../../domain/types';
 import { roleAllows } from '../../domain/transitions';
@@ -24,6 +26,9 @@ const LISTS: { id: ListId; title: string; icon: IconName; what: string; fix: str
 export function Reconcile() {
   const { read, go, backend, v, role } = useApp();
   const [tab, setTab] = useState<ListId>('unplaced');
+  useEffect(()=>{if(!(backend instanceof FirebaseBackend))return;const filters=[where('archived_at','==',null)];
+  if(tab==='unplaced')filters.push(where('state','==','RECEIVED'));if(tab==='missing')filters.push(where('state','==','MISSING'));if(tab==='holds')filters.push(where('has_hold','==',true));if(tab==='reprint')filters.push(where('label_needs_reprint','==',true));if(tab==='stale')filters.push(where('state','==','STORED'),where('last_confirmed_at','<',new Date(Date.now()-3*86400000).toISOString()));
+  void backend.filteredList('records',filters);},[backend,tab]);
   const [printing, setPrinting] = useState<string[] | null>(null);
 
   const data = useMemo(
@@ -46,14 +51,14 @@ export function Reconcile() {
 
   return (
     <div className="stack">
-      <PageHead title="Needs attention" sub={total === 0 ? 'Everything matches. Nothing needs attention.' : `${total} items across ${LISTS.filter((l) => data[l.id].length).length} lists. Oldest first.`} />
+      <PageHead title="Needs attention" sub={backend.mode==='firebase'?'Showing loaded records in this list. Use Show more records for the next page.':total === 0 ? 'Everything matches. Nothing needs attention.' : `${total} items across ${LISTS.filter((l) => data[l.id].length).length} lists. Oldest first.`} />
       <Explain refs="pages 6, 15">
         <p>These lists are how records stay honest. The app never guesses where a pallet is: it shows the last confirmed rack and when. Each list links to the one workflow that fixes it, and every fix is recorded in the pallet's history.</p>
       </Explain>
       <div className="tabs wrap" role="tablist" data-tour="reconcile-lists">
         {LISTS.map((l) => (
           <button key={l.id} role="tab" aria-selected={tab === l.id} onClick={() => setTab(l.id)}>
-            <Icon name={l.icon} /> {l.title} <span className="tag">{data[l.id].length}</span>
+            <Icon name={l.icon} /> {l.title} {backend.mode==='demo'&&<span className="tag">{data[l.id].length}</span>}
           </button>
         ))}
       </div>

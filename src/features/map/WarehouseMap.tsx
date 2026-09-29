@@ -1,7 +1,8 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Warehouse map: every location laid out by zone and aisle from its code, with a box per recorded pallet.
 // Recorded state only: the map never claims free space or capacity (page 32, non-goals).
 
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { Location, Pallet } from '../../domain/types';
 import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
@@ -31,6 +32,7 @@ export function WarehouseMap() {
   const { read, go, route, backend, v } = useApp();
   const [selected, setSelected] = useState<string | null>(route.id ?? null);
   const [showInactive, setShowInactive] = useState(false);
+  useEffect(()=>{if(selected && backend instanceof FirebaseBackend)void backend.loadRack(selected);},[backend,selected]);
   const sideBySide = useSideBySide();
 
   const data = useMemo(
@@ -64,12 +66,13 @@ export function WarehouseMap() {
 
   const sel = selected ? data.locations.find((l) => l.id === selected) ?? null : null;
   const selPallets = sel ? (data.byLoc[sel.id] ?? []).slice().sort((a, b) => a.code.localeCompare(b.code)) : [];
-  const recorded = Object.values(data.byLoc).reduce((n, list) => n + list.length, 0);
-  const empty = data.locations.filter((l) => l.active && !(data.byLoc[l.id]?.length)).length;
+  const recorded = backend.mode==='firebase'?data.locations.reduce((n,l)=>n+((l as any).pallet_count||0),0):Object.values(data.byLoc).reduce((n, list) => n + list.length, 0);
+  const empty = data.locations.filter((l) => l.active && !(backend.mode==='firebase'?(l as any).pallet_count:data.byLoc[l.id]?.length)).length;
 
   const bay = (l: Location) => {
     const list = data.byLoc[l.id] ?? [];
-    const held = list.filter((p) => p.hold).length;
+    const count=backend.mode==='firebase'?(l as any).pallet_count||0:list.length;
+    const held = backend.mode==='firebase'?(l as any).hold_count||0:list.filter((p) => p.hold).length;
     return (
       <button
         key={l.id}
@@ -77,7 +80,7 @@ export function WarehouseMap() {
         className={`bay ${l.active ? '' : 'inactive'} ${l.code.length > 8 ? 'wide' : ''}`}
         aria-pressed={selected === l.id}
         onClick={() => setSelected(selected === l.id ? null : l.id)}
-        aria-label={`${l.code}: ${list.length} pallets recorded${held ? `, ${held} on hold` : ''}${l.active ? '' : ', inactive'}`}
+        aria-label={`${l.code}: ${count} pallets recorded${held ? `, ${held} on hold` : ''}${l.active ? '' : ', inactive'}`}
       >
         <span className="bay-code">{l.code}</span>
         <span className="boxes" aria-hidden>
@@ -87,7 +90,7 @@ export function WarehouseMap() {
           {list.length > 12 && <span className="faint" style={{ fontSize: 11 }}>+{list.length - 12}</span>}
         </span>
         <span className="bay-count">
-          {list.length === 0 ? 'Nothing recorded' : `${list.length} recorded`}
+          {count === 0 ? 'Nothing recorded' : `${count} recorded`}
           {held > 0 && ` · ${held} held`}
           {!l.active && ' · inactive'}
         </span>
@@ -99,7 +102,7 @@ export function WarehouseMap() {
   const detail = sel && (
     <>
       <div className="muted">
-        {selPallets.length === 0 ? 'No pallets are recorded here.' : `${selPallets.length} ${selPallets.length === 1 ? 'pallet is' : 'pallets are'} recorded here.`}
+        {selPallets.length === 0 ? 'No pallets loaded here.' : `${backend.mode==='firebase'?'Showing ':''}${selPallets.length} ${selPallets.length === 1 ? 'pallet is' : 'pallets are'} recorded here.`}
         {!sel.active && ' This location is inactive, so nothing can be placed or moved here.'}
       </div>
       <div className="results">

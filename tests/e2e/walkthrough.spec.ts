@@ -11,11 +11,8 @@ async function enterPortalAs(page: Page, role: 'Owner' | 'Manager' | 'Operator' 
   await page.getByRole('button', { name: 'Sign in' }).first().click();
   await expect(page).toHaveURL(/#signin$/);
   await expect(page.getByRole('heading', { name: 'Sample warehouse', exact: true })).toBeVisible();
-  // The role cards are labels around a visually hidden radio: click the card like a person would.
-  const radio = page.getByRole('radio', { name: new RegExp(`^${role}\\b`) });
-  await page.locator('label.door-role').filter({ has: page.locator('.door-role-name', { hasText: new RegExp(`^${role}$`) }) }).click();
-  await expect(radio).toBeChecked();
-  await page.getByRole('button', { name: 'Continue to the portal' }).click();
+  if(role==='Viewer'||role==='Manager'){await signInAs(page,role==='Viewer'?'viewer':'supervisor');await page.goto('/#find');await page.reload();}
+  else await page.getByRole('button',{name:role==='Owner'?'View a management dashboard':'View an employee dashboard'}).click();
   await portalReady(page);
   await expect(page.locator('.demo-strip')).toContainText(`You are using the ${role} account`);
 }

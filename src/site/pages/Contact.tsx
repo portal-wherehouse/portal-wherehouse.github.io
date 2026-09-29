@@ -1,6 +1,7 @@
-import { PageHero, Section } from '../kit';
+import { PageHero, Section, SiteLink } from '../kit';
 import { BRAND } from '../../brand';
-export function ContactPage() { return <>
-<PageHero eyebrow="Setup & support" title="Tell us how your warehouse works." lede="We’ll help with the racks, labels, printers and people." />
-<Section narrow><h2 className="site-h2">Talk to a person.</h2><p>Send your warehouse size, what you store and the best way to reach you. For support, tell us what you were doing and what happened.</p><a className="site-btn primary" href={`mailto:${BRAND.supportEmail}?subject=Wherehouse%20setup%20and%20support`}>Email {BRAND.supportEmail}</a><p>Remote setup, training and ongoing support are included. Hardware purchases and on-site visits aren’t included.</p></Section>
-</>; }
+export function ContactPage(){return <>
+<PageHero eyebrow="Get help" title="Let’s look at your warehouse." lede="Starting out, choosing equipment or stuck on a scan? Get in touch."/>
+<Section><div className="contact-layout"><div className="contact-card"><h2>Email us</h2><a className="contact-email" href={`mailto:${BRAND.supportEmail}?subject=Wherehouse%20setup%20and%20support`}>{BRAND.supportEmail}</a><p>Tell us what you store and what you’d like help with. A photo of your current rack or label is useful too.</p></div><div className="contact-details"><h2>What we can help with</h2><dl><dt>Getting started</dt><dd>Rack names, labels, accounts and showing your crew the routine.</dd><dt>Equipment</dt><dd>Check your printer and scanner, or arrange a suitable setup.</dd><dt>On-site help</dt><dd>Tell us your location and what you need. We’ll discuss availability and include it in a quote.</dd></dl><SiteLink to="pricing">Compare setup options →</SiteLink></div></div></Section>
+<Section narrow tone="surface" title="Already using Wherehouse?"><p>Include the pallet or rack code, what you tried, and what happened. Remote support is included with your plan.</p></Section>
+</>;}

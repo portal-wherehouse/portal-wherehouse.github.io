@@ -1,1 +1,521 @@
-{"indexes":[],"fieldOverrides":[]}
+{
+  "indexes": [
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "job_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "current_location_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "has_hold",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "search_terms",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "job_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_hold",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "label_needs_reprint",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "last_confirmed_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "code",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "job_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "job_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_hold",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_hold",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "label_needs_reprint",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "last_confirmed_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "archived_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "pallet_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "revision",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "accepted_at",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "audit",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "accepted_at",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "attachments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "pallet_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "labels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "target_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "revoked_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "uploads",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expires_at",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "current_location_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "has_hold",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "accepted_at",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "actor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "accepted_at",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "actor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "accepted_at",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "events",
+      "fieldPath": "before_state",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "events",
+      "fieldPath": "after_state",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "events",
+      "fieldPath": "detail",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "events",
+      "fieldPath": "command_id",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "events",
+      "fieldPath": "reason",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "audit",
+      "fieldPath": "before",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "audit",
+      "fieldPath": "after",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "audit",
+      "fieldPath": "reason",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "receipts",
+      "fieldPath": "result",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "receipts",
+      "fieldPath": "payload_hash",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "receipts",
+      "fieldPath": "completed_at",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "receipts",
+      "fieldPath": "actor_id",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "attachments",
+      "fieldPath": "data_url",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "attachments",
+      "fieldPath": "thumb_url",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private",
+      "fieldPath": "value",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "jobs",
+      "fieldPath": "counts",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pallets",
+      "fieldPath": "notes",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pallets",
+      "fieldPath": "description",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pallets",
+      "fieldPath": "supplier_ref",
+      "indexes": []
+    }
+  ]
+}

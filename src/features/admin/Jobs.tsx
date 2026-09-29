@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Jobs: list, create, close/reopen, and a job page with a pick list sorted by rack (pages 9, 15).
 
 import { useMemo, useState } from 'react';
@@ -184,7 +185,7 @@ export function JobDetail() {
         <div className="panel-title">
           Pick list: on hand, sorted by rack <span className="grow" />
           {data.onHand.length > 0 && (
-            <button className="btn small" onClick={() => setPrinting(true)}>
+            <button className="btn small" onClick={async() => {if(backend instanceof FirebaseBackend)while(backend.pageMore('records'))await backend.more('records');setPrinting(true);}}>
               <Icon name="print" /> Print pick list
             </button>
           )}

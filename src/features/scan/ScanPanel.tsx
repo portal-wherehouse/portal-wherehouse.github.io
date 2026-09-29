@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Every way to identify a label: a hardware scanner (keyboard or serial mode), live camera, a photo of the label,
 // typing the printed code, or (in the demo) tapping a pretend label. Manual entry is always available (page 16).
 
@@ -92,7 +93,7 @@ export function ScanPanel({
     }
   };
   // Scans this panel reads itself (camera, photo, the box, sample labels) beep here; hardware scans beep in the router.
-  const resolveOwn = (raw: string, source: ScanSource) => beep(resolve(raw, source) ? 'good' : 'bad');
+  const resolveOwn = (raw: string, source: ScanSource) => {if(backend instanceof FirebaseBackend)void backend.preloadScan(raw).then(()=>beep(resolve(raw,source)?'good':'bad')).catch(()=>{onError('Could not load this label. Check your connection.',raw);beep('bad');});else beep(resolve(raw,source)?'good':'bad');};
   // The camera reports the label in view several times a second. Only a new label (or the same one after a pause)
   // beeps and updates the last-scan line; repeats still pass through, and the screen ignores them as before.
   const camSeen = useRef<{ text: string; at: number } | null>(null);
@@ -100,7 +101,7 @@ export function ScanPanel({
     const now = Date.now();
     const seen = camSeen.current;
     camSeen.current = { text: t, at: now };
-    if (seen && seen.text === t && now - seen.at < 2500) resolve(t, 'camera', true);
+    if (seen && seen.text === t && now - seen.at < 2500) { if(backend.mode==='demo')resolve(t, 'camera', true); }
     else resolveOwn(t, 'camera');
   };
 

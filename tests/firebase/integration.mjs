@@ -1,10 +1,11 @@
+import './local-only.mjs';
 import {issueKey,licenseStore} from './keys.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, collection, getDocs, onSnapshot, query, limit } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 import { getStorage, connectStorageEmulator, ref, uploadBytes, getBytes } from 'firebase/storage';
 const require=createRequire(new URL('../../firebase/functions/package.json',import.meta.url));
@@ -42,7 +43,7 @@ try {
  const cmd=envelope('receive',{job_id:job.target_id,description:'Lighting fixtures'});
  const received=await owner.call('command',cmd);assert.equal(received.ok,true,JSON.stringify(received));
  const replay=await owner.call('command',cmd);assert.equal(replay.current_state.id,received.current_state.id);
- assert.equal((await getDocs(collection(owner.db,'workspaces',ws,'pallets'))).size,1);ok('replayed receive creates exactly one pallet');
+ assert.equal((await getDocs(query(collection(owner.db,'workspaces',ws,'pallets'),limit(100)))).size,1);ok('replayed receive creates exactly one pallet');
  const changed=await owner.call('command',{...cmd,payload:{...cmd.payload,description:'Different'}});assert.equal(changed.code,'COMMAND_KEY_REUSED');ok('request ID cannot be reused for another action');
  const denied=await send(viewer,'receive',{job_id:job.target_id,description:'Not allowed'});assert.equal(denied.code,'FORBIDDEN');ok('viewer cannot receive');
  const p=received.current_state;const version={pallet_id:p.id,expected_version:p.version};
@@ -51,10 +52,15 @@ try {
  let latest=race.find(r=>r.ok).current_state;
  const seen=new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{stop();reject(new Error('listener timed out'));},10000);const stop=onSnapshot(doc(operator.db,'workspaces',ws,'pallets',p.id),snap=>{if(snap.data()?.version===latest.version+1){clearTimeout(timeout);stop();resolve(snap.data());}},reject);});
  const moved=await send(owner,'move',{location_id:latest.current_location_id===a.target_id?b.target_id:a.target_id},{pallet_id:p.id,expected_version:latest.version});assert.equal(moved.ok,true);await seen;latest=moved.current_state;ok('another signed-in device receives shared changes');
- const path=`workspaces/${ws}/photos/${owner.user.uid}/${randomUUID()}.png`;const bytes=new Uint8Array([137,80,78,71,13,10,26,10]);
- await uploadBytes(ref(owner.storage,path),bytes,{contentType:'image/png',customMetadata:{uploadedBy:owner.user.uid}});
- const photo=await send(owner,'add_photo',{attachment_id:randomUUID(),data_url:`storage://${path}`,thumb_url:`storage://${path}`,media_type:'image/png',bytes:bytes.length},{pallet_id:p.id,expected_version:latest.version});assert.equal(photo.ok,true,JSON.stringify(photo));
- assert.equal((await getBytes(ref(operator.storage,path))).byteLength,bytes.length);await assert.rejects(getBytes(ref(outsider.storage,path)));ok('photos use member-only cloud storage');
+ const photoId=randomUUID(),bytes=new Uint8Array([255,216,255,224,1,2,3,4]);
+ const reservation=await owner.call('reservePhotoUpload',{workspaceId:ws,uploadId:photoId,bytes:bytes.length,thumbBytes:4});
+ const path=reservation.full;
+ await uploadBytes(ref(owner.storage,path),bytes,{contentType:'image/jpeg',customMetadata:{uploadedBy:owner.user.uid}});
+ await uploadBytes(ref(owner.storage,reservation.thumb),bytes.slice(0,4),{contentType:'image/jpeg',customMetadata:{uploadedBy:owner.user.uid}});
+ const photo=await owner.call('command',{...envelope('add_photo',{attachment_id:randomUUID(),data_url:`storage://${path}`,thumb_url:`storage://${reservation.thumb}`,media_type:'image/jpeg',bytes:bytes.length},{pallet_id:p.id,expected_version:latest.version}),command_id:photoId});assert.equal(photo.ok,true,JSON.stringify(photo));
+ assert.equal((await getBytes(ref(operator.storage,path))).byteLength,bytes.length);assert.equal((await getBytes(ref(operator.storage,reservation.thumb))).byteLength,4);await assert.rejects(getBytes(ref(outsider.storage,path)));ok('distinct thumbnail and detail use member-only cloud storage');
+ await assert.rejects(uploadBytes(ref(owner.storage,`workspaces/${ws}/photos/${owner.user.uid}/unreserved/full.jpeg`),bytes,{contentType:'image/jpeg',customMetadata:{uploadedBy:owner.user.uid}}));ok('unreserved uploads are blocked');
+ await assert.rejects(getDocs(collection(owner.db,'workspaces',ws,'pallets')));ok('unbounded client collection reads are blocked');
  const removed=await send(owner,'remove_member',{user_id:operator.user.uid});assert.equal(removed.ok,true);
  await assert.rejects(getDoc(doc(operator.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(operator,'receive',{job_id:job.target_id,description:'Blocked'}));await assert.rejects(getBytes(ref(operator.storage,path)));ok('removed teammate loses reads, writes and photos');
  const manager=await client('manager');
@@ -66,6 +72,13 @@ try {
  assert.equal((await getDoc(doc(future.db,'workspaces',ws,'members',future.user.uid))).data().role,'SUPERVISOR');ok('manager authorizes another manager by verified email before registration');
  const cancelledEmail=`cancelled-${suffix}@example.com`;await manager.call('authorizeEmail',{workspaceId:ws,email:cancelledEmail,name:'Cancelled',role:'OPERATOR'});await manager.call('cancelAuthorization',{workspaceId:ws,email:cancelledEmail});const cancelled=await client('cancelled');await cancelled.call('joinAuthorizedWarehouses',{});await assert.rejects(getDoc(doc(cancelled.db,'workspaces',ws)));ok('cancelled authorization grants no access');
  const {db:adminDb,Timestamp}=licenseStore();
+ const licenseRef=adminDb.doc(`licenses/${ws}`);
+ await licenseRef.update({limits:{commandsPerUserDay:0}});
+ await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Over action quota'}),e=>e.code==='functions/resource-exhausted'&&/Existing records/.test(e.message));
+ assert.equal((await getDoc(doc(owner.db,'workspaces',ws,'pallets',p.id))).exists(),true);assert.equal((await getBytes(ref(owner.storage,path))).byteLength,bytes.length);ok('action limit preserves existing records and authenticated photos');
+ await licenseRef.update({limits:{maxPalletRecords:1}});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Over record quota'}),e=>e.code==='functions/resource-exhausted'&&/storage allowance/.test(e.message));ok('pallet storage allowance stops additions without deleting records');
+ for(const limits of [{photoMonthBytes:0},{photoStoredBytes:0}]){await licenseRef.update({limits});await assert.rejects(owner.call('reservePhotoUpload',{workspaceId:ws,uploadId:randomUUID(),bytes:8,thumbBytes:4}),e=>e.code==='functions/resource-exhausted'&&/Existing photos/.test(e.message));}
+ assert.equal((await getBytes(ref(owner.storage,path))).byteLength,bytes.length);await licenseRef.update({limits:{}});ok('upload and retained storage limits preserve photos and return clear errors');
  await adminDb.doc(`licenses/${ws}`).update({active:false});
  await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Inactive license'}));await assert.rejects(getBytes(ref(owner.storage,path)));ok('revoked license blocks reads, commands and photos');
  await adminDb.doc(`licenses/${ws}`).update({active:true,expires_at:Timestamp.fromMillis(Date.now()-1000)});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Expired license'}));await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws)));ok('expired license blocks warehouse access');

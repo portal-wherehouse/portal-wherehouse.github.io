@@ -1,7 +1,9 @@
+import './local-only.mjs';
 import {issueKey,licenseStore} from './keys.mjs';
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { mkdir,writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const require=createRequire(new URL('../../firebase/functions/package.json',import.meta.url));
 const {getAuth}=require('firebase-admin/auth');
@@ -22,8 +24,21 @@ try {
  await page.locator('#job-code').fill('J-LIVE');await page.locator('#job-name').fill('Live browser delivery');await page.getByRole('button',{name:'Create job',exact:true}).click();
  await page.getByRole('heading',{name:'Live browser delivery',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(-4000));throw e;});
  await page.goto('http://127.0.0.1:4175/#receive');await page.locator('#rcv-job').selectOption({label:'J-LIVE · Live browser delivery'});await page.locator('#rcv-desc').fill('Shared browser pallet');await page.getByRole('button',{name:'Save pallet',exact:true}).click();await page.getByRole('heading',{name:'Pallet saved',exact:true}).waitFor();
+ // Add a real browser-compressed image, then prove another sign-in downloads no photo bytes.
+ await page.getByRole('button',{name:'Open record',exact:true}).click();await page.getByRole('heading',{name:/P-000/}).waitFor();
+ const imageData=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1800;c.height=1200;const x=c.getContext('2d');const data=x.createImageData(c.width,c.height);for(let i=0;i<data.data.length;i+=4){data.data[i]=(i*17)%255;data.data[i+1]=Math.floor(i/123)%255;data.data[i+2]=(i*31)%255;data.data[i+3]=255;}x.putImageData(data,0,0);x.fillStyle='white';x.font='70px sans-serif';x.fillText('LABEL DETAIL 12345',60,150);return c.toDataURL('image/png').split(',')[1];});
+ await page.locator('input[type=file]').setInputFiles({name:'detail.png',mimeType:'image/png',buffer:Buffer.from(imageData,'base64')});await page.getByRole('button',{name:'Open photo',exact:true}).waitFor();
  const second=await browser.newPage();await second.goto('http://127.0.0.1:4175/#signin');await second.getByLabel('Email',{exact:true}).fill(email);await second.getByLabel('Password',{exact:true}).fill(password);await second.getByRole('button',{name:'Sign in',exact:true}).click();await second.locator('#find-q').fill('Shared browser pallet');await second.locator('.result').waitFor();
  await second.reload();await second.locator('#find-q').fill('Shared browser pallet');await second.locator('.result').waitFor();
+ const openingUsage=await second.evaluate(()=>window.__wherehouseBackend.usage());assert.equal(openingUsage.photoBytes,0);assert.ok(openingUsage.reads<250);
+ await second.locator('.result').click();const thumbButton=second.getByRole('button',{name:'Open photo',exact:true});await thumbButton.scrollIntoViewIfNeeded();await thumbButton.locator('img').waitFor();
+ const thumbUsage=await second.evaluate(()=>window.__wherehouseBackend.usage());assert.ok(thumbUsage.photoBytes>0&&thumbUsage.photoBytes<=128*1024);
+ await thumbButton.click();await second.locator('.lightbox img').waitFor();const fullUsage=await second.evaluate(()=>window.__wherehouseBackend.usage());assert.ok(fullUsage.photoBytes>thumbUsage.photoBytes);
+ await mkdir('docs/measurements',{recursive:true});await writeFile('docs/measurements/browser-photos.json',JSON.stringify({openingUsage,thumbnailBytes:thumbUsage.photoBytes,detailBytes:fullUsage.photoBytes-thumbUsage.photoBytes,description:'Actual browser canvas compression, authenticated image fetches; sign-in and Find download zero photo bytes.'},null,2));
+ console.log('PASS sign-in loads zero photo bytes; visible thumbnail and opened detail download separately');
+
+ await page.goto('http://127.0.0.1:4175/#overview');await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();await page.getByText('Pallets on hand',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);
+ await page.goto('http://127.0.0.1:4175/#activity');await page.getByRole('heading',{name:'Activity',exact:true}).waitFor();await page.locator('.t tbody tr').first().waitFor();await page.getByLabel('Kind of change').selectOption('movement');await page.locator('.t tbody tr').first().waitFor();assert.equal(await page.getByRole('alert').count(),0);console.log('PASS bounded overview counts and filtered shared activity');
  await second.goto('http://127.0.0.1:4175/#settings');await second.getByRole('button',{name:'Sign out',exact:true}).click();await second.goto('http://127.0.0.1:4175/#find');await second.getByLabel('Email',{exact:true}).waitFor();assert.equal(await second.locator('.result').count(),0);
  await page.goto('http://127.0.0.1:4175/#people');await page.getByRole('heading',{name:'Manager dashboard',exact:true}).waitFor();await page.screenshot({path:'test-results/manager-dashboard.png'});
  await page.goto('http://127.0.0.1:4175/#find');await page.locator('#find-q').fill('Shared browser pallet');await page.locator('.result').waitFor();await page.screenshot({path:'test-results/live-warehouse.png'});

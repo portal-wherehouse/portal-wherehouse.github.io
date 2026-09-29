@@ -1,12 +1,12 @@
-import { PageHero, Section, FeatureCards, CtaBand } from '../kit';
-export function SimplePage() { return <>
-<PageHero eyebrow="Keep it simple" title="You need to find a pallet. Not run another system." lede="Wherehouse keeps warehouse organization small enough to use during a busy shift." />
-<Section><FeatureCards columns={2} items={[
-{icon:'check',title:'No catalog to build first',body:'A job number and a short description are enough to receive a pallet.'},
-{icon:'people',title:'No software project for your crew',body:'Operators start with Receive, Move and Find. Managers handle jobs, racks and access.'},
-{icon:'export',title:'No lock-in to your records',body:'Managers can export pallet records and history as CSV.'},
-{icon:'settings',title:'No accounting or ERP overhaul',body:'Keep your existing purchasing and accounting tools. This handles where the material is.'}
-]} /></Section>
-<Section tone="surface" title="One habit matters." lede="Scan when you move something. We show the last recorded location; we can’t track an unrecorded move." />
-<CtaBand />
-</>; }
+import { PageHero, Section, SiteLink } from '../kit';
+export function SimplePage(){return <>
+<PageHero eyebrow="Why Wherehouse" title="The next shift shouldn’t have to guess." lede="Keep the job, the rack and the last move in one shared record. Anyone on your crew can find the answer."/>
+<Section><div className="buyer-table-wrap"><table className="buyer-table"><thead><tr><th>The question</th><th>With notes and memory</th><th>With Wherehouse</th></tr></thead><tbody>
+<tr><th>Where did we put it?</th><td>Walk the racks or call the last shift.</td><td>Search the job or pallet. See its last confirmed rack.</td></tr>
+<tr><th>Who moved it?</th><td>Ask around and piece it together.</td><td>Open the pallet’s history: who, when, from and to.</td></tr>
+<tr><th>What’s still here for this job?</th><td>Check a sheet against the floor.</td><td>Open the job’s pallets and pick list.</td></tr>
+<tr><th>What happens when someone is off?</th><td>The answer may be in their head.</td><td>The next person signs in and sees the same records.</td></tr>
+</tbody></table></div></Section>
+<Section tone="surface"><div className="buyer-columns"><div><h2>A smaller job than a full WMS</h2><p>Wherehouse is for receiving, organizing and finding pallets assigned to jobs. Keep purchasing and accounting in the systems you already use.</p><p>If you need item-by-item stock counts, automated replenishment or order fulfilment, a broader inventory or warehouse system may fit better.</p></div><div><h2>One routine to teach</h2><ol><li>Receive the pallet against its job.</li><li>Scan the pallet and rack when it moves.</li><li>Search when it’s needed.</li></ol><p>Photos, holds, dispatch and history are there when you need them. Your crew starts with the daily work.</p></div></div></Section>
+<Section narrow title="The records depend on the scans."><p>We show the last confirmed location, time and person. Wherehouse can’t detect a move nobody records. During setup, we help you make scanning part of the unload and put-away routine.</p><div className="site-hero-actions"><a className="site-btn primary" href="?demo=1#signin">See the sample warehouse</a><SiteLink to="pricing">View plans →</SiteLink></div></Section>
+</>;}

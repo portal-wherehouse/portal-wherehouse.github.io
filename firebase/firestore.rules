@@ -54,68 +54,80 @@ service cloud.firestore {
 
       // Coworkers' names, emails and roles. The same data the People screen shows every role today.
       match /members/{uid} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       // Pending invitations: admin screens only.
       match /invites/{email} {
-        allow read: if isSupervisor(ws);
+        allow get: if isSupervisor(ws);
+        allow list: if isSupervisor(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       match /warehouses/{id} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       match /locations/{id} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       match /jobs/{id} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       match /pallets/{id} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       // Append-only history. IDs are {palletId}_{revision}; the function creates, never updates.
       match /events/{id} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       // Label tokens, so a scanned QR resolves with one get() and the Labels screen can reprint.
       match /labels/{token} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       // Photo metadata. The image files are in Cloud Storage, guarded by storage.rules.
       match /attachments/{id} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       // Split parent and child links.
       match /lineage/{childId} {
-        allow read: if isMember(ws);
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       // Admin audit log and import batches: Supervisor or Owner, as in the local engine.
       match /audit/{id} {
-        allow read: if isSupervisor(ws);
+        allow get: if isSupervisor(ws);
+        allow list: if isSupervisor(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 
       match /imports/{id} {
-        allow read: if isSupervisor(ws);
+        allow get: if isSupervisor(ws);
+        allow list: if isSupervisor(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
 

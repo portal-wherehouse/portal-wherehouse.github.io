@@ -1,3 +1,4 @@
+import { PhotoImage } from '../../data/LiveView';
 // Pallet details (blueprint page 13): identity, photo, job, location, state, hold,
 // permitted contextual actions, lineage, and the full history.
 
@@ -247,7 +248,7 @@ export function PalletRecord() {
         <div className="photo-strip">
           {detail.attachments.map((a) => (
             <button key={a.id} className="ph" onClick={() => setPhotoOpen(a.id)} aria-label="Open photo">
-              <img src={a.thumb_url} alt={`Photo of ${p.code}`} />
+              <PhotoImage id={a.id} alt={`Photo of ${p.code}`} />
             </button>
           ))}
           {photoCmd.busy && <div className="ph pending">Uploading…</div>}
@@ -301,7 +302,7 @@ export function PalletRecord() {
         <div className="panel-title">
           <Icon name="history" width={16} height={16} /> History <span className="grow" />
           <span className="faint" style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>
-            {events.length} events, newest first
+            {events.length} {backend.mode==='firebase'?'loaded events':'events'}, newest first
           </span>
         </div>
         <History
@@ -330,7 +331,7 @@ export function PalletRecord() {
       {photoOpen && (
         <Sheet title={`Photo · ${p.code}`} onClose={() => setPhotoOpen(null)} wide>
           <div className="lightbox stack">
-            <img src={detail.attachments.find((a) => a.id === photoOpen)?.data_url} alt={`Photo of ${p.code}`} />
+            <PhotoImage id={photoOpen} thumbnail={false} alt={`Photo of ${p.code}`} />
             {actions.includes('remove_photo') && (
               <div className="stack">
                 <p className="muted">A supervisor can remove an incorrect photo from display. The removal is recorded with a reason.</p>

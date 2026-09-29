@@ -1,6 +1,7 @@
+import { FirebaseBackend } from '../../data/firebase';
 // A label preview + print dialog used from Receive, pallet records, and the label studio.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../../app/state';
 import { canPrint, IS_PREVIEW, printNow } from '../../device/output';
@@ -9,10 +10,14 @@ import { Notice, Sheet } from '../../ui/ui';
 import { Calibration, PalletLabel, RackLabel, type LabelFormat } from './LabelCard';
 
 export function LabelSheet({ palletIds = [], locationIds = [], onClose }: { palletIds?: string[]; locationIds?: string[]; onClose: () => void }) {
+  const {backend}=useApp();const [error,setError]=useState('');const [ready,setReady]=useState(backend.mode!=='firebase');
+  const idsKey=[...palletIds,...locationIds].join(',');
+  useEffect(()=>{let active=true;if(backend instanceof FirebaseBackend){setReady(false);void backend.loadLabels([...palletIds,...locationIds]).then(()=>{if(active)setReady(true);}).catch(()=>{if(active)setError('Labels could not load. Close and reopen this preview to retry.');});}return()=>{active=false;};},[backend,idsKey]);
   const [format, setFormat] = useState<LabelFormat>('4x6');
   return (
     <Sheet title={`Print ${palletIds.length + locationIds.length === 1 ? 'label' : `${palletIds.length + locationIds.length} labels`}`} onClose={onClose} wide>
       <div className="stack">
+        {error&&<p role="alert">{error}</p>}
         {(
           <div className="seg" role="group" aria-label="Label size">
             <button aria-pressed={format === '4x6'} onClick={() => setFormat('4x6')}>
@@ -37,7 +42,7 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose }: { pall
           </Notice>
         ) : (
           <div className="row">
-            <button className="btn primary big" onClick={printNow} disabled={!canPrint()}>
+            <button className="btn primary big" onClick={printNow} disabled={!canPrint()||!ready}>
               <Icon name="print" /> Print
             </button>
             <span className="muted">Print at actual size. Cancelling the print dialog changes nothing.</span>

@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Warehouse overview: what needs attention, where things are, and what happened recently.
 
 import { useMemo, useState } from 'react';
@@ -39,6 +40,7 @@ export function Overview() {
   );
   if (!data) return null;
   const pending = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).length + backend.pendingFor(actorId, workspaceId).length : 0;
+  if(backend instanceof FirebaseBackend && backend.summary){Object.assign(data.counts,backend.summary.counts);data.total=Object.values(data.counts).reduce((n,c)=>n+c,0);data.holds=backend.summary.holds;data.reprint=backend.summary.reprint;data.staleUnverified=backend.summary.stale;}
   const onHand = data.counts.STORED + data.counts.RECEIVED;
   const users = backend.db.users;
 
@@ -76,7 +78,8 @@ export function Overview() {
 
       <div className="grid-2">
         <div className="panel">
-          <div className="panel-title">Accepted changes, last 14 days</div>
+          <div className="panel-title">Recent changes by day</div>
+          {backend.mode==='firebase'&&<p className="muted">Latest 50 changes. Full history is available in Activity.</p>}
           <ActivityChart events={data.activity.map((e) => e.accepted_at)} />
         </div>
         <div className="panel stack">
@@ -283,8 +286,8 @@ function Occupancy({ locations, occ, onOpen }: { locations: { id: string; code: 
   return (
     <div className="stack" style={{ gap: 6 }}>
       {rows.map((r) => (
-        <button key={r.id} onClick={() => onOpen(r.id)} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px', gap: 10, alignItems: 'center', background: 'none', border: 0, padding: '3px 0', cursor: 'pointer', color: 'var(--ink)', textAlign: 'left' }}>
-          <span className="jcode">{r.code}</span>
+        <button key={r.id} onClick={() => onOpen(r.id)} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 135px) minmax(30px, 1fr) 78px', gap: 10, alignItems: 'center', background: 'none', border: 0, padding: '3px 0', cursor: 'pointer', color: 'var(--ink)', textAlign: 'left' }}>
+          <span className="jcode" style={{fontSize:14,fontWeight:500,overflowWrap:'anywhere'}}>{r.code}</span>
           <span style={{ height: 14, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', width: `${(r.n / max) * 100}%`, background: 'var(--accent)', borderRadius: '0 4px 4px 0' }} />
           </span>

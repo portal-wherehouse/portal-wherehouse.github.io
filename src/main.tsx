@@ -13,8 +13,9 @@ setupInstallableShell();
 
 const root = createRoot(document.getElementById('root')!);
 
-(new URLSearchParams(location.search).get('demo') === '1' || import.meta.env.VITE_APP_MODE === 'demo' ? Backend.open() : FirebaseBackend.connect())
+(new URLSearchParams(location.search).get('demo') === '1' || import.meta.env.VITE_APP_MODE === 'demo' ? Backend.open(new URLSearchParams(location.search).get('demo')==='1') : FirebaseBackend.connect())
   .then((backend) => {
+    if(import.meta.env.DEV&&import.meta.env.VITE_FIREBASE_EMULATORS==='true')(window as any).__wherehouseBackend=backend;
     root.render(
       <StrictMode>
         <AppProvider backend={backend}>
