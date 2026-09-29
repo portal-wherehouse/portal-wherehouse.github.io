@@ -267,7 +267,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     return [linked ?? { name: 'home' }];
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [tourOpen, setTourOpenState] = useState<boolean>(() => readLocalRaw('pl.tour') === 'open');
+  const [tourOpen, setTourOpenState] = useState<boolean>(() => !backend.sampleMode && readLocalRaw('pl.tour') === 'open');
   const [guideStep, setGuideStepState] = useState<number | null>(null);
   const [accountsOpen, setAccountsOpen] = useState(false);
   const toastId = useRef(0);

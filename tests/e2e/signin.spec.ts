@@ -22,3 +22,35 @@ test('a direct sample receiving link continues to its requested page',async({pag
  await page.goto('/?demo=1#receive');await page.getByRole('button',{name:'View an employee dashboard'}).click();await portalReady(page);
  await expect(page.getByRole('heading',{name:'Receive a pallet'})).toBeVisible();
 });
+
+for (const [view, width] of [['management',1280],['employee',390]] as const) {
+ test(`${view} sample Help starts an optional tour and every stop finishes`,async({page})=>{
+  const errors=watchErrors(page);await page.setViewportSize({width,height:900});
+  await page.goto('/?demo=1#signin');await page.getByRole('button',{name:`View ${view==='employee'?'an':'a'} ${view} dashboard`}).click();
+  await expect(page.locator('.ptour-card')).toHaveCount(0);
+  await page.goto('/?demo=1#help');await page.locator('.help-quick').getByRole('button',{name:/^Take the tour/}).click();
+  const card=page.locator('.ptour-card');await expect(card).toBeVisible();
+  await expect(page.locator('.sample-note')).toHaveCount(0);
+  await card.getByRole('button',{name:'Start the tour',exact:true}).click();
+  let stopped=false;
+  for(let i=0;i<30;i++){
+   await expect(card).toBeVisible();
+   await expect(card).not.toContainText('Sign-in is off');
+   expect(new URL(page.url()).hash).not.toMatch(/^#(lab|sync|guide|about)$/);
+   if(view==='employee')expect(new URL(page.url()).hash).not.toMatch(/^#(people|import|export)$/);
+   if(await card.getByRole('button',{name:'Finish',exact:true}).count()){stopped=true;break;}
+   await card.getByRole('button',{name:'Next',exact:true}).click();
+  }
+  expect(stopped).toBe(true);
+  await card.getByRole('button',{name:'Start the practice shift',exact:true}).click();
+  await expect(card).toHaveCount(0);
+  if(width<700)await page.getByRole('button',{name:'Expand practice shift'}).click();
+  await expect(page.getByRole('complementary',{name:'Practice shift'})).toContainText('JOB-1');
+  await page.getByRole('button',{name:'Close practice shift'}).click();
+  await page.goto('/?demo=1#find');await expect(page.locator('.result')).toHaveCount(6);await expect(page.locator('.sample-note').first()).toBeVisible();
+  // It can be restarted and dismissed without forcing another tour.
+  await page.goto('/?demo=1#help');await page.locator('.help-quick').getByRole('button',{name:/^Take the tour/}).click();
+  await expect(card).toBeVisible();await page.keyboard.press('Escape');await expect(card).toHaveCount(0);
+  expect(errors).toEqual([]);
+ });
+}

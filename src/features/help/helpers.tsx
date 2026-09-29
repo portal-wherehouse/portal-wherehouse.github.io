@@ -77,13 +77,17 @@ export function scrollToId(id: string, focusId?: string) {
 
 /** Turns a HelpTarget into navigation. `onContact` handles the in-page contact form. */
 export function useRunTarget(onContact: () => void) {
-  const { go, read, startGuide, setTourOpen } = useApp();
+  const { go, read, startGuide, setTourOpen, backend } = useApp();
   return useCallback(
     (t: HelpTarget) => {
       if ('route' in t) return go(t.route);
       if ('action' in t) {
         if (t.action === 'tour') return startGuide(0);
         if (t.action === 'contact') return onContact();
+        if (backend.mode === 'firebase') {
+          window.location.assign(`${location.pathname}?demo=1#help`);
+          return;
+        }
         setTourOpen(true);
         return go('receive');
       }
@@ -97,6 +101,6 @@ export function useRunTarget(onContact: () => void) {
       });
       go(r ?? 'find');
     },
-    [go, read, startGuide, setTourOpen, onContact],
+    [go, read, startGuide, setTourOpen, onContact, backend],
   );
 }

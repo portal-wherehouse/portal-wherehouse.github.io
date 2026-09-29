@@ -30,7 +30,7 @@ type SectionId = (typeof SECTIONS)[number]['id'];
 type Hit = { kind: 'tutorial' | 'chapter' | 'faq'; id: string; title: string; detail: string; score: number };
 
 export function Help() {
-  const { route, role } = useApp();
+  const { route, role, backend } = useApp();
   const [current, setCurrent] = useState<SectionId>('start');
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [tutFilter, setTutFilter] = useState<TutorialFilter>('all');
@@ -175,12 +175,12 @@ export function Help() {
       <HelpSection id="start" title="How can we help?" lede="Search everything on this page, or jump straight in.">
         <SearchAll onPick={reveal} />
         <div className="help-quick">
-          <QuickAction icon="tour" title="Take the tour" body="A 5-minute walk through every screen, with tips on each one." cta="Start the tour" onClick={() => run({ action: 'tour' })} />
+          <QuickAction icon="tour" title="Take the tour" body="A short walk through your warehouse screens, with tips on each one." cta="Start the tour" onClick={() => run({ action: 'tour' })} />
           <QuickAction
             icon="hardhat"
             title="Start the practice shift"
-            body={cannotPractice ? 'Walk one pallet from delivery to the job site and back. Needs an Operator account or higher: switch role first.' : 'Walk one pallet from delivery to the job site and back. Each step ticks off as you do it.'}
-            cta="Start practicing"
+            body={backend.mode === 'firebase' ? 'Practice with example records in the separate sample warehouse. Your customer records stay unchanged.' : cannotPractice ? 'Walk one pallet from delivery to the job site and back. Needs an Operator account or higher: switch role first.' : 'Walk one pallet from delivery to the job site and back. Each step ticks off as you do it.'}
+            cta={backend.mode === 'firebase' ? 'Open sample warehouse' : 'Start practicing'}
             onClick={() => run({ action: 'practice' })}
           />
           <QuickAction icon="scanner" title="Set up a scanner" body="Connect a USB or Bluetooth scanner in keyboard mode, test it, and print command barcodes." cta="Open Scanners" onClick={() => run({ route: 'scanners' })} />

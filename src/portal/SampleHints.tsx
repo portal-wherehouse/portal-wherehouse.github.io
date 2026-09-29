@@ -14,14 +14,14 @@ const notes:Record<string,[string,string][]>= {
  people:[['people-list','Managers authorize email addresses. Each employee signs in with their own account.']],
 };
 export function SampleHints(){
- const {backend,route}=useApp();const [targets,setTargets]=useState<{element:Element;text:string}[]>([]);
+ const {backend,route,guideStep}=useApp();const [targets,setTargets]=useState<{element:Element;text:string}[]>([]);
  useLayoutEffect(()=>{
-  if(!backend.sampleMode)return;
+  if(!backend.sampleMode||guideStep!==null)return;
   const fallback:Record<string,string>={receive:'Choose an example job and describe what arrived. Saving creates a pallet label.',move:'Scan or type a pallet code, then a rack code. Review the destination before confirming.',map:'Each rack shows its recorded pallet count. Select a rack to see what is on it.',people:'Use the manager dashboard to authorize employee emails and choose their access.',job:'Pallets for this job stay together in this list, even when they are on different racks.',location:'This page shows the pallets recorded at this rack and its printable label.',export:'Managers can download the records and movement history for the office.',import:'Bring an existing list in using the CSV template.',reconcile:'These lists collect pallets that need a check, a location or a replacement label.',settings:'These settings apply to this sample in your browser.',scanners:'Connect a scanner or use a phone camera to read pallet and rack labels.'};
   const selected=(notes[route.name]||[]).flatMap(([key,text])=>{const target=document.querySelector(`[data-tour="${key}"]`);if(!target)return [];const element=document.createElement('div');target.insertAdjacentElement('afterend',element);return [{element,text}];});
   if(!selected.length&&fallback[route.name]){const target=document.querySelector('.page-head');if(target){const element=document.createElement('div');target.insertAdjacentElement('afterend',element);selected.push({element,text:fallback[route.name]});}}
   setTargets(selected);return()=>selected.forEach(t=>t.element.remove());
- },[backend,route.name,route.id]);
- if(!backend.sampleMode)return null;
+ },[backend,route.name,route.id,guideStep]);
+ if(!backend.sampleMode||guideStep!==null)return null;
  return <>{targets.map((t,i)=>createPortal(<aside className="sample-note" role="note"><span aria-hidden="true">i</span>{t.text}</aside>,t.element,String(i)))}</>;
 }

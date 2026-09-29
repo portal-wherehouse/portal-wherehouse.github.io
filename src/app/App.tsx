@@ -358,9 +358,9 @@ function Portal() {
 
       {account && backend.mode === 'firebase' && <Sheet title="Your account" onClose={()=>setAccount(false)}><p>{me?.name} · {me?.email}</p><button className="btn primary" onClick={()=>{setAccount(false);app.signOut();}}>Sign out</button></Sheet>}
       {backend.mode === 'firebase' && offline && <Notice tone="warn">You’re offline. Reconnect before making changes.</Notice>}
-      {signedIn && backend.mode === 'demo' && !backend.sampleMode && <Tour />}
+      {signedIn && backend.mode === 'demo' && <Tour />}
       {signedIn && backend.sampleMode && <SampleHints key={`${route.name}:${route.id||''}`} />}
-      {backend.mode === 'demo' && !backend.sampleMode && <PortalTour />}
+      {signedIn && <PortalTour />}
       <ScanAnywhere />
       <Toasts />
       <div className="print-root" id="print-root" />
@@ -384,6 +384,14 @@ function RemovedAccess() {
   );
 }
 
-function LiveHelp() { const {go}=useApp();return <div className="panel stack"><h1>Setup & support</h1><p>Live records are saved to your shared warehouse. An internet connection is required.</p><p>Need help with labels, scanning or your crew?</p><button className="btn primary" onClick={()=>go('contact')}>Contact remote support</button></div>; }
+function LiveHelp() {
+  const {go,startGuide}=useApp();
+  return <div className="panel stack"><h1>Setup & support</h1>
+    <p>Live records are saved to your shared warehouse. An internet connection is required.</p>
+    <div className="row"><button className="btn" onClick={()=>startGuide(0)}>Take the tour</button><a className="btn" href={`${location.pathname}?demo=1#help`}>Open sample warehouse</a></div>
+    <p>The tour explains your screens. Use the separate sample warehouse to practice with example records.</p>
+    <p>Need help with labels, scanning or your crew?</p><button className="btn primary" onClick={()=>go('contact')}>Contact remote support</button>
+  </div>;
+}
 
 function PendingCloudRequests() { const {backend,actorId,workspaceId,toast}=useApp();const [busy,setBusy]=useState(false);const requests=actorId&&workspaceId?backend.pendingFor(actorId,workspaceId):[];if(!requests.length)return null;return <Notice tone="warn" title="A save is waiting for confirmation"><p>Check its result before repeating the action.</p><button className="btn" disabled={busy} onClick={async()=>{setBusy(true);try{for(const p of requests){const r=await backend.recover(actorId!,workspaceId!,p.command.command_id);toast(r.status==='result'?(r.result.ok?'Change saved.':r.result.message):r.status==='unknown'||r.status==='offline'?r.message:'Still waiting.',r.status==='result'&&r.result.ok?'ok':'info');}}finally{setBusy(false);}}}>{busy?'Checking…':'Check saved result'}</button></Notice>; }

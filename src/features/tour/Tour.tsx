@@ -72,11 +72,14 @@ export function Tour() {
   if (!tourOpen || !state || guideStep !== null) return null;
   const p = state.pallet;
   const code = p?.code ?? 'your new pallet';
+  const jobCode = backend.sampleMode ? 'JOB-1' : 'J-214';
+  const jobName = backend.sampleMode ? 'Example job 1' : 'School renovation';
+  const rackCode = backend.sampleMode ? 'A-01-01' : 'A-03-02';
   const steps: Step[] = [
-    { title: 'Receive a delivery', how: 'Open Receive, choose job J-214 (School renovation), describe it, and save. You get a brand-new code.', go: { name: 'receive' }, done: !!p },
-    { title: `Place ${code} on a rack`, how: 'Tap “Place now”, or open Move: scan the pallet, then a rack. Try the empty rack A-03-02.', go: p ? { name: 'move', id: p.id } : { name: 'move' }, done: state.placed >= 0 },
+    { title: 'Receive a delivery', how: `Open Receive, choose job ${jobCode} (${jobName}), describe it, and save. You get a brand-new code.`, go: { name: 'receive' }, done: !!p },
+    { title: `Place ${code} on a rack`, how: `Tap “Place now”, or open Move: scan the pallet, then a rack. Try rack ${rackCode}.`, go: p ? { name: 'move', id: p.id } : { name: 'move' }, done: state.placed >= 0 },
     { title: 'Move it to another rack', how: 'Open Move again: scan the pallet, then a different rack, and confirm.', go: p ? { name: 'move', id: p.id } : { name: 'move' }, done: state.moved >= 0 },
-    { title: 'Find it like a colleague would', how: 'Open Find, search J-214, and open your pallet. Its history shows every step with before and after.', go: { name: 'find', q: 'J-214' }, done: found && state.moved >= 0 },
+    { title: 'Find it like a colleague would', how: `Open Find, search ${jobCode}, and open your pallet. Its history shows every step with before and after.`, go: { name: 'find', q: jobCode }, done: found && state.moved >= 0 },
     { title: 'Dispatch it to the job site', how: 'On the pallet record, press Dispatch pallet and enter a destination.', go: p ? { name: 'pallet', id: p.id } : { name: 'find' }, done: state.dispatched >= 0 },
     { title: 'Record its return', how: 'Material came back. On the record, choose “Record return”. It is back in the building with no rack.', go: p ? { name: 'pallet', id: p.id } : { name: 'find' }, done: state.returned >= 0 },
     { title: 'Place it again', how: 'Scan it onto any rack. Same code, same identity, full history.', go: p ? { name: 'move', id: p.id } : { name: 'move' }, done: state.placedAgain >= 0 },

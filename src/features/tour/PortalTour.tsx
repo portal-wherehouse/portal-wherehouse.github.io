@@ -7,8 +7,8 @@ import { isSiteRoute, useApp, type Route, type RouteName } from '../../app/state
 import { MIN_ROLE, roleAllows } from '../../domain/transitions';
 import { Icon } from '../../ui/icons';
 import { ROLE_LABEL } from '../../ui/ui';
-import { NAV_GROUPS } from '../more/More';
-import { CHAPTERS, STOPS, copy, type TourStop } from './stops';
+import { NAV_GROUPS, visibleNavGroups } from '../more/More';
+import { STOPS, copy, type TourStop, type Chapter } from './stops';
 
 interface Box {
   top: number;
@@ -48,7 +48,6 @@ interface Found {
   ready: boolean;
 }
 
-const LAST = STOPS.length - 1;
 /** Used when a screen has none of its stop's own targets, for example a role that cannot use it. */
 const GENERIC = ['#main .page-head', '[data-tour="page-title"]', '#main'];
 /** The lock panel a screen shows to a role that cannot use it. */
@@ -301,7 +300,24 @@ function whereLine(stop: TourStop, route: RouteName | null, sidebar: boolean): s
 }
 
 export function PortalTour() {
-  const { guideStep, actorId, route, blockedNav, stopGuide } = useApp();
+  const { guideStep, actorId, route, blockedNav, stopGuide, backend, role, prefs } = useApp();
+  const stops = useMemo(() => {
+    if (backend.mode === 'demo' && !backend.sampleMode && prefs.advancedTools) return STOPS;
+    const allowed = new Set(visibleNavGroups(role, false, backend.mode === 'firebase').flatMap(g => g.items.map(i => i.route)));
+    const updates: Record<string, Partial<TourStop>> = {
+      intro: { body: 'See the screens available to your account and what each one does. You can leave at any point. The tour itself does not change records.' },
+      topbar: { body: 'The top bar shows your warehouse, connection and account. Open your account menu to check who you are signed in as.', tip: backend.sampleMode ? 'This is a sample saved in your browser. Use Sample views to switch between management and employee views.' : 'Everyone uses their own verified account. Your manager controls access to this warehouse.' },
+      nav: { body: 'Use the navigation to receive, move and find pallets, or open the other warehouse tools available to your account. On a phone, More holds the pages that do not fit in the bottom tabs.', tip: 'You can start this tour again from Help.' },
+      move: { tip: 'No label handy? Type the printed pallet and rack codes instead.' },
+      people: { title: 'Manager dashboard', body: 'Authorize employee and manager email addresses, review access and remove people who no longer need it. Each person signs in with their own account.', tip: backend.sampleMode ? 'These are example accounts. No invitations are sent from the sample.' : 'Authorizing an email does not send an invitation. Give the person the sign-in link and have them verify their email.' },
+      export: { body: 'Prepare a complete export of pallets, jobs, racks and movement history, then download the files for the office. Preparing it loads every page of records.' },
+      data: { body: 'The sample records live in this browser. You can save or restore a sample backup here. Customer warehouse records use a separate shared Firebase database.' },
+      settings: { body: 'Adjust this device’s display and text size, choose your starting screen, and manage your session.' },
+      finish: { body: backend.sampleMode ? 'You have seen the screens for this sample view. Try a practice shift to receive, store and dispatch an example pallet, or return to Help.' : 'You have seen the screens available to your account. Help has instructions you can return to during a shift. Use the separate sample warehouse when you want to practice.' },
+    };
+    return STOPS.filter(s => (!s.route || typeof s.route !== 'string' || allowed.has(s.route)) && (s.id !== 'picklist' || allowed.has('jobs')))
+      .map(s => ({ ...s, ...updates[s.id] }));
+  }, [backend, role, prefs.advancedTools]);
   const inPortal = !!actorId && !isSiteRoute(route.name) && route.name !== 'signin';
   // The stop whose screen was last opened. It outlives the card, which hides during a "Leave this screen?"
   // question, so the card coming back does not ask to leave again.
@@ -316,12 +332,20 @@ export function PortalTour() {
   if (guideStep === null || !inPortal) return null;
   // A "leave this screen?" question takes priority. Leaving carries the tour on; staying ends it.
   if (blockedNav) return null;
-  return <TourOverlay index={clamp(Math.round(guideStep), 0, LAST)} opened={opened} />;
+  return <TourOverlay index={clamp(Math.round(guideStep), 0, stops.length - 1)} opened={opened} stops={stops} />;
 }
 
-function TourOverlay({ index, opened }: { index: number; opened: RefObject<number | null> }) {
+function TourOverlay({ index, opened, stops }: { index: number; opened: RefObject<number | null>; stops: TourStop[] }) {
   const { route, go, setGuideStep, stopGuide, setTourOpen, backend, workspaceId, role } = useApp();
-  const stop = STOPS[index];
+  const stop = stops[index];
+  const last = stops.length - 1;
+  const chapters = useMemo(() => stops.reduce<Chapter[]>((out, s, i) => {
+    if (s.kind) return out;
+    const previous = out[out.length - 1];
+    if (previous?.name === s.chapter) previous.count++;
+    else out.push({ name: s.chapter, icon: s.icon, first: i, count: 1 });
+    return out;
+  }, []), [stops]);
   const cardRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
   const routes = useRef(new Map<TourStop['route'], Route>());
@@ -432,7 +456,7 @@ function TourOverlay({ index, opened }: { index: number; opened: RefObject<numbe
     return () => cancelAnimationFrame(raf);
   }, [current, stop]);
 
-  const next = useCallback(() => (index < LAST ? setGuideStep(index + 1) : stopGuide()), [index, setGuideStep, stopGuide]);
+  const next = useCallback(() => (index < last ? setGuideStep(index + 1) : stopGuide()), [index, last, setGuideStep, stopGuide]);
   const back = useCallback(() => index > 0 && setGuideStep(index - 1), [index, setGuideStep]);
 
   // Keyboard: Esc ends, arrows move. Captured first so screens underneath do not also react.
@@ -442,7 +466,7 @@ function TourOverlay({ index, opened }: { index: number; opened: RefObject<numbe
       const t = e.target as HTMLElement | null;
       if (t?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
       if (e.key === 'Escape') stopGuide();
-      else if (e.key === 'ArrowRight' && index < LAST) next();
+      else if (e.key === 'ArrowRight' && index < last) next();
       else if (e.key === 'ArrowLeft') back();
       else return;
       e.preventDefault();
@@ -450,7 +474,7 @@ function TourOverlay({ index, opened }: { index: number; opened: RefObject<numbe
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [index, next, back, stopGuide]);
+  }, [index, last, next, back, stopGuide]);
 
   // Focus goes to the card on every stop, unless it is already inside it.
   useEffect(() => {
@@ -490,7 +514,7 @@ function TourOverlay({ index, opened }: { index: number; opened: RefObject<numbe
   if (current) lastUnder.current = current.under;
   const under = !wide && mode === 'float' && lastUnder.current;
   const cardStyle = geo && (mode === 'float' || mode === 'center') ? { top: geo.top, left: geo.left, width: geo.width } : undefined;
-  const total = STOPS.length;
+  const total = stops.length;
   const body = copy(stop.body, view);
   const tip = copy(stop.tip, view);
   const where = stop.kind ? null : whereLine(stop, dest?.name ?? null, view.sidebar);
@@ -567,7 +591,7 @@ function TourOverlay({ index, opened }: { index: number; opened: RefObject<numbe
           {stop.kind === 'intro' && (
             <>
               <ul className="ptour-chapters" aria-label="Chapters">
-                {CHAPTERS.map((c) => (
+                {chapters.map((c) => (
                   <li key={c.name}>
                     <button type="button" onClick={() => setGuideStep(c.first)} aria-label={`Jump to ${c.name}, ${c.count} ${c.count === 1 ? 'stop' : 'stops'}`}>
                       <Icon name={c.icon} aria-hidden="true" />
@@ -594,16 +618,16 @@ function TourOverlay({ index, opened }: { index: number; opened: RefObject<numbe
 
           {stop.kind === 'finish' && (
             <>
-              {!roleAllows(role, 'receive') && role && (
+              {backend.mode === 'demo' && !roleAllows(role, 'receive') && role && (
                 <p className="ptour-note">
                   <Icon name="lock" aria-hidden="true" />
                   <span>The practice shift needs an Operator account or higher. Switch role from the account chip first.</span>
                 </p>
               )}
               <div className="ptour-finish">
-                <button type="button" className="btn primary" onClick={practice}>
+                {backend.mode === 'demo' ? <button type="button" className="btn primary" onClick={practice}>
                   <Icon name="hardhat" /> Start the practice shift
-                </button>
+                </button> : <a className="btn primary" href={`${location.pathname}?demo=1#help`}>Open sample warehouse</a>}
                 <button type="button" className="btn" onClick={openHelp}>
                   <Icon name="help" /> Open Help
                 </button>

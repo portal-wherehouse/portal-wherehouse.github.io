@@ -53,6 +53,8 @@ Do these in **your own Google project** when ready to activate Blaze. The code c
 
 App Check reduces unauthenticated abuse; it is not a billing firewall. Valid users can still make repeated reads/downloads. The setup does not claim a hard monthly spend cap.
 
+For future live activation, also review Firebase's **Preview service-level spend caps**: Settings → Usage and billing → Details & settings → Service-level spend caps. Configure an accepted monthly threshold for Cloud Functions for Firebase. Unlike an alerts-only budget, this can pause the eligible service when reported spend reaches the threshold. Enforcement is delayed, overages remain billable, and Firestore/Cloud Storage are not covered by this control. A paused function blocks new saves; it does not erase records. Treat this as another safeguard, never a $0 guarantee. No spend cap has been configured by this work. [Official instructions and limitations](https://firebase.google.com/docs/projects/billing/spend-caps).
+
 ## 5. Deploy the backend
 
 Use Node 22 and Java 21 or later for the emulator tests. From a checkout of this repository:

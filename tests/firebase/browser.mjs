@@ -40,6 +40,11 @@ try {
  await page.goto('http://127.0.0.1:4175/#overview');await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();await page.getByText('Pallets on hand',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);
  await page.goto('http://127.0.0.1:4175/#activity');await page.getByRole('heading',{name:'Activity',exact:true}).waitFor();await page.locator('.t tbody tr').first().waitFor();await page.getByLabel('Kind of change').selectOption('movement');await page.locator('.t tbody tr').first().waitFor();assert.equal(await page.getByRole('alert').count(),0);console.log('PASS bounded overview counts and filtered shared activity');
  await second.goto('http://127.0.0.1:4175/#settings');await second.getByRole('button',{name:'Sign out',exact:true}).click();await second.goto('http://127.0.0.1:4175/#find');await second.getByLabel('Email',{exact:true}).waitFor();assert.equal(await second.locator('.result').count(),0);
+ await page.goto('http://127.0.0.1:4175/#help');await page.getByRole('button',{name:'Take the tour',exact:true}).click();
+ const tour=page.locator('.ptour-card');await tour.waitFor();await tour.getByRole('button',{name:'Start the tour',exact:true}).click();
+ await tour.getByRole('heading',{name:'The top bar',exact:true}).waitFor();assert.ok((await tour.innerText()).includes('verified account'));
+ await page.keyboard.press('Escape');await tour.waitFor({state:'detached'});assert.equal(await page.getByRole('complementary',{name:'Practice shift'}).count(),0);
+ assert.equal(await page.getByRole('link',{name:'Open sample warehouse',exact:true}).count(),1);console.log('PASS customer Help tour opens and practice stays separate from customer records');
  await page.goto('http://127.0.0.1:4175/#people');await page.getByRole('heading',{name:'Manager dashboard',exact:true}).waitFor();await page.screenshot({path:'test-results/manager-dashboard.png'});
  await page.goto('http://127.0.0.1:4175/#find');await page.locator('#find-q').fill('Shared browser pallet');await page.locator('.result').waitFor();await page.screenshot({path:'test-results/live-warehouse.png'});
  const {db}=licenseStore();const ownerUser=await getAuth().getUserByEmail(email);const profile=await db.doc(`users/${ownerUser.uid}`).get();await db.doc(`licenses/${profile.get('owned_workspace')}`).update({active:false});
