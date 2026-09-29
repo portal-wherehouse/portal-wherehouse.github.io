@@ -15,6 +15,8 @@ function commit(): string {
 // `--mode artifact` builds one self-contained HTML file for the hosted preview,
 // where printing, camera and downloads are unavailable and the app adapts.
 export default defineConfig(({ mode }) => ({
+  // Relative paths, so the build works from any folder: a domain root or a GitHub Pages project page.
+  base: './',
   plugins: [react(), ...(mode === 'artifact' ? [viteSingleFile()] : [])],
   define: {
     __BUILD_COMMIT__: JSON.stringify(commit()),

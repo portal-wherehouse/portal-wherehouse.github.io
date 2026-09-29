@@ -84,6 +84,16 @@ In a sandbox that already has Chromium, set `PW_CHROMIUM=/path/to/chromium` for 
 
 The camera, printing, downloads and serial scanners need the full app over https (`npm run build`, then serve `dist/` from any static host). The hosted preview blocks them, so there it offers typing codes, copying files and on-screen label previews instead. Keyboard-wedge scanners work in both, because they type like a keyboard.
 
+## Host it on GitHub Pages
+
+The repository includes `.github/workflows/pages.yml`, which tests, builds and publishes the app on every push to `main`.
+
+1. Push this folder to a GitHub repository (the `main` branch).
+2. In the repository, open **Settings > Pages** and set **Source** to **GitHub Actions**.
+3. Open the **Actions** tab and wait for "Deploy to GitHub Pages" to finish. The site is then at `https://<your-username>.github.io/<repository-name>/`.
+
+The build uses relative paths, so it works in a project page's subfolder, at a custom domain, or on any other static host. Pages serves over https, so the camera, printing and installing the app all work there. Data still lives in each visitor's browser until Firebase is connected.
+
 ## Real and simulated
 
 This build is a **local demo**. It is honest about which parts are simulated:
