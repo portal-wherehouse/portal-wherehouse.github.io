@@ -345,10 +345,6 @@
         {
           "fieldPath": "accepted_at",
           "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "DESCENDING"
         }
       ]
     },
@@ -362,10 +358,6 @@
         },
         {
           "fieldPath": "accepted_at",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]
@@ -384,10 +376,6 @@
         },
         {
           "fieldPath": "accepted_at",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]

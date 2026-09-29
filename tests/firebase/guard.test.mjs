@@ -15,3 +15,17 @@ test('deployment indexes do not duplicate automatic single-field indexes', async
  }
  for(const collectionGroup of ['events','audit'])assert.ok(!config.fieldOverrides.some(field=>field.collectionGroup===collectionGroup&&['accepted_at','*'].includes(field.fieldPath)),`${collectionGroup} activity ordering must retain automatic indexing`);
 });
+
+test('Firebase CLI recognizes every deployed index on the next deploy',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const {FirestoreApi}=await import('firebase-tools/lib/firestore/api.js');
+ const spec=JSON.parse(await readFile(new URL('../../firebase/firestore.indexes.json',import.meta.url),'utf8'));
+ // Exercise only the CLI's pure normalization/comparison methods; no API requests.
+ const api=Object.create(FirestoreApi.prototype);
+ for(const index of spec.indexes){
+  const fields=structuredClone(index.fields);
+  if(fields.at(-1).fieldPath!=='__name__')fields.push({fieldPath:'__name__',order:fields.at(-1).order||'ASCENDING'});
+  const [existing]=FirestoreApi.processIndexes([{...index,name:`projects/demo-wherehouse/databases/(default)/collectionGroups/${index.collectionGroup}/indexes/example`,fields,density:'SPARSE_ALL'}]);
+  assert.ok(api.indexMatchesSpec(existing,index,'STANDARD'),`${index.collectionGroup}: CLI would attempt to recreate an existing index (${JSON.stringify(index.fields)})`);
+ }
+});
