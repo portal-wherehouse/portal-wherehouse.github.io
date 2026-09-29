@@ -1,3 +1,4 @@
+import { registerAccount } from './registration';
 import { warehouseSummary, directoryCounts } from './summary';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { reservePhoto, validatePhotoObjects, readPhotoReservation, sweepAbandonedPhotos } from './photos';
@@ -217,3 +218,6 @@ export const cleanupPhotoUploads=onSchedule({schedule:'every 24 hours',region:'u
 export const getWarehouseSummary=onCall(options,warehouseSummary);
 
 export const getDirectoryCounts=onCall(options,directoryCounts);
+
+// Signup also requires App Check; its separate visible checkbox is verified server-side.
+export const createAccount = onCall({ ...options, maxInstances: 1, concurrency: 10 }, registerAccount);

@@ -1,6 +1,7 @@
+import {signupToken} from './signup.mjs';
 import './local-only.mjs';
 import {issueKey,licenseStore} from './keys.mjs';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir,writeFile } from 'node:fs/promises';
@@ -17,6 +18,35 @@ let browser;
 try {
  for(let i=0;i<50;i++){try{if((await fetch('http://127.0.0.1:4175')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
  browser=await chromium.launch({headless:true});const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message)); page.on('console',m=>{if(m.type()==='error')console.log('BROWSER_ERROR',m.text());});
+ // Intercept the actual Google script request with a local widget fixture. No Google
+ // CAPTCHA/assessment calls or billed resources are used in this test.
+ const signupPage=await browser.newPage({viewport:{width:375,height:812}});
+ const checkboxFixtureToken=await signupToken();
+ await signupPage.route('https://www.google.com/recaptcha/enterprise.js*',route=>route.fulfill({contentType:'application/javascript',body:`
+ window.grecaptcha={enterprise:{ready:fn=>fn(),render:(element,options)=>{
+  const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';
+  label.append(input,document.createTextNode("I'm not a robot"));element.append(label);
+  input.onchange=()=>input.checked?options.callback(${JSON.stringify(checkboxFixtureToken)}):options['expired-callback']();
+  window.__expireSignupCheckbox=()=>{input.checked=false;options['expired-callback']();};return 1;
+ },reset:()=>{}}};`}));
+ await signupPage.goto('http://127.0.0.1:4175/#signin');
+ assert.equal(await signupPage.getByRole('group',{name:'Account verification'}).count(),0);
+ await signupPage.getByRole('button',{name:'Create account',exact:true}).click();
+ await signupPage.getByLabel('Your name',{exact:true}).fill('New signup');
+ await signupPage.getByLabel('Email',{exact:true}).fill(`signup-browser-${Date.now()}@example.com`);
+ await signupPage.getByLabel('Password',{exact:true}).fill(password);
+ const createButton=signupPage.getByRole('button',{name:'Create account',exact:true});
+ await expect(createButton).toBeDisabled();
+ await signupPage.getByRole('checkbox',{name:"I'm not a robot"}).check();await expect(createButton).toBeEnabled();
+ await signupPage.evaluate(()=>window.__expireSignupCheckbox());await expect(createButton).toBeDisabled();
+ await signupPage.getByRole('checkbox',{name:"I'm not a robot"}).check();
+ assert.equal(await signupPage.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+ await signupPage.screenshot({path:'test-results/signup-checkbox-mobile.png'});
+ await createButton.click();await signupPage.getByRole('button',{name:'I’ve verified my email',exact:true}).waitFor();
+ assert.equal(await signupPage.getByRole('group',{name:'Account verification'}).count(),0);
+ await signupPage.getByRole('button',{name:'Sign out',exact:true}).click();
+ assert.equal(await signupPage.getByRole('group',{name:'Account verification'}).count(),0);
+ await signupPage.close();console.log('PASS mobile signup checkbox gates submission, expires, creates an account and stays off sign-in');
  await page.goto('http://127.0.0.1:4175/#signin');await page.getByLabel('Email',{exact:true}).fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await page.getByText('Activate my warehouse with a usage key',{exact:true}).click();await page.getByLabel('Warehouse name',{exact:true}).fill('Browser warehouse');await page.getByLabel('Usage key',{exact:true}).fill(usageKey);await page.getByRole('button',{name:'Activate warehouse',exact:true}).click();
  await page.getByRole('heading',{name:'Locations',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(0,4000));throw e;});assert.equal(await page.locator('.demo-strip').count(),0);assert.equal(await page.getByRole('button',{name:'Practice shift',exact:true}).count(),0);

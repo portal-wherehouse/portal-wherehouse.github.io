@@ -45,8 +45,8 @@ Do these in **your own Google project** when ready to activate Blaze. The code c
 
 1. In Google Cloud → Billing → Budgets & alerts, create a **project-scoped budget for the amount you explicitly accept for live trials** (for example $5), with actual-spend alerts at **50%, 80%, 100%** and forecast at **100%**. Add your monitored email. For production, use separate project budgets of **$10 / $50 / $250** as initial alerts for **1 / 10 / 50 warehouses**, then revise using actual usage. These are notification thresholds, **not spending caps**. Charges and alerts can arrive late.
 2. Register the web app in Firebase → App Check using **reCAPTCHA Enterprise**. Create a website score-based key with `portal-wherehouse.github.io` in its allowed domains; keep domain validation enabled. Set App Check token TTL to **1 hour** initially. Add repository Actions variable **`VITE_FIREBASE_APPCHECK_SITE_KEY`** with the public site key. Never add a debug token to production or the repository.
-3. Publish the web configuration and inspect App Check metrics. Verify a real signed-in browser produces valid tokens, then **enforce App Check for Firestore and Storage** in Firebase. Callable functions enforce it in code on every non-demo project. Do not set `ENFORCE_APP_CHECK=false` in production. This app starts attestation after verified sign-in, so do not enable Authentication App Check enforcement without also moving initialization before sign-in and testing that separate change.
-4. In Google Cloud → Cloud Run, inspect every deployed callable's configuration: **minimum instances 0, maximum 3, concurrency 20, 256 MiB, request timeout 30 seconds**. The scheduled cleanup has minimum 0, maximum 1 and timeout 120 seconds. Keep request-based billing. Maximum instances are per function and are not a dollar cap. Deployment transitions can temporarily overlap revisions.
+3. Publish the web configuration and inspect App Check metrics. Verify a real signed-in browser produces valid tokens, then **enforce App Check for Firestore and Storage** in Firebase. Callable functions enforce it in code on every non-demo project. Do not set `ENFORCE_APP_CHECK=false` in production. This app starts attestation for account creation and after verified sign-in, so do not enable Authentication App Check enforcement without also moving initialization before sign-in and testing that separate change.
+4. In Google Cloud → Cloud Run, inspect warehouse callable configuration: **minimum instances 0, maximum 3, concurrency 20, 256 MiB, request timeout 30 seconds**. Account creation has maximum 1 and concurrency 10, with the same minimum, memory and timeout. The scheduled cleanup has minimum 0, maximum 1 and timeout 120 seconds. Keep request-based billing. Maximum instances are per function and are not a dollar cap. Deployment transitions can temporarily overlap revisions.
 5. In IAM & Admin → Quotas & System Limits, inspect adjustable quotas for the actual project's **Cloud Run functions**, **Cloud Run Admin**, **Firestore**, **Cloud Storage**, and **reCAPTCHA Enterprise** services. Do not increase quotas just to pass local tests. Provider request-rate quotas vary by project and do not bound monthly downloads. Keep the application limits below as the customer-facing guardrails; budgets remain necessary.
 6. In Monitoring, alert on sustained callable errors, `resource-exhausted` responses, sudden Firestore read growth and Storage transfer growth. Start with **50,000 Firestore reads/day for a future small live trial** and investigate any unexpected usage. At production scale compare against the cost report's per-warehouse assumptions; legitimate use can exceed this private-test threshold.
 7. Keep image cleanup enabled, retain seven daily database backups for production, and review build-source buckets. Do not apply a deletion lifecycle to the customer photo bucket. Storage's default seven-day soft-delete retention can keep deleted orphan bytes billable for another week. Do not enable paid Artifact Analysis scanning accidentally; if you choose it, budget for its image scans separately.
@@ -68,7 +68,7 @@ npm run test:firebase
 npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project YOUR_PROJECT_ID
 ```
 
-Choose the project created in step 1. The deploy command builds and uploads nine functions: `createWarehouse`, `command`, `authorizeEmail`, `joinAuthorizedWarehouses`, `cancelAuthorization`, `reservePhotoUpload`, `getWarehouseSummary`, `getDirectoryCounts` and the scheduled `cleanupPhotoUploads`, the database rules and the photo rules. Only accept Google's API/billing prompts once you intend to activate this project. The daily cleanup creates one Cloud Scheduler job. After deployment, configure artifact cleanup explicitly:
+Choose the project created in step 1. The deploy command builds and uploads ten functions: `createAccount`, `createWarehouse`, `command`, `authorizeEmail`, `joinAuthorizedWarehouses`, `cancelAuthorization`, `reservePhotoUpload`, `getWarehouseSummary`, `getDirectoryCounts` and the scheduled `cleanupPhotoUploads`, the database rules and the photo rules. Only accept Google's API/billing prompts once you intend to activate this project. The daily cleanup creates one Cloud Scheduler job. After deployment, configure artifact cleanup explicitly:
 
 ```bash
 npx firebase functions:artifacts:setpolicy --project YOUR_PROJECT_ID --location us-east1 --days 7
@@ -207,3 +207,47 @@ node firebase/functions/scripts/license.cjs trial YOUR_PROJECT_ID owner@customer
 Limits live on the activation key and transfer to the warehouse license. Managers and employees cannot change them. Hitting an action limit blocks new commands with a clear message; hitting the pallet allowance blocks new receive/split/import additions while existing pallet actions remain available under their action allowance. Hitting photo capacity blocks new reservations. Existing records, histories and committed photos remain readable under an active license. Renewal preserves the limit fields; the service owner must explicitly review them when upgrading a trial.
 
 There is no precise byte cap for Firestore metadata or accumulated history, and no monthly cap on direct authenticated reads/downloads. App Check verification, failed requests, backups, deployment images and data transfer can still cost money. These controls reduce exposure; they do not guarantee a dollar maximum or make a live trial free. For now use the sample warehouse or emulator-backed demonstrations until a customer is ready to pay or you approve a limited trial budget.
+
+
+## Visible checkbox when creating an account
+
+There are two different public reCAPTCHA keys. Keep the Firebase configuration JSON unchanged.
+
+| Purpose | Key / setting |
+| --- | --- |
+| Firebase App Check (background verification) | Score-based key `6LcsXdYtAAAAAIKaPi8FGXZNl5qg_T7GX_xVbFWz`. Register it for the web app in Firebase App Check and put it in GitHub Actions variable `VITE_FIREBASE_APPCHECK_SITE_KEY`. Checkbox challenge must be OFF for this key. |
+| New-account checkbox | Checkbox key `6Le8Q9YtAAAAAB1suUpQIMhi4T71drOz4fd7eI1A`, in `src/config/registration.ts`. Keep this key in Google Cloud reCAPTCHA, with `portal-wherehouse.github.io` allowed. It is not a second App Check registration. |
+
+Changing a GitHub Actions variable does not update the already-published JavaScript. Run the Pages workflow again or push a commit; after its deployment succeeds, refresh the website. An old page can continue sending the old key. A usage key cannot fix an App Check 401.
+
+The website displays the checkbox only in Create account. `createAccount` verifies it with Google before creating an unverified Auth account; the browser then signs in and sends the verification email. No warehouse access is granted until email verification, authorization and an active license. Ordinary sign-in and password reset have no visible checkbox.
+
+**Owner activation commands for the current project**, after pulling this change in Cloud Shell:
+
+```bash
+cd ~/wherehouse
+git pull --ff-only
+npm ci --prefix firebase/functions
+gcloud services enable recaptchaenterprise.googleapis.com --project wherehouseportal
+gcloud projects add-iam-policy-binding wherehouseportal --member='serviceAccount:377162209873-compute@developer.gserviceaccount.com' --role='roles/recaptchaenterprise.agent'
+npx firebase deploy --only functions:wherehouse:createAccount --project wherehouseportal
+node firebase/functions/scripts/secure-signup.cjs --apply wherehouseportal
+```
+
+The runtime service account above is the account reported by this project's deployed functions. If you change the runtime identity, grant the assessment role to that identity instead. Do not create or download a service-account private key.
+
+**The last command is required to prevent a bypass.** It disables direct, unverified client signup using only the `client.permissions.disabledUserSignup` configuration field. It preserves email/password sign-in, existing accounts, warehouse data and the Admin SDK signup route. It reads the setting back and fails if it cannot confirm it. Read-only verification:
+
+```bash
+node firebase/functions/scripts/secure-signup.cjs --check wherehouseportal
+```
+
+If Google rejects the setting or asks for an Identity Platform upgrade, stop and inspect that response; the script does not upgrade a product, change billing or claim the bypass is closed. Keep public signup off until this configuration is confirmed. Do not disable the Email/Password provider, because that would also stop existing users signing in.
+
+Local checks run with `npm run test:firebase`. The browser replaces Google's widget script with a local fixture, and the server accepts only administrator-minted, single-use emulator fixtures. Tests cover missing/forged/expired/wrong-domain tokens, replay, attempt limits, mobile submission/expiry, email-verification flow and existing sign-in. They make no live Google assessments. The configuration script tests use an injected fake response, never live Firebase configuration. A real Google checkbox/domain/permission check therefore still requires one small manual live signup after deployment.
+
+For that one manual verification: confirm `--check` succeeds, open Create account, verify submission stays disabled before completing the checkbox, create one account you control, verify its email, sign out and sign back in. Existing-user login must show no checkbox. Do not create a warehouse or issue another usage key just to test signup. Inspect function logs and App Check metrics if verification fails; never paste a password, CAPTCHA token or authorization code into logs.
+
+The signup endpoint permits at most 200 attempts per UTC day per project, 50 per IP per day and 10 per IP per hour. It uses one bounded counter document and returns a clear retry-later error; it never deletes existing accounts. Bad requests and App Check failures can still incur function usage. The counters do not cap all Firebase Auth API traffic or guarantee a dollar maximum.
+
+References: [Enterprise checkbox assessments](https://docs.cloud.google.com/recaptcha/docs/create-assessment-website), [signup permissions](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/Config), [configuration field masks](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/updateConfig).

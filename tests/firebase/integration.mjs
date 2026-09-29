@@ -1,3 +1,4 @@
+import {testSignup} from './signup.mjs';
 import './local-only.mjs';
 import {issueKey,licenseStore} from './keys.mjs';
 import assert from 'node:assert/strict';
@@ -24,6 +25,7 @@ async function client(label,verified=true){
 }
 let checks=0;const ok=label=>{checks++;console.log(`PASS ${label}`);};
 try {
+ await testSignup();
  const owner=await client('owner'),operator=await client('operator'),outsider=await client('outsider'),viewer=await client('viewer'),unverified=await client('unverified',false);
  await assert.rejects(unverified.call('createWarehouse',{name:'Blocked'}));ok('unverified email cannot create warehouse');
  await assert.rejects(owner.call('createWarehouse',{name:'Missing key'}));ok('verified account cannot create warehouse without usage key');

@@ -3115,3 +3115,6 @@ table.t td svg,
 .label-rack-4x6 .l-side, .label-rack-sheet .l-side { width:100%; }
 .label-rack-sheet { width:4in; height:3.33in; gap:.1in; }
 .label-rack-sheet .l-qr { width:1.45in; height:1.45in; }
+
+.signup-verification { min-width:0; width:100%; }
+.signup-verification p { font-size:.875rem; font-weight:400; margin:8px 0 0; }

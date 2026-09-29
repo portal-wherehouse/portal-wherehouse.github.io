@@ -138,3 +138,10 @@ Model: [cost-model.py](cost-model.py) and [cost-estimates.json](measurements/cos
 - [App Check web attestation](https://firebase.google.com/docs/app-check/web/recaptcha-enterprise-provider) and [reCAPTCHA tiers](https://docs.cloud.google.com/recaptcha/docs/compare-tiers)
 - [Cloud Build](https://cloud.google.com/build/pricing), [Artifact Registry](https://cloud.google.com/artifact-registry/pricing), [Cloud Scheduler](https://cloud.google.com/scheduler/pricing)
 - [Function instance settings and image cleanup](https://firebase.google.com/docs/functions/manage-functions)
+
+
+### Signup checkbox addition (September 29)
+
+The visible signup checkbox adds one callable invocation, a bounded counter transaction (one document read and one write for an accepted attempt, with extra reads if the transaction retries), one Enterprise assessment and an Auth account creation on success. App Check uses its separate score-based assessment/token cache. Existing sign-in has no visible checkbox assessment. Signup allows 200 attempts/project/day, 50/IP/day and 10/IP/hour; the function has minimum instances 0, maximum 1, concurrency 10, 256 MiB and a 30-second timeout. Rejected traffic can still consume resources; these are abuse limits, not a billing cap.
+
+These signup costs were not part of the earlier warehouse load measurements or revenue tables. Local signup checks use emulator fixtures and make zero live reCAPTCHA assessments. No live signup cost or production latency has been measured; include both App Check and signup assessments in the project's shared reCAPTCHA allowance and monitor the live pricing tier before opening registration widely. Configuration and IAM changes are owner setup steps, not tests. See the setup guide for the required direct-client-signup restriction.

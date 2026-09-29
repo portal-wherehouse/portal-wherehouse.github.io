@@ -1,4 +1,4 @@
-import { initializeAppCheck, setTokenAutoRefreshEnabled, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
+import { initializeAppCheck, getToken as getAppCheckToken, setTokenAutoRefreshEnabled, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { palletQuery, PAGE_SIZE, type LiveFilter } from './liveQueries';
 import { normalizeCode, parsePalletCode, parseLabelPayload } from '../domain/codes';
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
@@ -24,6 +24,7 @@ export class FirebaseBackend extends Backend {
   firestore: Firestore | null=null;
   functions: Functions | null=null;
   storage: FirebaseStorage | null=null;
+  prepareSignup: () => Promise<void> = async () => { throw new Error('Account registration is not configured.'); };
   workspaceIds: string[]=[];
   invitations: {email:string;name:string;role:string}[]=[];
   licenseBlocked=false;
@@ -56,6 +57,12 @@ export class FirebaseBackend extends Backend {
       connectFunctionsEmulator(b.functions,'127.0.0.1',5001);
       connectStorageEmulator(b.storage,'127.0.0.1',9199);
     }
+    b.prepareSignup=async()=>{
+      if(import.meta.env.DEV && import.meta.env.VITE_FIREBASE_EMULATORS==='true') return;
+      if(!appCheckKey)throw new Error('Account verification is not configured. Contact support.');
+      if(!appCheck)appCheck=initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider(appCheckKey),isTokenAutoRefreshEnabled:true});
+      try { await getAppCheckToken(appCheck); } catch { throw new Error('Could not verify this browser. Refresh the page and try again.'); }
+    };
     b.scope=config.projectId!;
     onAuthStateChanged(b.auth, async user=>{
       b.profileStop?.(); b.clear(); b.authUid=user?.uid ?? null; b.workspaceIds=[]; b.pending=[];
