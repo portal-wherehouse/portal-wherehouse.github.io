@@ -3,6 +3,21 @@
    Rack and pallet codes are set large in a condensed face, like printed warehouse labels.
    State is never color alone: every badge carries a glyph and a word. */
 
+/* Stand-in for Barlow Condensed while it loads, or where Google Fonts is blocked: a common sans
+   scaled to the same width, so big condensed headings (HELLO., the brand name) never overflow. */
+@font-face {
+  font-family: 'Barlow Condensed Fallback';
+  font-weight: 100 600;
+  src: local('Arial'), local('ArialMT'), local('Roboto'), local('Roboto-Regular'), local('Helvetica Neue'), local('HelveticaNeue'), local('Liberation Sans'), local('LiberationSans');
+  size-adjust: 72%;
+}
+@font-face {
+  font-family: 'Barlow Condensed Fallback';
+  font-weight: 700 900;
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold'), local('HelveticaNeue-Bold'), local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  size-adjust: 67%;
+}
+
 :root {
   --ground: #eef0ec;
   --surface: #ffffff;
@@ -35,7 +50,7 @@
   --scroll-shade: rgba(20, 23, 26, 0.16);
   --radius: 10px;
   --radius-sm: 6px;
-  --font-display: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Barlow Condensed Fallback', 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
   --font-body: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --text-scale: 1;
