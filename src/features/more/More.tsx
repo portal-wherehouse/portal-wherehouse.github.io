@@ -1,5 +1,6 @@
 // More: every other screen, for the phone layout where only four tabs fit.
 
+import type { Role } from '../../domain/types';
 import { useApp, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
@@ -19,7 +20,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
     items: [
       { route: 'overview', label: 'Overview', icon: 'overview', hint: 'Counts and attention' },
       { route: 'map', label: 'Map', icon: 'map', hint: 'Racks and what is on them' },
-      { route: 'reconcile', label: 'Reconcile', icon: 'reconcile', hint: 'Fix what needs fixing' },
+      { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
       { route: 'activity', label: 'Activity', icon: 'activity', hint: 'Every accepted change' },
     ],
   },
@@ -49,15 +50,27 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
   },
 ];
 
+/** Navigation is task-oriented; permission checks still happen in the command engine. */
+export function visibleNavGroups(role: Role | null, advanced: boolean) {
+  const manager = role === 'OWNER' || role === 'SUPERVISOR';
+  const allowed = new Set<RouteName>(role === 'VIEWER'
+    ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
+    : ['receive', 'move', 'find', 'station', 'help', 'settings']);
+  if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
+  if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
+  return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title,
+    items: g.items.filter(i => allowed.has(i.route)) })).filter(g => g.items.length);
+}
+
 /** Screens the phone's bottom tabs already reach. */
 const PHONE_TABS: RouteName[] = ['receive', 'move', 'find'];
 
 export function More() {
-  const { go } = useApp();
+  const { go, role, prefs } = useApp();
   return (
     <div className="stack">
       <PageHead title="More" />
-      {NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
+      {visibleNavGroups(role, prefs.advancedTools).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
         .filter((g) => g.items.length > 0)
         .map((g) => (
         <div key={g.title} className="stack" style={{ gap: 8 }}>

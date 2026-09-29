@@ -14,8 +14,8 @@ const ALL_PAGES = [...SITE_NAV, ...SITE_FOOTER_EXTRA];
 const label = (route: SiteRouteName) => ALL_PAGES.find((p) => p.route === route)?.label ?? route;
 
 const FOOTER_COLUMNS: { title: string; routes: SiteRouteName[]; portal?: boolean }[] = [
-  { title: 'Product', routes: ['product', 'showcase', 'simple', 'hardware'] },
-  { title: 'Company', routes: ['founder', 'customers', 'industries', 'contact'] },
+  { title: 'Product', routes: ['product', 'hardware'] },
+  { title: 'Company', routes: ['customers', 'founder', 'contact'] },
   { title: 'Resources', routes: ['pricing', 'security'], portal: true },
 ];
 
@@ -61,7 +61,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <div className="shell-ribbon" role="note">
         <span className="shell-ribbon-stripes" aria-hidden="true" />
         <span className="shell-ribbon-text">
-          <strong>Preview site.</strong> Pricing and customer stories are placeholders. The demo runs in your browser.
+          <strong>Try the working demo.</strong> Sample data stays in this browser. Shared accounts are in development.
         </span>
       </div>
 
@@ -291,7 +291,7 @@ function SiteFooter({ onGo }: { onGo: (r: SiteRouteName) => void }) {
         </div>
 
         <p className="shell-footer-base">
-          {BRAND.name} is in early testing. Sign-in is off, and the demo keeps its data in this browser only. Prices and customer stories on this site are placeholders.
+          {BRAND.name} is in early testing. Sign-in is off, and the demo keeps its data in this browser only. Launch pricing is proposed; no payment is collected.
         </p>
       </div>
     </footer>

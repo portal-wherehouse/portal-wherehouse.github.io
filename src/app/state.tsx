@@ -58,12 +58,13 @@ export interface Prefs {
   explain: boolean;
   startTab: 'receive' | 'move' | 'find' | 'overview';
   haptics: boolean;
+  advancedTools: boolean;
 }
 
 /** A theme the embedding page stamped before the app started (the hosted preview does this). */
 const HOST_THEME = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : null;
 
-const DEFAULT_PREFS: Prefs = { theme: 'system', text: 'normal', explain: true, startTab: 'find', haptics: true };
+const DEFAULT_PREFS: Prefs = { theme: 'system', text: 'normal', explain: false, startTab: 'find', haptics: true, advancedTools: false };
 
 function readLocal<T>(key: string, fallback: T): T {
   try {

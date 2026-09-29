@@ -611,8 +611,8 @@ export function OverviewMock() {
 /** Reconcile: short lists that keep the records matching the floor. */
 export function ReconcileMock() {
   return (
-    <Browser screen="Reconcile" label="The Reconcile screen: tabs for Needs placement, Missing, On hold, Labels to reprint and Not verified. The Needs placement list shows two pallets, each with a Place now button.">
-      <Head title="Reconcile" />
+    <Browser screen="Needs attention" label="The Needs attention screen: tabs for Needs placement, Missing, On hold, Labels to reprint and Not verified. The Needs placement list shows two pallets, each with a Place now button.">
+      <Head title="Needs attention" />
       <div className="cm-rtabs">
         <span className="on">
           <Icon name="receive" /> Needs placement <b>3</b>

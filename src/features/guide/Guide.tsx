@@ -112,7 +112,7 @@ export function Guide() {
           <Flow
             icon="reconcile"
             title="Keeping records honest"
-            steps={['Open Reconcile.', 'Work each list: place what is unplaced, look for what is missing, inspect holds, reprint labels.', 'Every fix is its own history entry.']}
+            steps={['Open Needs attention.', 'Work each list: place what is unplaced, look for what is missing, inspect holds, reprint labels.', 'Every fix is its own history entry.']}
             onTry={() => go('reconcile')}
           />
         </div>
@@ -320,7 +320,7 @@ const GLOSSARY: [string, string][] = [
   ['Correction', 'A new event that fixes the record, pointing at the entry it corrects.'],
   ['Hold', 'A flag for damage or inspection. Blocks dispatch and splits until a supervisor clears it.'],
   ['Last confirmed', 'The most recent rack a person proved with a scan, and when.'],
-  ['Reconcile', 'Working through the lists of pallets whose records need attention.'],
+  ['Needs attention', 'Working through the lists of pallets whose records need attention.'],
   ['Outbox', 'The queue of moves saved on a phone while offline, sent in order when the connection returns.'],
   ['Workspace', 'One company’s private data. Nothing crosses between workspaces, not even whether a code exists.'],
 ];

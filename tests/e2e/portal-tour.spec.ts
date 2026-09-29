@@ -4,6 +4,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { portalReady, signInAs, watchErrors } from './helpers';
 
+// The exhaustive management/developer tour is opt-in; everyday onboarding is the practice shift.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pl.prefs', JSON.stringify({ advancedTools: true })));
+});
+
 /**
  * Every stop in order: its card title, and the page it opens (a hash, '' for record pages that have
  * no link of their own, or null for stops that stay on the current screen).
@@ -19,7 +24,7 @@ const STOPS: { title: string; hash: string | null; record?: RegExp }[] = [
   { title: 'Its history', hash: '', record: /P-\d{6}/ },
   { title: 'Overview', hash: 'overview' },
   { title: 'Warehouse map', hash: 'map' },
-  { title: 'Reconcile', hash: 'reconcile' },
+  { title: 'Needs attention', hash: 'reconcile' },
   { title: 'Activity', hash: 'activity' },
   { title: 'Jobs', hash: 'jobs' },
   { title: 'Pick lists', hash: '', record: /J-\d{3}/ },

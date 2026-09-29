@@ -7,13 +7,10 @@ import { wedgeScan, watchErrors } from './helpers';
 
 /** Every website page: its menu label, hash and main heading. */
 const PAGES = [
-  { label: 'Product', hash: 'product', h1: 'A record for every pallet' },
-  { label: 'See it in action', hash: 'showcase', h1: 'Everything it does, screen by screen' },
-  { label: 'Why it’s simple', hash: 'simple', h1: 'Simple on purpose' },
+  { label: 'How it works', hash: 'product', h1: 'A record for every pallet' },
   { label: 'Scanners', hash: 'hardware', h1: 'Works with the scanners you already own' },
-  { label: 'Applications', hash: 'industries', h1: 'Built for yards that stage material by job' },
-  { label: 'Customers', hash: 'customers', h1: 'Room for real stories from real yards' },
-  { label: 'Pricing', hash: 'pricing', h1: 'Plans for every size of yard' },
+  { label: 'Pricing', hash: 'pricing', h1: 'A clear price for one warehouse.' },
+  { label: 'Pilot program', hash: 'customers', h1: 'Prove it on a real shift.' },
   { label: 'About', hash: 'founder', h1: 'Built by John Henry Mims' },
 ] as const;
 
@@ -45,7 +42,7 @@ test.describe('website navigation', () => {
   test('every main page opens from the header or menu with its heading and no errors', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
-    await expect(h1(page)).toContainText('Hello');
+    await expect(h1(page)).toContainText('Find the right pallet');
     for (const p of PAGES) {
       await openFromHeader(page, p.label);
       await expect(page).toHaveURL(new RegExp(`#${p.hash}$`));
@@ -54,7 +51,7 @@ test.describe('website navigation', () => {
     }
     // The brand button goes back home.
     await page.locator('.shell-header').getByRole('button', { name: 'Wherehouse home' }).click();
-    await expect(h1(page)).toContainText('Hello');
+    await expect(h1(page)).toContainText('Find the right pallet');
     expect(errors).toEqual([]);
   });
 
@@ -77,17 +74,17 @@ test.describe('website navigation', () => {
       await page.goto('about:blank');
       await page.goto(`/#${p.hash}`);
       await expect(h1(page)).toHaveText(p.h1);
-      await expect(page.getByRole('button', { name: 'Open Wherehouse Portal' }).first()).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Try the demo' }).first()).toBeVisible();
     }
     await page.goto('about:blank');
     await page.goto('/#home');
-    await expect(h1(page)).toContainText('Hello');
+    await expect(h1(page)).toContainText('Find the right pallet');
     expect(errors).toEqual([]);
   });
 
   test('changing the hash on an open page shows that page', async ({ page }) => {
     await page.goto('/#pricing');
-    await expect(h1(page)).toHaveText('Plans for every size of yard');
+    await expect(h1(page)).toHaveText('A clear price for one warehouse.');
     await page.evaluate(() => {
       location.hash = '#security';
     });
@@ -98,19 +95,19 @@ test.describe('website navigation', () => {
     await page.goto('/');
     const footer = page.getByRole('navigation', { name: 'Footer' });
     await footer.getByRole('button', { name: 'Pricing', exact: true }).click();
-    await expect(h1(page)).toHaveText('Plans for every size of yard');
+    await expect(h1(page)).toHaveText('A clear price for one warehouse.');
     await footer.getByRole('button', { name: 'Contact', exact: true }).click();
     await expect(h1(page)).toHaveText('Book a walkthrough');
     await page.goBack();
     await expect(page).toHaveURL(/#pricing$/);
-    await expect(h1(page)).toHaveText('Plans for every size of yard');
+    await expect(h1(page)).toHaveText('A clear price for one warehouse.');
   });
 
   test('on a phone, the menu lists every page and opens them', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const errors = watchErrors(page);
     await page.goto('/');
-    for (const p of [PAGES[0], PAGES[6], PAGES[7]]) {
+    for (const p of [PAGES[0], PAGES[2], PAGES[4]]) {
       await page.getByRole('button', { name: 'Menu' }).click();
       const menu = page.getByRole('dialog', { name: 'Site menu' });
       await expect(menu.locator('.shell-menu-item')).toHaveCount(PAGES.length);
@@ -127,26 +124,25 @@ test.describe('website navigation', () => {
     expect(errors).toEqual([]);
   });
 
-  test('"Open Wherehouse Portal" leads to the sign-in front door, and back', async ({ page }) => {
+  test('"Try the demo" leads to the sign-in front door, and back', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
     const hero = page.locator('.home-portal');
-    await expect(hero.getByText('Already a Wherehouse customer?')).toBeVisible();
-    await hero.getByRole('button', { name: 'Open Wherehouse Portal' }).click();
+    await expect(hero.getByText('No account or credit card needed')).toBeVisible();
+    await hero.getByRole('button', { name: 'Try the demo' }).click();
     await expect(page).toHaveURL(/#signin$/);
-    await expect(page.getByText('Taking you to the Wherehouse Portal…')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Welcome to the portal.' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Sign-in is off while we test' })).toBeVisible();
     await expect(page.getByRole('radio')).toHaveCount(4);
     // Real sign-in is visibly off.
-    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeDisabled();
+    await expect(page.getByText('This is a local demo. Real accounts and shared records are not connected yet.')).toBeVisible();
 
     await page.locator('.door-links').getByRole('button', { name: 'Back to the website' }).click();
-    await expect(h1(page)).toContainText('Hello');
+    await expect(h1(page)).toContainText('Find the right pallet');
 
     // The same button sits on every page, for example Pricing's.
     await page.goto('/#pricing');
-    await page.getByRole('button', { name: 'Open Wherehouse Portal' }).first().click();
+    await page.getByRole('button', { name: 'Try the demo' }).first().click();
     await expect(page.getByRole('heading', { name: 'Welcome to the portal.' })).toBeVisible();
     expect(errors).toEqual([]);
   });
@@ -221,7 +217,7 @@ test.describe('home page guided tour', () => {
 
     // Still on the website's home page: no hash, no portal, nobody signed in.
     expect(new URL(page.url()).hash).toBe('');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hello');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find the right pallet');
     await expect(page.locator('.topbar')).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem('pl.actor'))).toBeNull();
     expect(errors).toEqual([]);

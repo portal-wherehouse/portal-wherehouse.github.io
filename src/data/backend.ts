@@ -130,23 +130,25 @@ export class Backend {
     return this.network === 'offline' && this.cache ? this.cache.engine : this.engine;
   }
 
+  private storageFailure(err: unknown): Error {
+    this.storageOk = false;
+    this.storageError = err instanceof Error ? err.message : 'Storage write failed';
+    return new Error(`Could not save on this device: ${this.storageError}`);
+  }
+
   private async save() {
-    if (!this.store) return;
+    if (!this.store) throw this.storageFailure('Local storage is unavailable');
     try {
-      await Promise.all([set(DB_KEY, this.db, this.store), set(META_KEY, this.meta, this.store)]);
-    } catch (err) {
-      this.storageOk = false;
-      this.storageError = err instanceof Error ? err.message : 'Storage write failed';
-    }
+      await setMany([[DB_KEY, this.db], [META_KEY, this.meta]], this.store);
+      this.storageOk = true;
+      this.storageError = null;
+    } catch (err) { throw this.storageFailure(err); }
   }
 
   private async savePending() {
-    if (!this.store) return;
-    try {
-      await set(PENDING_KEY, this.pending, this.store);
-    } catch {
-      /* recoverable on the next save */
-    }
+    if (!this.store) throw this.storageFailure('Local storage is unavailable');
+    try { await set(PENDING_KEY, this.pending, this.store); }
+    catch (err) { throw this.storageFailure(err); }
   }
 
   async reload() {
@@ -213,12 +215,31 @@ export class Backend {
 
   /** The server side of a command: commit and persist. */
   private async serverExecute(actorId: string, cmd: CommandEnvelope): Promise<CommandResult> {
-    return this.withLock(async () => {
-      const r = this.engine.execute(actorId, cmd);
-      await this.save();
-      this.lastSync = new Date().toISOString();
-      return r;
-    });
+    try {
+      return await this.withLock(async () => {
+        if (!this.store) throw new Error('Local storage is unavailable');
+        // Execute against a private copy. Publish the new state only after the database transaction
+        // commits, so quota/IO failures cannot create an in-memory success or recoverable fake receipt.
+        const candidate = structuredClone(this.db);
+        const engine = new Engine(candidate);
+        const result = engine.execute(actorId, cmd);
+        await setMany([[DB_KEY, candidate], [META_KEY, this.meta]], this.store);
+        this.db = candidate;
+        this.engine = engine;
+        this.storageOk = true;
+        this.storageError = null;
+        this.lastSync = new Date().toISOString();
+        return result;
+      });
+    } catch (err) {
+      this.storageFailure(err);
+      return this.unsaved(cmd);
+    }
+  }
+
+  private unsaved(cmd: CommandEnvelope): CommandResult {
+    return { ok: false, command_id: cmd.command_id, kind: cmd.kind, code: 'TEMPORARY_FAILURE',
+      correlation_id: '-', message: 'Device storage failed. Nothing was saved. Free space or enable storage, then try again.' };
   }
 
   /**
@@ -230,7 +251,12 @@ export class Backend {
       return { status: 'offline', message: 'Offline: changes are unavailable until the connection returns.' };
     }
     this.pending = [...this.pending.filter((p) => p.command.command_id !== cmd.command_id), { actor_id: actorId, command: cmd, sent_at: new Date().toISOString() }];
-    await this.savePending();
+    try { await this.savePending(); }
+    catch {
+      this.pending = this.pending.filter(p => p.command.command_id !== cmd.command_id);
+      this.bump(false);
+      return { status: 'result', result: this.unsaved(cmd) };
+    }
     await sleep(this.faults.latencyMs);
     if (this.faults.failNextCommand) {
       this.faults.failNextCommand = false;
@@ -250,7 +276,8 @@ export class Backend {
 
   private async settle(commandId: string) {
     this.pending = this.pending.filter((p) => p.command.command_id !== commandId);
-    await this.savePending();
+    try { await this.savePending(); }
+    catch { /* The command receipt is durable; a stale pending entry replays it safely. */ }
     this.bump(false);
   }
 

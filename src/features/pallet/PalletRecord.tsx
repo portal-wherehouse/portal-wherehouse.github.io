@@ -38,7 +38,7 @@ const ACTION_ICON: Partial<Record<PalletCommandKind, IconName>> = {
 const PRIMARY: PalletCommandKind[] = ['place', 'move', 'verify_location', 'dispatch', 'return', 'locate'];
 
 export function PalletRecord() {
-  const { route, read, role, go, backend, toast, workspaceId, v } = useApp();
+  const { route, read, role, go, backend, toast, workspaceId, v, prefs } = useApp();
   const id = route.id ?? '';
   const detail = read((e, a, ws) => e.pallet(a, ws, id));
   const events = read((e, a, ws) => e.history(a, ws, id)) ?? [];
@@ -127,7 +127,7 @@ export function PalletRecord() {
         {p.label_needs_reprint && <span className="tag warn">Label needs reprinting</span>}
         {p.archived_at && <span className="tag">Archived</span>}
         <span className="faint" style={{ fontSize: 12.5 }}>
-          Version {p.version} · refreshed {fmtAgo(refreshedAt)}
+          {prefs.advancedTools && <>Version {p.version} · </>}Updated {fmtAgo(refreshedAt)}
         </span>
       </div>
       {offline && backend.cache && (
@@ -201,6 +201,7 @@ export function PalletRecord() {
             <dd title={p.received_at}>{fmtFull(p.received_at)}</dd>
             <dt>Last change</dt>
             <dd title={p.updated_at}>{fmtFull(p.updated_at)}</dd>
+            {prefs.advancedTools && <>
             <dt>Identity</dt>
             <dd>
               <span className="mono">{p.id}</span>
@@ -209,6 +210,7 @@ export function PalletRecord() {
             <dd>
               <span className="mono">PL1:P:{detail.label ? `${detail.label.token.slice(0, 4)}••••••••${detail.label.token.slice(-4)}` : 'none'}</span>
             </dd>
+            </>}
           </dl>
           {lineage && (lineage.parent || lineage.children.length > 0) && (
             <div className="stack" style={{ gap: 6 }}>
@@ -316,7 +318,7 @@ export function PalletRecord() {
         />
       </div>
 
-      {!offline && role !== 'VIEWER' && (
+      {prefs.advancedTools && !offline && role !== 'VIEWER' && (
         <button className="btn ghost small wrap" style={{ alignSelf: 'flex-start' }} onClick={() => void otherDevice()}>
           <Icon name="bolt" /> Demo: another phone changes this pallet now
         </button>

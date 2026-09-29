@@ -3095,3 +3095,8 @@ table.t td svg,
   height: 16px;
 }
 
+
+/* Keep management out of the everyday floor workflow. */
+.nav-group summary{padding:10px 12px;cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.nav-group details:not([open]) summary{border-bottom:1px solid var(--line)}
+.nav-group summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

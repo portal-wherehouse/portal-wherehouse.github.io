@@ -142,7 +142,7 @@ export function ReceiveScreen({
             <div>
               <dt>Status</dt>
               <dd>
-                <StateBadge state={pallet.state} /> <span className="tag">Version {pallet.version}</span>
+                <StateBadge state={pallet.state} />
               </dd>
             </div>
           </dl>
@@ -443,8 +443,6 @@ export function ConfirmScreen({
           </svg>
           <div className="tt-saved-title">
             Stored at <span className="tt-nowrap">{rack.code}</span>
-            <span className="tt-saved-dot"> · </span>
-            <span className="tt-saved-ver">version {saved.to}</span>
           </div>
           <div className="row" style={{ justifyContent: 'center' }}>
             <StateBadge state="STORED" />
@@ -673,7 +671,7 @@ export function HistoryScreen({ pallet, job, location, events }: { pallet: Palle
             <StateBadge state={pallet.state} />
             <div className="tt-record-desc">{pallet.description}</div>
             <div className="muted" style={{ fontSize: 13.5 }}>
-              <JobLine job={job} /> · version {pallet.version}
+              <JobLine job={job} />
             </div>
           </div>
         </div>

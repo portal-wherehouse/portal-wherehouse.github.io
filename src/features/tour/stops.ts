@@ -112,7 +112,7 @@ export const STOPS: TourStop[] = [
         : 'The tabs at the bottom are the daily work: Receive, Move and Find. More opens every other screen, in four groups: Floor, Warehouse, Manage, and Learn and tools.',
     tip: (v) =>
       v.sidebar
-        ? 'The number beside Reconcile counts items that need a look. The number beside Sync and offline counts changes still waiting on this device.'
+        ? 'The number beside Needs attention counts items that need a look. The number beside Sync and offline counts changes still waiting on this device.'
         : 'A red number on More means a queued change needs your decision in Sync and offline.',
   },
 
@@ -199,11 +199,11 @@ export const STOPS: TourStop[] = [
     id: 'reconcile',
     chapter: 'The warehouse',
     icon: 'reconcile',
-    title: 'Reconcile',
+    title: 'Needs attention',
     route: 'reconcile',
     target: ['[data-tour="reconcile-lists"]', '#main .tabs'],
     extend: ['[data-tour="reconcile-fix"]', '#main .notice'],
-    body: 'Reconcile keeps the records matching the floor. Five short lists catch what needs a person: needs placement, missing, on hold, labels to reprint, and not verified in 3 or more days. Each list explains the problem and has a button for the fix, and every fix is saved to the pallet’s history.',
+    body: 'Needs attention keeps the records matching the floor. Five short lists catch what needs a person: needs placement, missing, on hold, labels to reprint, and not verified in 3 or more days. Each list explains the problem and has a button for the fix, and every fix is saved to the pallet’s history.',
     tip: 'A quick pass at the start of each shift keeps these lists short.',
   },
   {

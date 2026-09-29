@@ -10,13 +10,13 @@ import './site.css';
  * The way into the app for existing customers: a small line ("Already a customer?") over the
  * "Open Wherehouse Portal" button. `variant` changes the size to suit where it sits.
  */
-export function PortalCTA({ variant = 'hero', note = `Already a ${BRAND.name} customer?` }: { variant?: 'hero' | 'nav' | 'band' | 'inline'; note?: ReactNode }) {
+export function PortalCTA({ variant = 'hero', note = 'No account or credit card needed' }: { variant?: 'hero' | 'nav' | 'band' | 'inline'; note?: ReactNode }) {
   const { go } = useApp();
   return (
     <div className={`portal-cta portal-cta-${variant}`}>
       {note && <span className="portal-cta-note">{note}</span>}
       <button className="portal-cta-btn" onClick={() => go('signin')} data-portal-cta>
-        <span>Open {BRAND.portal}</span>
+        <span>Try the demo</span>
         <Icon name="chevronRight" />
       </button>
     </div>
@@ -100,7 +100,7 @@ export function Placeholder({ label = 'Placeholder', children, minHeight }: { la
 }
 
 /** The closing band on most pages: a sales ask for new visitors and the portal button for customers. */
-export function CtaBand({ title = BRAND.tagline, body = 'See it with your own racks and your own labels. Book a walkthrough, or open the portal and try it now.' }: { title?: ReactNode; body?: ReactNode }) {
+export function CtaBand({ title = BRAND.tagline, body = 'Explore the sample warehouse today, or discuss a limited pilot using your own racks once shared accounts are ready.' }: { title?: ReactNode; body?: ReactNode }) {
   const { go } = useApp();
   return (
     <section className="site-section tone-ink cta-band">

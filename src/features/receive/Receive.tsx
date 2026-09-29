@@ -13,7 +13,7 @@ import { Explain, Field, Notice, PageHead, PermissionDenied, Spinner } from '../
 import { LabelSheet } from '../labels/LabelSheet';
 
 export function Receive() {
-  const { read, role, go, setLeaveGuard, toast, backend } = useApp();
+  const { read, role, go, setLeaveGuard, toast, backend, prefs } = useApp();
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
   const [jobId, setJobId] = useState('');
@@ -27,7 +27,8 @@ export function Receive() {
   const [touched, setTouched] = useState(false);
   const [created, setCreated] = useState<Pallet | null>(null);
   const [photoState, setPhotoState] = useState<'none' | 'uploading' | 'done' | 'failed'>('none');
-  const [labelOpen, setLabelOpen] = useState(false);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [sessionIds, setSessionIds] = useState<string[]>([]);
   const cmd = useCommand();
   const photoCmd = useCommand();
 
@@ -74,6 +75,7 @@ export function Receive() {
     if (r.phase === 'done' && r.accepted?.current_state) {
       const p = r.accepted.current_state;
       setCreated(p);
+      setSessionIds(ids => [...new Set([...ids, p.id])]);
       setLeaveGuard(null);
       if (photo) void uploadPhoto(p, photo);
     }
@@ -83,16 +85,16 @@ export function Receive() {
     const r = await cmd.recover();
     if (r.phase === 'done' && r.accepted?.current_state) {
       setCreated(r.accepted.current_state);
+      setSessionIds(ids => [...new Set([...ids, r.accepted!.current_state!.id])]);
       toast(`Recovered: ${r.accepted.current_state.code} was already saved. No duplicate was created.`, 'info');
       if (photo) void uploadPhoto(r.accepted.current_state, photo);
     }
   };
 
-  const another = () => {
+  const another = (sameContents = false) => {
     setCreated(null);
-    setDescription('');
+    if (!sameContents) { setDescription(''); setSupplier(''); }
     setNotes('');
-    setSupplier('');
     setPhoto(null);
     setPhotoState('none');
     setTouched(false);
@@ -132,7 +134,7 @@ export function Receive() {
             <strong>{live.description}</strong> for <span className="jcode">{job?.code}</span> {job?.name}
           </div>
           <div className="muted">
-            Version {live.version} · the server assigned this code. Printing or cancelling the label never creates another pallet.
+            This is a new pallet with its own code. Print and attach its label before placement.
             {cmd.state.accepted?.replayed && ' Recovered from the saved receipt.'}
           </div>
           {photo && (
@@ -172,12 +174,13 @@ export function Receive() {
             <button className="btn primary big" onClick={() => go({ name: 'move', id: live.id })}>
               <Icon name="move" /> Place now
             </button>
-            <button className="btn big" onClick={() => setLabelOpen(true)}>
+            <button className="btn big" onClick={() => setLabelIds([live.id])}>
               <Icon name="print" /> Print label
             </button>
           </div>
           <div className="row">
-            <button className="btn" onClick={another}>
+            <button className="btn primary" onClick={() => another(true)}>Receive another like this</button>
+            <button className="btn" onClick={() => another()}>
               <Icon name="plus" /> Receive another for {job?.code}
             </button>
             <button className="btn ghost" onClick={() => go({ name: 'pallet', id: live.id })}>
@@ -185,7 +188,9 @@ export function Receive() {
             </button>
           </div>
         </div>
-        {labelOpen && <LabelSheet palletIds={[live.id]} onClose={() => setLabelOpen(false)} />}
+        {sessionIds.length > 1 && <button className="btn" onClick={() => setLabelIds(sessionIds)}>Print all {sessionIds.length} labels from this receiving session</button>}
+        <p className="muted">“Receive another like this” keeps the job, description and supplier reference. Photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
+        {labelIds.length > 0 && <LabelSheet palletIds={labelIds} onClose={() => setLabelIds([])} />}
       </div>
     );
   }
@@ -263,7 +268,7 @@ export function Receive() {
         <Field label="Note (optional)" htmlFor="rcv-note" count={notes.length} max={1000}>
           <textarea id="rcv-note" className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1200} disabled={locked} placeholder="Damage, packaging, who delivered it…" />
         </Field>
-        {photo && (
+        {photo && prefs.advancedTools && (
           <label className="toggle" style={{ fontSize: 13.5 }}>
             <input type="checkbox" checked={failPhoto} onChange={(e) => setFailPhoto(e.target.checked)} />
             <span className="muted">Demo: make the photo upload fail, to see that the pallet stays saved</span>
@@ -277,7 +282,7 @@ export function Receive() {
           </button>
         )}
         <p className="faint" style={{ fontSize: 12.5 }}>
-          Required: job and description. The ID is assigned after saving.
+          Required: job and description. Each physical pallet gets a separate code after saving.
         </p>
       </form>
     </div>

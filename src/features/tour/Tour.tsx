@@ -34,7 +34,7 @@ interface Step {
 }
 
 export function Tour() {
-  const { tourOpen, setTourOpen, backend, actorId, workspaceId, role, route, go, v, guideStep } = useApp();
+  const { tourOpen, setTourOpen, backend, actorId, workspaceId, role, route, go, v, guideStep, prefs } = useApp();
   const [start, setStart] = useState<string>(() => readKey(START_KEY) ?? new Date().toISOString());
   const [found, setFound] = useState<boolean>(() => readKey(FOUND_KEY) === '1');
   const [min, setMin] = useState(() => typeof window !== 'undefined' && window.innerWidth < 700);
@@ -130,12 +130,15 @@ export function Tour() {
             <div className="stack" style={{ gap: 8 }}>
               <strong>Shift complete.</strong>
               <span className="muted" style={{ fontSize: 14 }}>
-                {code} went through its whole life and kept one identity. Every step added exactly one history entry and one version. Next, try the Integrity lab to watch the failure cases.
+                {code} was received, placed, moved, dispatched and returned with the same label. Its history shows the whole journey. A move only appears here when someone records it.
               </span>
               <div className="row">
-                <button className="btn small primary" onClick={() => go('lab')}>
-                  Open the lab
+                <button className="btn small primary" onClick={() => p && go({ name: 'pallet', id: p.id })}>
+                  Review pallet history
                 </button>
+                {prefs.advancedTools && <button className="btn small" onClick={() => go('lab')}>
+                  Open the lab
+                </button>}
                 <button className="btn small" onClick={restart}>
                   Start over
                 </button>

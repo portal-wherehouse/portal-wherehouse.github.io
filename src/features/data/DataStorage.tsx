@@ -158,7 +158,7 @@ function WhereNow() {
         </Notice>
       ) : (
         <Notice tone="warn" title="This browser is not saving anything">
-          Storage is blocked here ({backend.storageError}). Private browsing often does this. The demo keeps working in memory, but every change is lost when this tab closes, and offline
+          Storage is blocked here ({backend.storageError}). Private browsing often does this. New changes are blocked until storage is available, and offline
           queuing is turned off because a move can only be called queued once it is saved.
         </Notice>
       )}

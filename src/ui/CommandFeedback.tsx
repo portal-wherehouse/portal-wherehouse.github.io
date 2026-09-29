@@ -1,6 +1,7 @@
 // Shows what happened to a command in words: saved, rejected (and why), unknown, or offline.
 // A pending or failed write never looks like a confirmed warehouse update (page 3).
 
+import { useApp } from '../app/state';
 import type { CommandState } from './useCommand';
 import { Notice, Spinner } from './ui';
 
@@ -17,11 +18,12 @@ const CODE_HELP: Record<string, string> = {
 };
 
 export function CommandFeedback({ state, onRecover, onDiscard }: { state: CommandState; onRecover: () => void; onDiscard?: () => void }) {
+  const { prefs } = useApp();
   if (state.phase === 'sending') {
     return (
       <Notice tone="info" icon="sync" title="Sending…">
         <span className="row nowrap">
-          <Spinner /> Waiting for the server to confirm. Nothing is saved until it does.
+          <Spinner /> Saving this change. Wait for confirmation before continuing.
         </span>
       </Notice>
     );
@@ -44,8 +46,8 @@ export function CommandFeedback({ state, onRecover, onDiscard }: { state: Comman
           </>
         }
       >
-        {state.message} The request is saved on this device with ID <span className="mono">{state.commandId?.slice(0, 8)}</span>. Checking asks the server for its receipt, or resends the same request. It can never create a
-        second change.
+        {state.message} Choose “Check result” to recover the original request safely without creating a duplicate.
+        {prefs.advancedTools && <span className="mono"> Request {state.commandId?.slice(0, 8)}</span>}
       </Notice>
     );
   }
@@ -54,8 +56,8 @@ export function CommandFeedback({ state, onRecover, onDiscard }: { state: Comman
     return (
       <Notice tone={r.code === 'VERSION_CONFLICT' ? 'warn' : 'error'} title={`Not saved: ${r.message}`}>
         <span className="muted">
-          {CODE_HELP[r.code] ?? ''} <span className="mono">{r.code}</span>
-          {r.correlation_id && r.correlation_id !== '-' ? <span className="mono"> · ref {r.correlation_id}</span> : null}
+          {CODE_HELP[r.code] ?? ''} {prefs.advancedTools && <span className="mono">{r.code}</span>}
+          {prefs.advancedTools && r.correlation_id && r.correlation_id !== '-' ? <span className="mono"> · ref {r.correlation_id}</span> : null}
         </span>
         {r.errors && r.errors.length > 0 && (
           <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>

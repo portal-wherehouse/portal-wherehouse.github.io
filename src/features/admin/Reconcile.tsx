@@ -46,7 +46,7 @@ export function Reconcile() {
 
   return (
     <div className="stack">
-      <PageHead title="Reconcile" sub={total === 0 ? 'Everything matches. Nothing needs attention.' : `${total} items across ${LISTS.filter((l) => data[l.id].length).length} lists. Oldest first.`} />
+      <PageHead title="Needs attention" sub={total === 0 ? 'Everything matches. Nothing needs attention.' : `${total} items across ${LISTS.filter((l) => data[l.id].length).length} lists. Oldest first.`} />
       <Explain refs="pages 6, 15">
         <p>These lists are how records stay honest. The app never guesses where a pallet is: it shows the last confirmed rack and when. Each list links to the one workflow that fixes it, and every fix is recorded in the pallet's history.</p>
       </Explain>

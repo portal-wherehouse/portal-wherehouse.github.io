@@ -11,7 +11,7 @@ const PORTAL: [hash: string, h1: string][] = [
   ['find', 'Find materials'],
   ['map', 'Warehouse map'],
   ['activity', 'Activity'],
-  ['reconcile', 'Reconcile'],
+  ['reconcile', 'Needs attention'],
   ['jobs', 'Jobs'],
   ['locations', 'Locations'],
   ['labels', 'Labels'],
@@ -42,6 +42,7 @@ test('every portal page opens from its link, with its heading and no errors', as
   test.setTimeout(120_000);
   const errors = watchErrors(page);
   await signInAs(page, 'owner');
+  await page.addInitScript(() => { try { localStorage.setItem('pl.prefs', JSON.stringify({ advancedTools: true })); } catch { /* about:blank has no storage */ } });
   for (const [hash, title] of PORTAL) {
     await open(page, hash);
     await expect(page.locator('#main h1'), `#${hash}`).toHaveText(title);

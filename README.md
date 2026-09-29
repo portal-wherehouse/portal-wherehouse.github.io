@@ -11,21 +11,31 @@ Created by **John Henry Mims**.
 
 The app started from the *Pallet Locator Complete Build Blueprint, Draft 0.1* (42 pages). Code comments cite blueprint pages as `page N`. The product was renamed Wherehouse in version 0.2 (see [decisions](docs/decisions.md), D-13); the name lives in one place, `src/brand.ts`.
 
+## September 29 product revision
+
+- The public menu now has five destinations. Legacy showcase and simplicity links open the maintained Product page.
+- Floor operators see Receive, Move, Find, Scan station, Help and Settings. Manager tools are grouped in collapsed sections. Viewers have read-only navigation. Command permissions remain enforced separately.
+- Developer fault controls and technical identifiers require **Settings → Show advanced demo tools and technical details**.
+- **Receive another like this** keeps job, description and supplier reference, clears pallet-specific photos/notes, and lets you print the labels from the current receiving session together.
+- A command is acknowledged only after its database write commits. Failed storage writes do not publish candidate state or a false receipt.
+- Proposed launch pricing is **$99 per warehouse per month for up to 10 users**. An agreed 30-day live pilot would be free, only after the backend is ready. This is a proposal, not an available subscription.
+- See [the simulated pilot review](docs/pilot-review.md) for evidence and limitations. Real multi-device accounts/storage still require a Firebase project and implementation; they are not connected by this revision.
+
 ## Two halves: the website and the portal
 
 The app opens on a public **website**. The **Wherehouse Portal** is the working tool, one button away.
 
 | Website page | What it covers |
 | --- | --- |
-| **Home** | A bold hello, a guided tour that plays right on the page (receive, label, scan, move, find, count), and a short teaser for every other page. "Already a customer? Open Wherehouse Portal" sits in the first screen and the header. |
+| **Home** | An outcome-focused headline, a guided tour that plays right on the page (receive, label, scan, move, find, count), and a short teaser for every other page. "Try the demo" sits in the first screen and the header. |
 | **Product** | What Wherehouse is: the three verbs (receive, move, find), labels, history, roles and the pallet lifecycle. |
 | **See it in action** | Everything it can do, screen by screen, drawn as mock-ups of the portal. |
 | **Why it's simple** | The decisions that keep it easy to use on a busy floor. |
 | **Scanners** | Which hardware works (keyboard-wedge USB and Bluetooth scanners, phone cameras, serial scanners in Chrome) and how labels are built for each. |
 | **Applications** | Who it is for and what they use it for. |
-| **Customers** | Placeholder slots for customer stories. No customers are invented. |
-| **Pricing** | Four plans with placeholder prices, marked as placeholders. |
-| **About** | A placeholder portrait and bio for John, plus contact links. Nothing about him is guessed. |
+| **Pilot program** | Pilot fit, a fictional warehouse walkthrough, and a real-world measurement plan. No customers are invented. |
+| **Pricing** | Free browser demo and a proposed $99/warehouse/month launch plan for up to 10 users. No checkout or automatic enrollment. |
+| **About** | The product purpose, creator attribution and contact links. Nothing about him is guessed. |
 | **Contact** | A contact form and direct email. |
 | **Security and data** | How data is protected today and in the Firebase plan, and a plain statement that the product has not been audited or certified. |
 
@@ -44,7 +54,7 @@ The app opens on a public **website**. The **Wherehouse Portal** is the working 
 | **Overview** | Pallets on hand by state, what needs attention, 14 days of activity, the busiest racks and job progress. |
 | **Warehouse map** | Zones, aisles and bays read from location codes, with one box per recorded pallet. Held pallets are striped. |
 | **Activity** | Everything that happened, grouped by day, filtered by kind of action and by person. |
-| **Reconcile** | Work queues for unplaced, missing, held, needs-reprint and not-verified-lately pallets, each with its fix. |
+| **Needs attention** | Work queues for unplaced, missing, held, needs-reprint and not-verified-lately pallets, each with its fix. |
 | **Jobs** | Create, close and reopen jobs. Job detail includes a printable pick list sorted by rack. |
 | **Locations** | Create, rename, deactivate and reactivate racks and areas. Rack labels are printable. |
 | **Labels** | Print 4x6 labels or letter sheets for reprints, new receipts, a whole job, a pick list or racks. Each label has the code in large type, a QR code and a Code 128 barcode of the printed code. |
@@ -54,11 +64,11 @@ The app opens on a public **website**. The **Wherehouse Portal** is the working 
 | **Sync** | A network lab where you go offline, lose responses, fail commands, add latency, resolve conflicts and recover unknown results. |
 | **Integrity lab** | Runs the blueprint's 38 test scenarios live in your browser, with evidence for each result. |
 | **Help** | A tutorial video spot (placeholder, with a chapter-by-chapter description of what it will cover), 16 step-by-step tutorials, a searchable FAQ and a contact form for help. |
-| **Take the tour** | The button at the top right walks through every page of the portal with a tip for each. |
+| **Take the tour** | With advanced tools enabled, walks through every page of the portal. The default top-bar button opens the short practice shift instead. |
 | **Practice shift** | The blueprint's example shift from page 6, checked off as you actually do each step (start it from the Guide or Settings). |
 | **Guide and Settings** | Big ideas, roles, glossary, and what is real versus simulated; theme, text size, start screen, explanations, haptics, and demo data reset or a busy warehouse. |
 
-Every screen has a "How this works" panel that explains what it does.
+Optional "How this works" panels can be enabled in Settings. They start hidden to keep daily work focused.
 
 ## Run it
 
@@ -86,7 +96,7 @@ The camera, printing, downloads and serial scanners need the full app over https
 
 ## Host it on GitHub Pages
 
-The repository includes `.github/workflows/pages.yml`, which tests, builds and publishes the app on every push to `main`.
+The repository includes `.github/workflows/pages.yml`, which runs unit and browser tests, builds and publishes the app on every push to `main`.
 
 1. Push this folder to a GitHub repository (the `main` branch).
 2. In the repository, open **Settings > Pages** and set **Source** to **GitHub Actions**.

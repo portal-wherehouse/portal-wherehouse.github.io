@@ -305,7 +305,7 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
     settle(() => {
       setPallet(next);
       setSaved({ at: r.accepted_at, from: current.version, to: next.version });
-      setAnnounce(`Saved. ${next.code} stored at ${rack.code}, version ${next.version}.`);
+      setAnnounce(`Saved. ${next.code} stored at ${rack.code}.`);
     });
   };
 
@@ -346,15 +346,15 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
     case 0:
       turn = pallet ? `Done. ${pallet.code} is on record. Next, its label.` : 'Pick a job, check what is on the pallet, then tap Receive it.';
       behind = pallet
-        ? `One event recorded: Received. ${pallet.code} starts at version 1 with its own label.`
-        : 'Nothing is saved until you tap Receive it. Then the pallet gets its code, version 1, and the first line of its history.';
+        ? `${pallet.code} now has its own label and a receiving entry in its history.`
+        : 'Tap Receive it to save the pallet, give it a unique code, and start its history.';
       blocked = pallet ? null : 'Receive the delivery to continue.';
       break;
     case 1:
       turn = 'Tap the numbers on the label to see what each part is for.';
       behind = token
-        ? `The QR code holds only a random token (${token.slice(0, 4)}…), never the job or contents. Change the details later and it still scans; the app flags the printed text for a reprint.`
-        : 'The QR code holds only a random token, never the job or contents.';
+        ? 'The QR code always opens this pallet. If its job or description changes, the app reminds you to reprint the label.'
+        : 'Each pallet gets its own label, even when the contents are identical.';
       break;
     case 2:
       turn = saved
@@ -373,8 +373,8 @@ function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => v
     case 3:
       turn = saved ? 'Saved. Next, find it again.' : 'Check the move, then tap Confirm.';
       behind = saved
-        ? `One event recorded. Version ${saved.from} to ${saved.to}.`
-        : `Confirm sends one change that expects version ${pallet?.version ?? 1}. If someone changed ${pallet?.code ?? 'the pallet'} first, you get a clear warning, not a silent overwrite.`;
+        ? 'The new rack and the movement are recorded in the pallet’s history.'
+        : 'Check the pallet and destination before saving. The record will show who confirmed this location and when.';
       blocked = saved ? null : 'Confirm the move to continue.';
       break;
     case 4:

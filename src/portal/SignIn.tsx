@@ -22,39 +22,7 @@ interface Choice {
   second?: string;
 }
 
-function prefersReducedMotion() {
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
-  }
-}
-
-export function SignIn() {
-  const [ready, setReady] = useState(false);
-  const wait = useMemo(() => (prefersReducedMotion() ? 250 : 900), []);
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), wait);
-    return () => clearTimeout(t);
-  }, [wait]);
-  return ready ? <FrontDoor /> : <Redirecting ms={wait} />;
-}
-
-/** The brief full-screen moment between the website and the portal. */
-function Redirecting({ ms }: { ms: number }) {
-  return (
-    <div className="door-redirect" role="status" aria-live="polite">
-      <div className="door-redirect-inner">
-        <BrandMark className="door-redirect-mark" />
-        <p className="door-redirect-text">Taking you to the {BRAND.portal}…</p>
-        <div className="door-redirect-bar" aria-hidden="true">
-          <span style={{ animationDuration: `${ms}ms` }} />
-        </div>
-      </div>
-      <div className="door-stripe" aria-hidden="true" />
-    </div>
-  );
-}
+export function SignIn() { return <FrontDoor />; }
 
 function FrontDoor() {
   const { backend, v, route, go, signIn, actorId, workspaceId, role } = useApp();
@@ -77,7 +45,7 @@ function FrontDoor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backend, v]);
 
-  const [picked, setPicked] = useState<string>(() => choices.find((c) => c.role === 'OWNER' && !c.second)?.key ?? choices[0]?.key ?? '');
+  const [picked, setPicked] = useState<string>(() => choices.find((c) => c.role === 'OPERATOR' && !c.second)?.key ?? choices[0]?.key ?? '');
   const mainChoices = choices.filter((c) => !c.second);
   const secondChoices = choices.filter((c) => c.second);
   const mainName = mainChoices[0] ? backend.db.workspaces[mainChoices[0].workspaceId]?.name : null;
@@ -167,7 +135,7 @@ function FrontDoor() {
               </span>
               <h2 id="door-test-h">Sign-in is off while we test</h2>
               <p>
-                Pick a role to see what it can do{mainName ? ` at ${mainName}, the sample company` : ''}. These are shared demo accounts. Switch roles any time from the top bar.
+                Pick a role to see what it can do{mainName ? ` at ${mainName}, the sample company` : ''}. These are simulated roles, not real accounts. Switch roles any time from the top bar.
               </p>
             </div>
 
@@ -196,35 +164,7 @@ function FrontDoor() {
             </form>
           </section>
 
-          <section className="door-card door-signin" aria-labelledby="door-signin-h">
-            <div className="door-signin-head">
-              <h2 id="door-signin-h">Sign in</h2>
-              <span className="tag">Coming soon</span>
-            </div>
-            <div className="door-signin-form" aria-describedby="door-signin-note">
-              <label className="door-field">
-                <span>Work email</span>
-                <input className="input" type="email" placeholder="you@company.com" autoComplete="off" disabled />
-              </label>
-              <label className="door-field">
-                <span>Password</span>
-                <input className="input" type="password" placeholder="••••••••" autoComplete="off" disabled />
-              </label>
-              <button className="btn block" disabled>
-                Sign in
-              </button>
-              <div className="door-or">
-                <span>or</span>
-              </div>
-              <button className="btn block" disabled>
-                Continue with Google
-              </button>
-            </div>
-            <p className="door-note" id="door-signin-note">
-              <Icon name="info" />
-              <span>Sign-in turns on when accounts are connected. Until then, choose a role above.</span>
-            </p>
-          </section>
+          <p className="door-note">This is a local demo. Real accounts and shared records are not connected yet.</p>
 
           <nav className="door-links" aria-label="Leave the portal">
             <button className="door-back" onClick={() => go('home')}>
@@ -234,7 +174,7 @@ function FrontDoor() {
             <span className="door-new">
               New to {BRAND.name}?{' '}
               <button className="door-link" onClick={() => go('pricing')}>
-                See plans
+                See pricing
               </button>
             </span>
           </nav>

@@ -1,17 +1,16 @@
-// Website home: a bold hello, the guided tour right on the page, then one short, scannable
-// teaser for each of the other website pages.
+// Website home: the warehouse problem, a working demo, and a focused pilot offer.
 
 import { useEffect, useState } from 'react';
-import { BRAND, CREATOR } from '../brand';
 import { useApp, type SiteRouteName } from '../app/state';
 import { qrSvg } from '../device/output';
 import { Icon, type IconName } from '../ui/icons';
 import { Plate, StateBadge } from '../ui/ui';
-import { CtaBand, FeatureCards, Placeholder, PortalCTA, Section, SiteLink } from './kit';
+import { CtaBand, FeatureCards, PortalCTA, Section, SiteLink } from './kit';
 import { TryIt } from './TryIt';
 import './home.css';
+import './pilot.css';
 import { encodeCode128 } from '../device/code128';
-import { PLACEHOLDER_MONTHLY } from './prices';
+import { PRICING } from './prices';
 
 export function Home() {
   return (
@@ -23,13 +22,9 @@ export function Home() {
       </Section>
 
       <Verbs />
-      <Scanners />
-      <Capabilities />
-      <Simple />
       <Applications />
       <Customers />
       <Pricing />
-      <Founder />
 
       <CtaBand title="See it in your own yard." />
     </>
@@ -71,27 +66,25 @@ function Hero() {
         <div className="home-hero-text">
           <p className="site-eyebrow">Pallet tracking for construction warehouses</p>
           <h1 className="home-hello">
-            <span className="home-hello-word">
-              Hello<span className="home-dot">.</span>
-            </span>
-            <span className="home-hello-sub">Welcome to {BRAND.name}.</span>
+            <span className="home-hello-sub">Find the right pallet.</span>
+            <span className="home-hello-sub">Get the job moving<span className="home-dot">.</span></span>
           </h1>
           <p className="site-lede home-pitch">
-            <strong>{BRAND.tagline}</strong> Every pallet gets a QR label. Your crew scans it when it arrives and again when it moves, so anyone can find it by job, code, rack or description.
+            Track material from receiving to dispatch, organized by job. Scan a pallet and its rack, then find its last confirmed location without walking every aisle.
           </p>
           <div className="site-hero-actions home-actions">
             <button className="site-btn primary" onClick={scrollToTour}>
               <Icon name="play" />
               Take the guided tour
             </button>
-            <button className="site-btn ghost" onClick={() => go('showcase')}>
-              See what it can do
+            <button className="site-btn ghost" onClick={() => go('product')}>
+              How it works
               <Icon name="arrowRight" />
             </button>
           </div>
           <div className="home-portal">
             <PortalCTA variant="hero" />
-            <p className="home-portal-note">Sign-in is off while we test, so you can walk right in and look around.</p>
+            <p className="home-portal-note">Try a sample warehouse. This demo does not sync between devices.</p>
           </div>
         </div>
         <HeroArt />
@@ -295,107 +288,6 @@ function Verbs() {
   );
 }
 
-// ------------------------------------------------------------------ scanners
-
-const SCANNERS: { icon: IconName; title: string; body: string }[] = [
-  { icon: 'usb', title: 'USB scanners', body: 'Plug into a computer or scan station. In keyboard mode, each scan types straight in.' },
-  { icon: 'bluetooth', title: 'Bluetooth scanners', body: 'Pair with a phone, tablet or laptop. Same keyboard mode, no cable.' },
-  { icon: 'scanner', title: 'Rugged handhelds', body: 'Handhelds with a built-in scanner can usually send scans as typed text too.' },
-  { icon: 'camera', title: 'Phone camera', body: 'No scanner yet? The phone camera reads the QR label.' },
-  { icon: 'keyboard', title: 'Typed codes', body: 'Label torn? Type the code printed under the QR. Short forms like p42 work.' },
-];
-
-function Scanners() {
-  return (
-    <Section
-      tone="ink"
-      eyebrow="Scanners"
-      title="Works with the scanners you already own"
-      lede="Nobody should type pallet codes all day. Most USB and Bluetooth scanners can be set to act as a keyboard, often called HID or keyboard-wedge mode. Wherehouse listens for that, so each scan lands on the screen you are using."
-    >
-      <div className="home-wedge" aria-hidden="true">
-        <span className="home-wedge-cap">Keyboard mode</span>
-        <span className="home-wedge-step">
-          <Icon name="scanner" /> Scan
-        </span>
-        <span className="home-wedge-arrow" />
-        <span className="home-wedge-type">
-          P-000042<span className="home-wedge-key">Enter</span>
-        </span>
-        <span className="home-wedge-arrow" />
-        <span className="home-wedge-step">
-          <Icon name="checkCircle" /> Pallet found
-        </span>
-      </div>
-      <ul className="home-scan-grid">
-        {SCANNERS.map((s) => (
-          <li key={s.title} className="home-scan-item">
-            <span className="home-scan-icon">
-              <Icon name={s.icon} />
-            </span>
-            <div className="home-scan-text">
-              <h3>{s.title}</h3>
-              <p>{s.body}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <More to="hardware" tone="primary">
-        See scanner setup
-      </More>
-    </Section>
-  );
-}
-
-// ------------------------------------------------------------------ see it in action
-
-function Capabilities() {
-  return (
-    <Section eyebrow="See it in action" title="What it does every day" lede="A few of the things Wherehouse handles. The showcase walks through each one, screen by screen.">
-      <FeatureCards
-        columns={3}
-        items={[
-          { icon: 'receive', title: 'Receive against the job', body: 'Every pallet is tied to a job from the moment it arrives, so nothing sits in the yard as “misc.”' },
-          { icon: 'move', title: 'Two-scan moves', body: 'Pallet, then rack, then confirm. You see both codes before anything is saved.' },
-          { icon: 'find', title: 'Find in seconds', body: 'Search by job, code, rack or description. Results say where each pallet was last confirmed, and when.' },
-          { icon: 'labels', title: 'Labels for pallets and racks', body: 'Print 4x6 pallet labels or full sheets, plus rack labels. The code is printed large with the QR beside it.' },
-          { icon: 'history', title: 'History on every pallet', body: 'Every receipt, move, hold and dispatch is recorded with who and when. Corrections add an entry; nothing is erased.' },
-          { icon: 'wifiOff', title: 'Keeps going on bad signal', body: 'Moves and location checks wait on the device and send when the connection comes back.' },
-        ]}
-      />
-      <More to="showcase">See it in action</More>
-    </Section>
-  );
-}
-
-// ------------------------------------------------------------------ why it's simple
-
-const SIMPLE: { title: string; body: string }[] = [
-  { title: 'Three verbs, not thirty menus', body: 'Receive, Move and Find cover the daily work. Everything else stays out of the way.' },
-  { title: 'Scan, don’t type', body: 'Labels and scanners do the typing. When you do type, short codes work.' },
-  { title: 'Honest about location', body: 'It shows where a pallet was last confirmed, and when. Never a guess dressed up as a fact.' },
-  { title: 'Nothing gets erased', body: 'Fix a mistake with a reason. The history keeps both, so you can always see what happened.' },
-];
-
-function Simple() {
-  return (
-    <Section tone="hazard" eyebrow="Why it’s simple" title="Simple on purpose" lede="A crew should learn it in one shift. These are the rules that keep it that way.">
-      <ol className="home-simple">
-        {SIMPLE.map((s, i) => (
-          <li key={s.title}>
-            <span className="home-simple-n">{String(i + 1).padStart(2, '0')}</span>
-            <h3>{s.title}</h3>
-            <p>{s.body}</p>
-          </li>
-        ))}
-      </ol>
-      <More to="simple" tone="primary">
-        Read why it’s simple
-      </More>
-    </Section>
-  );
-}
-
 // ------------------------------------------------------------------ applications
 
 function Applications() {
@@ -415,97 +307,26 @@ function Applications() {
   );
 }
 
-// ------------------------------------------------------------------ customers (placeholders)
-
+// Pilot and pricing: no invented customers or testimonials.
 function Customers() {
-  return (
-    <Section tone="surface" eyebrow="Customers" title="Customer stories are on the way" lede="Wherehouse is new, so there are no customer stories yet. The ones that go here will be real, shared with permission.">
-      <ul className="home-logos" aria-label="Customer logo placeholders">
-        {Array.from({ length: 6 }, (_, i) => (
-          <li key={i}>
-            <Placeholder label="Customer logo" minHeight={92} />
-          </li>
-        ))}
-      </ul>
-      <div className="home-early">
-        <span className="home-early-tag">Early customer program</span>
-        <p>Want to run {BRAND.name} in your own yard early and help shape what it becomes? Ask about early access.</p>
-        <SiteLink to="customers" className="site-btn ghost">
-          Learn about early access
-          <Icon name="arrowRight" />
-        </SiteLink>
-      </div>
-    </Section>
-  );
+  return <Section tone="surface" eyebrow="Pilot program" title="Start with one rack, one crew, one job."
+    lede="We are looking for a warehouse that stages construction material by job. First, try the sample workflow. Then help test it against a real shift.">
+    <FeatureCards items={[
+      { icon: 'receive', title: 'Watch one delivery', body: 'Identify where labels, job references and pallet movements are recorded today.' },
+      { icon: 'find', title: 'Measure the difference', body: 'Compare retrieval time, missed scans and recorded locations with physical checks.' },
+      { icon: 'checklist', title: 'Decide with evidence', body: 'Review search time and location accuracy together before deciding whether to continue.' },
+    ]} />
+    <More to="customers">Explore the pilot program</More>
+  </Section>;
 }
-
-// ------------------------------------------------------------------ pricing (placeholders)
-
-/** The three priced plans, in short. The Pricing page has the full detail and Enterprise. */
-const PLANS: { id: keyof typeof PLACEHOLDER_MONTHLY; name: string; fit: string; points: string[] }[] = [
-  { id: 'starter', name: 'Starter', fit: 'One yard getting its first racks labeled.', points: ['Receive, Move and Find', 'Pallet and rack labels', 'Works with your scanners'] },
-  { id: 'team', name: 'Team', fit: 'A busy yard with a crew on every shift.', points: ['Everything in Starter', 'Owner, supervisor, operator and viewer roles', 'Reconcile: a list of what needs a look'] },
-  { id: 'company', name: 'Company', fit: 'Larger operations, or more than one company under one login.', points: ['Everything in Team', 'More than one company per account', 'Priority help'] },
-];
-
 function Pricing() {
-  return (
-    <Section eyebrow="Pricing" title="Plans for every size of yard" lede="Three plans for most yards, and Enterprise for big operations. Plan names, prices and details are placeholders until early testing wraps up.">
-      <ul className="home-plans">
-        {PLANS.map((p) => (
-          <li key={p.name} className="home-plan">
-            <h3>{p.name}</h3>
-            <p className="home-plan-fit">{p.fit}</p>
-            <Placeholder label="Price placeholder">
-              <span className="home-plan-amount">${PLACEHOLDER_MONTHLY[p.id]}</span> <span className="home-plan-per">per month</span>
-            </Placeholder>
-            <ul className="home-plan-points">
-              {p.points.map((pt) => (
-                <li key={pt}>
-                  <Icon name="check" />
-                  {pt}
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-      <More to="pricing">See pricing</More>
-    </Section>
-  );
-}
-
-// ------------------------------------------------------------------ founder
-
-function Founder() {
-  return (
-    <Section tone="surface">
-      <div className="home-founder">
-        <Placeholder label="Photo">
-          <div className="home-founder-ph">
-            <Icon name="user" />
-            <span>Photo of {CREATOR.name} coming soon</span>
-          </div>
-        </Placeholder>
-        <div className="home-founder-text">
-          <div className="site-eyebrow">About</div>
-          <h2 className="site-h2">Built by {CREATOR.name}</h2>
-          <p className="site-lede">
-            {BRAND.name} is designed and built by {CREATOR.name}. The About page has more, and you can reach him directly with questions or ideas for your yard.
-          </p>
-          <div className="site-hero-actions">
-            <SiteLink to="founder" className="site-btn primary">
-              Read the About page
-              <Icon name="arrowRight" />
-            </SiteLink>
-            <a className="site-btn ghost" href={CREATOR.linkedin} target="_blank" rel="noopener noreferrer">
-              <Icon name="linkedin" />
-              LinkedIn
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </Section>
-  );
+  return <Section eyebrow="Simple pricing" title="One warehouse. One proposed plan."
+    lede="Try the browser demo for free. Shared warehouse accounts are still in development; there is nothing to buy today.">
+    <div className="home-early">
+      <div><span className="home-early-tag">Proposed launch price</span>
+      <p><strong className="pilot-price">${PRICING.monthly}</strong> / warehouse / month · up to {PRICING.users} users</p>
+      <p>A {PRICING.pilotDays}-day free pilot can be agreed once shared accounts are ready. No automatic paid enrollment.</p></div>
+      <SiteLink to="pricing" className="site-btn primary">See pricing and pilot terms<Icon name="arrowRight" /></SiteLink>
+    </div>
+  </Section>;
 }

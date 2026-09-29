@@ -1,6 +1,6 @@
 // Move: two scans and a confirmation (blueprint page 12).
 
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { makeLabelPayload, uuid } from '../../domain/codes';
 import { roleAllows } from '../../domain/transitions';
 import type { Location, Pallet } from '../../domain/types';
@@ -23,8 +23,9 @@ export function Move() {
   const [s, dispatch] = useReducer(moveReducer, initialMove);
   const [otherBusy, setOtherBusy] = useState(false);
 
-  // Preselect a pallet when arriving from its record ("Place" / "Move" actions).
-  useEffect(() => {
+  // Set the pallet before the scan input becomes interactive. A passive effect can replace
+  // the first input after a quick typed/hardware scan and silently lose the destination.
+  useLayoutEffect(() => {
     if (route.id && actorId && workspaceId) {
       try {
         const d = backend.reader.pallet(actorId, workspaceId, route.id);
@@ -36,7 +37,7 @@ export function Move() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.id]);
+  }, [route.id, actorId, workspaceId]);
 
   const e = backend.reader;
   const locations = useMemo(() => (workspaceId ? Object.values(e.db.locations).filter((l) => l.workspace_id === workspaceId) : []), [e, workspaceId, app.v]);
@@ -192,7 +193,7 @@ export function Move() {
       <PageHead
         eyebrow={offline ? 'Warehouse · offline' : 'Warehouse'}
         title="Move pallet"
-        sub="Scan the pallet, scan where it is going, confirm. The record changes only when the server confirms."
+        sub="Scan the pallet, scan where it is going, confirm. Review the destination before saving."
         actions={
           s.stage !== 'EXPECT_PALLET' && (
             <button className="btn" onClick={() => dispatch({ type: 'RESET' })}>
@@ -305,7 +306,7 @@ export function Move() {
                   {s.intent === 'verify_location' ? `Confirmed at ${s.destination?.code}` : s.intent === 'place' ? `Placed at ${s.destination?.code}` : `Moved to ${s.destination?.code}`}
                 </div>
                 <div className="muted">
-                  {s.pallet.code} · {s.pallet.description} · version {s.result.new_version} · {fmtTime(s.result.accepted_at)}
+                  {s.pallet.code} · {s.pallet.description}{prefs.advancedTools && <> · version {s.result.new_version}</>} · {fmtTime(s.result.accepted_at)}
                   {s.result.replayed && ' · recovered from the saved receipt'}
                 </div>
                 <div className="row">
@@ -437,7 +438,7 @@ function Review({
   offline: boolean;
   confirmByRescan: boolean;
 }) {
-  const { read } = useApp();
+  const { read, prefs } = useApp();
   const p = s.pallet!;
   const job = read((e) => e.db.jobs[p.job_id]);
   const verb = INTENT_VERB[s.intent!];
@@ -464,7 +465,7 @@ function Review({
           <span className="pcode">{p.code}</span> · <strong>{p.description}</strong>
         </div>
         <div className="muted">
-          Job <span className="jcode">{job?.code}</span> {job?.name} · version {p.version}
+          Job <span className="jcode">{job?.code}</span> {job?.name}{prefs.advancedTools && <> · version {p.version}</>}
         </div>
         {p.hold && (
           <div style={{ marginTop: 8 }}>
@@ -496,7 +497,7 @@ function Review({
           Using a scanner? {confirmByRescan ? `Scan ${s.destination!.code} again or scan Confirm to save.` : 'Scan Confirm to save.'}
         </p>
       )}
-      {!offline && s.stage === 'REVIEW' && (
+      {prefs.advancedTools && !offline && s.stage === 'REVIEW' && (
         <button className="btn ghost small wrap" style={{ alignSelf: 'flex-start' }} onClick={onOther} disabled={otherBusy}>
           <Icon name="bolt" /> Demo: another phone moves this pallet before you confirm
         </button>

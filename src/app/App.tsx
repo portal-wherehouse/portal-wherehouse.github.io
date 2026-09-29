@@ -6,7 +6,7 @@ import { BRAND } from '../brand';
 import { isSiteRoute, useApp, type RouteName, type SiteRouteName } from './state';
 import { IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
-import { Avatar, Empty, ROLE_DESC, ROLE_LABEL, ROLE_SHORT, Sheet, Toasts, fmtTime } from '../ui/ui';
+import { Avatar, Empty, Notice, ROLE_DESC, ROLE_LABEL, ROLE_SHORT, Sheet, Toasts, fmtTime } from '../ui/ui';
 import { About } from '../features/about/About';
 import { Activity } from '../features/activity/Activity';
 import { Export } from '../features/admin/Export';
@@ -20,7 +20,7 @@ import { Guide } from '../features/guide/Guide';
 import { Lab } from '../features/lab/Lab';
 import { LabelStudio } from '../features/labels/LabelStudio';
 import { WarehouseMap } from '../features/map/WarehouseMap';
-import { More, NAV_GROUPS } from '../features/more/More';
+import { More, visibleNavGroups } from '../features/more/More';
 import { Move } from '../features/move/Move';
 import { Overview } from '../features/overview/Overview';
 import { PalletRecord } from '../features/pallet/PalletRecord';
@@ -38,8 +38,6 @@ import { SignIn } from '../portal/SignIn';
 import { SiteShell } from '../site/SiteShell';
 import { Home } from '../site/Home';
 import { ProductPage } from '../site/pages/Product';
-import { ShowcasePage } from '../site/pages/Showcase';
-import { SimplePage } from '../site/pages/Simple';
 import { HardwarePage } from '../site/pages/Hardware';
 import { IndustriesPage } from '../site/pages/Industries';
 import { CustomersPage } from '../site/pages/Customers';
@@ -51,8 +49,8 @@ import { SecurityPage } from '../site/pages/Security';
 const SITE_PAGES: Record<SiteRouteName, () => React.ReactNode> = {
   home: Home,
   product: ProductPage,
-  showcase: ShowcasePage,
-  simple: SimplePage,
+  showcase: ProductPage,
+  simple: ProductPage,
   hardware: HardwarePage,
   industries: IndustriesPage,
   customers: CustomersPage,
@@ -192,7 +190,7 @@ function Portal() {
                 <Icon name="locations" /> {ctx.warehouse.code}
               </span>
             )}
-            <button
+            {app.prefs.advancedTools || offline || pending > 0 ? <button
               className={`chip net-chip ${offline ? 'offline' : ''}`}
               onClick={() => go('sync')}
               title={offline ? `Offline. Showing what this device cached at ${fmtTime(backend.cache?.at)}` : 'Online'}
@@ -201,12 +199,12 @@ function Portal() {
               {offline ? <Icon name="wifiOff" /> : <span className="dot" />}
               <span className="net-label">{offline ? 'Offline' : 'Online'}</span>
               {pending > 0 && <span className="tag warn" style={{ marginLeft: 2 }}>{pending}</span>}
-            </button>
+            </button> : <span className="chip static" title="Sample records are saved in this browser only">Local demo</span>}
           </>
         )}
-        <button className="chip tour-chip" onClick={() => app.startGuide(0)} data-tour="take-tour" aria-label="Take the tour">
+        <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>
           <Icon name="tour" />
-          <span className="tour-chip-label">Take the tour</span>
+          <span className="tour-chip-label">{app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}</span>
         </button>
         {me && (
           <button className="chip acct-chip" onClick={() => setAccount(true)} aria-label={`Account: ${role ? `${ROLE_LABEL[role]}, ` : ''}${me.name}`} data-tour="account">
@@ -237,9 +235,10 @@ function Portal() {
       <div className={signedIn ? 'body' : 'body no-side'}>
         {signedIn && (
           <nav className="sidebar" aria-label="Main">
-            {NAV_GROUPS.map((g) => (
+            {visibleNavGroups(role, app.prefs.advancedTools).map((g) => (
               <div key={g.title} className="nav-group">
-                <h4>{g.title}</h4>
+                <details open={g.title === 'Floor' || g.title === 'Support'}>
+                <summary>{g.title}</summary>
                 {g.items.map((i) => {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
                   const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
@@ -251,18 +250,20 @@ function Portal() {
                     </button>
                   );
                 })}
+                </details>
               </div>
             ))}
           </nav>
         )}
         <main className="main" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
+          {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
           {removed ? <RemovedAccess /> : <Screen key={`${route.name}:${route.id ?? ''}`} />}
         </main>
       </div>
 
       {signedIn && (
         <nav className="bottom-nav" aria-label="Main">
-          {TABS.map((t) => (
+          {TABS.filter(t => role !== 'VIEWER' || t.route === 'find' || t.route === 'more').map((t) => (
             <button key={t.route} aria-current={tabFor(route.name) === t.route ? 'page' : undefined} onClick={() => go(t.route)} data-tour={`tab-${t.route}`}>
               <Icon name={t.icon} />
               {t.label}

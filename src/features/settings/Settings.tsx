@@ -8,7 +8,7 @@ import { Icon } from '../../ui/icons';
 import { Explain, Notice, PageHead, Sheet, Spinner } from '../../ui/ui';
 
 export function Settings() {
-  const { prefs, setPrefs, backend, toast, setTourOpen, setAccountsOpen } = useApp();
+  const { prefs, setPrefs, backend, toast, setTourOpen, setAccountsOpen, go, role, startGuide } = useApp();
   const [confirm, setConfirm] = useState<FixtureName | null>(null);
   const [busy, setBusy] = useState(false);
   const counts = {
@@ -69,6 +69,17 @@ export function Settings() {
       </div>
 
       <div className="panel stack">
+        <div className="panel-title">Tools</div>
+        <div className="row">
+          <button className="btn" onClick={() => go('scanners')}>Scanner setup</button>
+          {(role === 'OWNER' || role === 'SUPERVISOR') && <button className="btn" onClick={() => go('data')}>Data and storage</button>}
+        </div>
+        <label className="toggle"><input type="checkbox" checked={prefs.advancedTools} onChange={e => setPrefs({ advancedTools: e.target.checked })} /><span>Show advanced demo tools and technical details</span></label>
+        <p className="muted">For testing only: simulate conflicts, network failures and offline recovery. These controls are hidden from the everyday workflow.</p>
+        {prefs.advancedTools && <div className="row"><button className="btn" onClick={() => go('sync')}>Sync and offline</button><button className="btn" onClick={() => go('lab')}>Integrity lab</button><button className="btn" onClick={() => startGuide(0)}>Full portal walkthrough</button></div>}
+      </div>
+
+      <div className="panel stack">
         <div className="panel-title">Demo data</div>
         <p style={{ margin: 0 }}>
           This browser holds {counts.pallets} pallets, {counts.events} history entries and {counts.workspaces} {counts.workspaces === 1 ? 'company' : 'companies'} ({backend.meta.fixture === 'scenario' ? 'busy warehouse' : 'small warehouse'}).
@@ -91,7 +102,7 @@ export function Settings() {
         <div className="panel-title">This device</div>
         <dl className="kv">
           <dt>Storage</dt>
-          <dd>{backend.storageOk ? `Saved in this browser (about ${formatBytes(backend.approxSize())})` : `Not available: ${backend.storageError}. Changes last until you close the tab.`}</dd>
+          <dd>{backend.storageOk ? `Saved in this browser (about ${formatBytes(backend.approxSize())})` : `Not available: ${backend.storageError}. New changes are blocked until storage is available.`}</dd>
           <dt>Connection</dt>
           <dd>{backend.network === 'online' ? 'Online (simulated)' : 'Offline (simulated)'}</dd>
           <dt>Build</dt>

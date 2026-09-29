@@ -324,7 +324,7 @@ export function ContactPage() {
                   </p>
                   <button type="submit" className="site-btn primary ct-submit-btn">
                     <Icon name="send" />
-                    Book a walkthrough
+                    Prepare walkthrough email
                   </button>
                 </div>
               </form>
@@ -362,9 +362,9 @@ export function ContactPage() {
             <div className="ct-card ct-card-ink tone-ink">
               <h2 className="ct-card-h">
                 <Icon name="key" />
-                Existing customers
+                Explore the sample warehouse
               </h2>
-              <PortalCTA variant="hero" note={`Already a ${BRAND.name} customer?`} />
+              <PortalCTA variant="hero" note="No account needed" />
               <HelpPointer />
             </div>
           </aside>

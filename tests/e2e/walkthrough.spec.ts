@@ -4,11 +4,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { nav, portalReady, signInAs, typeCode, watchErrors } from './helpers';
 
-/** The real way in: website home, "Open Wherehouse Portal", the front door, then a role. */
+/** The real way in: website home, "Try the demo", the front door, then a role. */
 async function enterPortalAs(page: Page, role: 'Owner' | 'Supervisor' | 'Operator' | 'Viewer') {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: /Hello/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Open Wherehouse Portal' }).first().click();
+  await expect(page.getByRole('heading', { level: 1, name: /Find the right pallet/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Try the demo' }).first().click();
   await expect(page).toHaveURL(/#signin$/);
   await expect(page.getByRole('heading', { name: 'Welcome to the portal.' })).toBeVisible();
   // The role cards are labels around a visually hidden radio: click the card like a person would.
@@ -80,10 +80,11 @@ test('example shift through the practice shift: receive, place, move, find, disp
   await expect(page.locator('.tl-item')).toHaveCount(6);
   await expect(shift.getByRole('heading', { name: 'Practice shift · 7/7' })).toBeVisible();
 
-  // Expanded, the finished checklist says so and offers the lab.
+  // The finished checklist leads back to the pallet, without exposing developer tools.
   await shift.getByRole('button', { name: 'Expand practice shift' }).click();
   await expect(shift.getByText('Shift complete.')).toBeVisible();
-  await expect(shift.getByRole('button', { name: 'Open the lab' })).toBeVisible();
+  await expect(shift.getByRole('button', { name: 'Review pallet history' })).toBeVisible();
+  await expect(shift.getByRole('button', { name: 'Open the lab' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -130,12 +131,13 @@ test('integrity lab: every blueprint scenario passes in the browser', async ({ p
 test('the Demo Viewer role cannot change anything', async ({ page }) => {
   await enterPortalAs(page, 'Viewer');
   await expect(page.getByRole('button', { name: /^Account: .*Demo Viewer$/ })).toBeVisible();
-  await nav(page, 'Receive');
+  await expect(page.locator('.sidebar').getByRole('button', {name:'Receive',exact:true})).toHaveCount(0);
+  await page.goto('/#receive');
   await expect(page.getByText('Receiving pallets needs Operator access')).toBeVisible();
-  await nav(page, 'Move');
+  await page.goto('/#move');
   await expect(page.getByText('Moving pallets needs Operator access')).toBeVisible();
   // The Scan station leaves only Look up open.
-  await nav(page, 'Scan station');
+  await page.goto('/#station');
   await expect(page.getByText('Look up only for Viewer accounts')).toBeVisible();
   await expect(page.getByRole('group', { name: 'Station mode' }).getByRole('button', { name: /Move/ })).toBeDisabled();
 });

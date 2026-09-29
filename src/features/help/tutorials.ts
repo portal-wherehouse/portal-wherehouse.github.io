@@ -67,7 +67,7 @@ export const TUTORIALS: Tutorial[] = [
       'Press **Preview**, then print at 100 percent (actual size). The calibration square must measure exactly 1 inch.',
       'Use 4 x 6 inch thermal labels, or letter paper at six labels per page.',
       'Stick the label flat on a side that faces the aisle, so it can be scanned without moving the pallet.',
-      'After a reprint, open **Reconcile**, then **Labels to reprint**, and press **New label is on** once the new one is stuck on. This step needs an Operator account or higher.',
+      'After a reprint, open **Needs attention**, then **Labels to reprint**, and press **New label is on** once the new one is stuck on. This step needs an Operator account or higher.',
     ],
     tip: 'The hosted preview cannot open a print dialog, so run the full app to print. The big printed code under the QR code is the fallback when a label gets damaged.',
     target: { route: 'labels' },
@@ -207,12 +207,12 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       'Open the damaged pallet and press **Put on hold**. Say what is wrong, for example: forklift damage, corner crushed.',
       'Move it somewhere safe, such as QUARANTINE-01, with **Move** as usual. A hold allows moves.',
-      'While it is on hold it cannot be dispatched or split, and it is listed in **Reconcile** under **On hold**.',
+      'While it is on hold it cannot be dispatched or split, and it is listed in **Needs attention** under **On hold**.',
       'A supervisor inspects it and presses **Clear hold** with what resolved it. The reason stays in the history.',
     ],
     tip: 'Operators can put a pallet on hold. Only Supervisors and Owners can clear one.',
     target: { route: 'reconcile' },
-    where: 'Reconcile',
+    where: 'Needs attention',
     chapter: 'holds',
   },
   {
@@ -226,13 +226,13 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       'Look around the recorded rack and the racks beside it first.',
       'Open the pallet and press **Mark missing**, with a reason such as: not at B-01-02 during the count.',
-      'Its rack is cleared, the last confirmed rack is kept as history, and it is listed in **Reconcile** under **Missing**.',
+      'Its rack is cleared, the last confirmed rack is kept as history, and it is listed in **Needs attention** under **Missing**.',
       'When it turns up, a supervisor opens it, presses **Found pallet**, chooses the location where it is, and says how it was found.',
       'It is Stored there again, and the whole story is in its history.',
     ],
     tip: 'Moving a missing pallet is blocked on purpose. If an operator finds one, tell a supervisor, who records it as found.',
     target: { route: 'reconcile' },
-    where: 'Reconcile',
+    where: 'Needs attention',
     chapter: 'holds',
   },
   {
@@ -244,7 +244,7 @@ export const TUTORIALS: Tutorial[] = [
     minutes: 4,
     role: 'OPERATOR',
     steps: [
-      'Open **Reconcile**, then **Not verified in 3+ days**, to see which pallets to check first.',
+      'Open **Needs attention**, then **Not verified in 3+ days**, to see which pallets to check first.',
       'Open **Scan station** and choose **Count**, or scan the Count command barcode.',
       'Scan a rack, then every pallet on it.',
       'Press **Finish and compare**, or scan the **Finish** command barcode, to compare what you scanned with what is recorded there.',

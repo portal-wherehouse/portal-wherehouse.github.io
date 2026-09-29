@@ -1,5 +1,6 @@
 // Pallet history, newest first: event type, actor, accepted time, before and after, reason (page 13).
 
+import { useApp } from '../../app/state';
 import { EVENT_LABEL } from '../../domain/transitions';
 import type { PalletEvent, PalletSnapshot, User } from '../../domain/types';
 import { Icon, type IconName } from '../../ui/icons';
@@ -80,6 +81,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
 }
 
 export function History({ events, users, onCorrect }: { events: PalletEvent[]; users: Record<string, User>; onCorrect?: (e: PalletEvent) => void }) {
+  const { prefs } = useApp();
   return (
     <div className="timeline">
       {events.map((e) => (
@@ -90,7 +92,7 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
           <div>
             <div className="tl-head">
               <span className="tl-title">{EVENT_LABEL[e.type] ?? e.type}</span>
-              <span className="tag">v{e.revision}</span>
+              {prefs.advancedTools && <span className="tag">v{e.revision}</span>}
               <span className="muted" style={{ fontSize: 13.5 }} title={`${fmtFull(e.accepted_at)} · stored as ${e.accepted_at} (UTC)`}>
                 {fmtTime(e.accepted_at)} · {users[e.actor_id]?.name ?? 'Unknown person'}
               </span>
@@ -117,7 +119,7 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
             {e.detail.corrects_event_id && <div className="tl-change muted">Corrects an earlier entry. The original stays in the history.</div>}
             {e.reason && <div className="tl-reason">{e.reason}</div>}
             <div className="faint" style={{ fontSize: 11.5, marginTop: 4 }}>
-              <span className="mono">cmd {e.command_id.slice(0, 8)}</span>
+              {prefs.advancedTools && <span className="mono">cmd {e.command_id.slice(0, 8)}</span>}
               {onCorrect && e.type !== 'correct' && (
                 <>
                   {' · '}
