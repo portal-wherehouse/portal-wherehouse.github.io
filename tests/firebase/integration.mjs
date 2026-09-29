@@ -18,7 +18,7 @@ async function client(label,verified=true){
  const app=initializeApp({apiKey:'demo-key',projectId:'demo-wherehouse',authDomain:'demo-wherehouse.firebaseapp.com',storageBucket:'demo-wherehouse.appspot.com'},label);apps.push(app);
  const auth=getAuth(app);connectAuthEmulator(auth,'http://127.0.0.1:9099',{disableWarnings:true});await signInWithEmailAndPassword(auth,user.email,password);
  const db=getFirestore(app);connectFirestoreEmulator(db,'127.0.0.1',8080);
- const fn=getFunctions(app);connectFunctionsEmulator(fn,'127.0.0.1',5001);
+ const fn=getFunctions(app,'us-east1');connectFunctionsEmulator(fn,'127.0.0.1',5001);
  const storage=getStorage(app);connectStorageEmulator(storage,'127.0.0.1',9199);
  return {user,auth,db,storage,call:async(name,data)=>(await httpsCallable(fn,name)(data)).data};
 }

@@ -19,7 +19,7 @@ async function client(i){
  const user=await adminAuth().createUser({email:`load-${suffix}-${i}@example.com`,password,emailVerified:true});
  const app=initializeApp({apiKey:'demo-key',projectId:'demo-wherehouse',authDomain:'demo-wherehouse.firebaseapp.com',storageBucket:'demo-wherehouse.appspot.com'},'load-'+i);apps.push(app);
  const auth=getAuth(app);connectAuthEmulator(auth,'http://127.0.0.1:9099',{disableWarnings:true});await signInWithEmailAndPassword(auth,user.email,password);
- const store=getFirestore(app);connectFirestoreEmulator(store,'127.0.0.1',8080);const fn=getFunctions(app);connectFunctionsEmulator(fn,'127.0.0.1',5001);const storage=getStorage(app);connectStorageEmulator(storage,'127.0.0.1',9199);storage.maxUploadRetryTime=20000;storage.maxOperationRetryTime=20000;
+ const store=getFirestore(app);connectFirestoreEmulator(store,'127.0.0.1',8080);const fn=getFunctions(app,'us-east1');connectFunctionsEmulator(fn,'127.0.0.1',5001);const storage=getStorage(app);connectStorageEmulator(storage,'127.0.0.1',9199);storage.maxUploadRetryTime=20000;storage.maxOperationRetryTime=20000;
  return{user,auth,store,storage,call:async(name,data)=>(await httpsCallable(fn,name,{timeout:40000})(data)).data};
 }
 async function download(user,path){

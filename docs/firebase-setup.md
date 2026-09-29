@@ -17,8 +17,8 @@ Use a project you control. You do not need to share a password, service-account 
 ## 2. Turn on the three services
 
 - **Authentication → Sign-in method:** enable Email/Password. Keep email link sign-in off. In Authentication settings, add `portal-wherehouse.github.io` to Authorized domains. Add `localhost` only if you want local development. Configure the verification and password-reset email sender names. Set the password policy to at least eight characters.
-- **Firestore Database:** create the **(default), Standard edition** database in production mode. Choose `us-central1` to match the functions in this repository. Do not use Realtime Database or MongoDB compatibility.
-- **Storage:** create the default bucket in production mode, using the same region where available. Keep the bucket name that Firebase supplies.
+- **Firestore Database:** create the **(default), Standard edition** database in production mode. Choose `us-east1` to match the functions in this repository. Do not use Realtime Database or MongoDB compatibility.
+- **Storage:** create the default bucket in production mode, using the same region where available. Keep the bucket name that Firebase supplies. The current deployment target is `us-east1` (South Carolina) for Firestore, functions and the photo bucket. The existing cost report uses a `us-central1` pricing assumption; recheck regional rates before live activation.
 
 Verification is required before anyone can create or enter a warehouse. Managers authorize employee and manager emails in the Manager dashboard, before or after registration. Each person verifies their own email. The app does not send team invitation emails.
 
@@ -71,7 +71,7 @@ npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions -
 Choose the project created in step 1. The deploy command builds and uploads nine functions: `createWarehouse`, `command`, `authorizeEmail`, `joinAuthorizedWarehouses`, `cancelAuthorization`, `reservePhotoUpload`, `getWarehouseSummary`, `getDirectoryCounts` and the scheduled `cleanupPhotoUploads`, the database rules and the photo rules. Only accept Google's API/billing prompts once you intend to activate this project. The daily cleanup creates one Cloud Scheduler job. After deployment, configure artifact cleanup explicitly:
 
 ```bash
-npx firebase functions:artifacts:setpolicy --project YOUR_PROJECT_ID --location us-central1 --days 7
+npx firebase functions:artifacts:setpolicy --project YOUR_PROJECT_ID --location us-east1 --days 7
 ```
 
 Check Artifact Registry → `gcf-artifacts` → Cleanup policies shows an active deletion policy, not only a dry run. Function images can share layers, so actual stored bytes depend on builds. Keep source in GitHub for rebuilding; old-image cleanup is not data backup.

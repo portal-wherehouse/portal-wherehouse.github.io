@@ -49,7 +49,7 @@ export class FirebaseBackend extends Backend {
     const app=initializeApp(config);
     const appCheckKey=import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY;
     let appCheck:ReturnType<typeof initializeAppCheck>|null=null;
-    b.auth=getAuth(app); b.firestore=getFirestore(app); b.functions=getFunctions(app,'us-central1'); b.storage=getStorage(app);
+    b.auth=getAuth(app); b.firestore=getFirestore(app); b.functions=getFunctions(app,'us-east1'); b.storage=getStorage(app);
     if(import.meta.env.DEV && import.meta.env.VITE_FIREBASE_EMULATORS==='true') {
       connectAuthEmulator(b.auth,'http://127.0.0.1:9099',{disableWarnings:true});
       connectFirestoreEmulator(b.firestore,'127.0.0.1',8080);

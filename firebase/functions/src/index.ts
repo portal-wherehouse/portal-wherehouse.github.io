@@ -13,7 +13,7 @@ import type { CommandEnvelope, User } from '../../../src/domain/types';
 
 initializeApp();
 const firestore = getFirestore();
-const options = { region: 'us-central1', minInstances: 0, maxInstances: 3, concurrency: 20, timeoutSeconds: 30, memory: '256MiB' as const, enforceAppCheck: process.env.GCLOUD_PROJECT !== 'demo-wherehouse' && process.env.ENFORCE_APP_CHECK !== 'false' };
+const options = { region: 'us-east1', minInstances: 0, maxInstances: 3, concurrency: 20, timeoutSeconds: 30, memory: '256MiB' as const, enforceAppCheck: process.env.GCLOUD_PROJECT !== 'demo-wherehouse' && process.env.ENFORCE_APP_CHECK !== 'false' };
 const clean = (x: unknown) => JSON.parse(JSON.stringify(x));
 const emailHash = (email:string) => createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
 const keyHash = (key:string) => createHash('sha256').update(key.trim()).digest('hex');
@@ -212,7 +212,7 @@ export const cancelAuthorization = onCall(options,async request=>{
 });
 
 export const reservePhotoUpload=onCall(options,reservePhoto);
-export const cleanupPhotoUploads=onSchedule({schedule:'every 24 hours',region:'us-central1',minInstances:0,maxInstances:1,memory:'256MiB',timeoutSeconds:120,retryCount:0},async()=>{await sweepAbandonedPhotos();});
+export const cleanupPhotoUploads=onSchedule({schedule:'every 24 hours',region:'us-east1',minInstances:0,maxInstances:1,memory:'256MiB',timeoutSeconds:120,retryCount:0},async()=>{await sweepAbandonedPhotos();});
 
 export const getWarehouseSummary=onCall(options,warehouseSummary);
 
