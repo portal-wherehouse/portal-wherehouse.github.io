@@ -5,7 +5,7 @@ import { PRESETS, pluralize, type SetupPreset } from './terms';
 import type { WarehouseSetup } from './types';
 
 export type Count = 'under100' | 'to1000' | 'to10000' | 'over10000';
-export type Place = 'racks' | 'shelves' | 'floor' | 'yard' | 'long';
+export type Place = keyof typeof PLACES;
 export type People = 'solo' | 'small' | 'medium' | 'large';
 export type Group = 'none' | 'customer' | 'order' | 'project' | 'event' | 'other';
 export type PrinterModel = 'thermal4' | 'thermal2' | 'office' | 'brotherWide' | 'brother' | 'dymoXL' | 'dymo' | 'handheld' | 'other';
@@ -72,7 +72,45 @@ export const PRINTERS: { id: PrinterModel; title: string; examples: string; verd
   { id: 'other', title: 'Something else', examples: 'Not sure of the model', verdict: 'maybe', body: 'Probably. Anything that prints a 4×6 label or a letter page from a computer works. We will check your model with you.' },
 ];
 
-export const PLACE_NAME: Record<Place, string> = { racks: 'Pallet racks', shelves: 'Shelves and bins', floor: 'Floor space', yard: 'Outside yard', long: 'Long-goods racks' };
+/** Every kind of storage place the survey knows. kind decides how the setup wizard builds its spots. */
+export const PLACES = {
+  racks: { name: 'Pallet racks', sub: 'Heavy-duty warehouse racking', kind: 'RACK', tip: 'Build each rack with aisles, bays and levels. Codes like A-01-03-2 are made for you.' },
+  shelves: { name: 'Shelves and bins', sub: 'Shelving units with bins or boxes', kind: 'RACK', tip: 'Build each shelf unit as a rack, with one level per shelf.' },
+  cabinets: { name: 'Cabinets or drawers', sub: 'Parts cabinets and drawer units', kind: 'RACK', tip: 'Make each cabinet a rack, with one level per drawer or shelf.' },
+  tires: { name: 'Tire racks', sub: 'Stacked tire storage', kind: 'RACK', tip: 'Build tire racks like shelves: bays across, levels up.' },
+  long: { name: 'Long-goods racks', sub: 'Cantilever racks for lumber, pipe or steel', kind: 'RACK', tip: 'Make one spot per rack arm or bay.' },
+  wall: { name: 'Wall hooks or pegboard', sub: 'Tools, hoses and hanging parts', kind: 'RACK', tip: 'Make a spot for each wall section.' },
+  hanging: { name: 'Hanging rails', sub: 'Clothing, costumes or cords', kind: 'RACK', tip: 'Make a spot for each rail or section of rail.' },
+  rooms: { name: 'Storage rooms or closets', sub: 'Back rooms and closets', kind: 'FLOOR', tip: 'Make a spot for each room or closet, or build its shelves as a rack.' },
+  cages: { name: 'Cages or lockers', sub: 'Locked storage', kind: 'FLOOR', tip: 'Make a spot for each cage or locker.' },
+  floor: { name: 'Floor space', sub: 'Marked areas or lanes', kind: 'FLOOR', tip: 'Make a spot for each lane or marked area.' },
+  mezzanine: { name: 'Mezzanine or loft', sub: 'Upper-level storage', kind: 'FLOOR', tip: 'Make a spot for each section of the loft.' },
+  yard: { name: 'Outside yard or lot', sub: 'Outdoor rows', kind: 'FLOOR', tip: 'Make a spot for each row or area.' },
+  sheds: { name: 'Sheds or outbuildings', sub: 'Barns, sheds, pole buildings', kind: 'FLOOR', tip: 'Make each shed a zone, with a spot per wall or corner.' },
+  containers: { name: 'Shipping containers', sub: 'Conex boxes on site', kind: 'FLOOR', tip: 'Make each container a spot, or split long ones into front, middle and back.' },
+  trailers: { name: 'Trailers', sub: 'Parked storage trailers', kind: 'FLOOR', tip: 'Make each trailer a spot.' },
+  vehicles: { name: 'Trucks or vans', sub: 'Stock carried on service vehicles', kind: 'FLOOR', tip: 'Make each truck or van a spot, so you know what is on board.' },
+  cold: { name: 'Walk-in cooler or freezer', sub: 'Cold storage', kind: 'FLOOR', tip: 'Make each cooler a zone, with a spot per shelf.' },
+  basement: { name: 'Basement, attic or garage', sub: 'Extra space around the building', kind: 'FLOOR', tip: 'Make a spot for each area.' },
+  offsite: { name: 'Off-site storage unit', sub: 'Rented units elsewhere', kind: 'FLOOR', tip: 'Make each unit its own zone.' },
+  carts: { name: 'Carts or rolling racks', sub: 'Storage that moves around', kind: 'FLOOR', tip: 'Give each cart its own spot label.' },
+} as const satisfies Record<string, { name: string; sub: string; kind: 'RACK' | 'FLOOR'; tip: string }>;
+
+export const PLACE_NAME = Object.fromEntries(Object.entries(PLACES).map(([k, v]) => [k, v.name])) as Record<Place, string>;
+export const PLACE_SUB = Object.fromEntries(Object.entries(PLACES).map(([k, v]) => [k, v.sub])) as Record<Place, string>;
+/** The places that fit each kind of storage are shown first; the rest sit behind "Show more". */
+export const PLACE_ORDER: Record<string, Place[]> = {
+  pallets: ['racks', 'floor', 'yard', 'long', 'mezzanine', 'trailers'],
+  items: ['floor', 'racks', 'rooms', 'yard', 'containers', 'mezzanine'],
+  shelves: ['shelves', 'cabinets', 'rooms', 'cages', 'wall', 'tires'],
+  long: ['long', 'yard', 'racks', 'floor', 'sheds'],
+  equipment: ['rooms', 'shelves', 'cages', 'floor', 'sheds', 'trailers', 'vehicles'],
+  custom: ['shelves', 'racks', 'cabinets', 'rooms', 'cages', 'floor', 'yard', 'long', 'sheds', 'containers', 'vehicles', 'wall'],
+};
+export function placesFor(store: SetupPreset | null): { main: Place[]; more: Place[] } {
+  const main = PLACE_ORDER[store ?? 'custom'] ?? PLACE_ORDER.custom;
+  return { main, more: (Object.keys(PLACES) as Place[]).filter((p) => !main.includes(p)) };
+}
 const ZONE_WORDS: Record<ZoneCount, string> = { one: 'one area', few: '2 to 5 areas', several: '6 to 20 areas', many: 'more than 20 areas' };
 const ZONE_N: Record<ZoneCount, number> = { one: 1, few: 3, several: 6, many: 6 };
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
@@ -104,8 +142,8 @@ export function recommend(a: SurveyAnswers): Recommendation {
   const thermal = !!model?.wide;
   const labels = [
     thermal ? `${things}: 4×6 thermal labels.` : `${things}: full-page labels on plain paper, or 4×6 labels if you get a thermal printer.`,
-    a.places.includes('shelves') || preset === 'shelves' ? 'Shelves and bins: small Avery 5160 labels, 30 per page.' : thermal ? 'Racks and spots: 4×6 labels, or Avery 5160 sheets for tight shelf edges.' : 'Racks and spots: one label per spot, or Avery 5160 sheets for shelf edges.',
-    ...(a.places.includes('yard') ? ['Outside: weatherproof labels or labels in a plastic sleeve.'] : []),
+    a.places.some((p) => p === 'shelves' || p === 'cabinets') || preset === 'shelves' ? 'Shelves and bins: small Avery 5160 labels, 30 per page.' : thermal ? 'Racks and spots: 4×6 labels, or Avery 5160 sheets for tight shelf edges.' : 'Racks and spots: one label per spot, or Avery 5160 sheets for shelf edges.',
+    ...(a.places.some((p) => p === 'yard' || p === 'sheds' || p === 'containers' || p === 'cold') ? ['Outside or cold spots: weatherproof labels, or labels in a plastic sleeve.'] : []),
   ];
 
   const scanner =
@@ -116,13 +154,6 @@ export function recommend(a: SurveyAnswers): Recommendation {
         : { title: 'Your phone is enough', body: 'Scan with the phone camera. No special hardware needed. Add a 2D Bluetooth scanner later if you want.' };
 
   const places: Place[] = a.places.length ? a.places : ['racks'];
-  const SPOT: Record<Place, string> = {
-    racks: 'Build each rack with Build a rack: aisles, bays and levels. Codes like A-01-03-2 are made for you.',
-    shelves: 'Build each shelf unit as a rack, with one level per shelf.',
-    floor: 'Make a spot for each lane or marked area.',
-    yard: 'Make a spot for each row or area.',
-    long: 'Make one spot per rack arm or bay.',
-  };
   // Hand out zone letters in order, so the plan reads like a real layout: racks A to C, shelves D, and so on.
   let next = 0;
   const spots = places.map((p) => {
@@ -132,7 +163,7 @@ export function recommend(a: SurveyAnswers): Recommendation {
     const to = LETTERS[Math.min(next + n - 1, LETTERS.length - 1)];
     next += n;
     const zones = n === 1 ? `zone ${from}` : count === 'many' ? `zones ${from}, ${LETTERS[Math.min(next - n + 1, LETTERS.length - 1)]} and on` : `zones ${from} to ${to}`;
-    return `${PLACE_NAME[p]} (${ZONE_WORDS[count]}): ${zones}. ${SPOT[p]}`;
+    return `${PLACE_NAME[p]} (${ZONE_WORDS[count]}): ${zones}. ${PLACES[p].tip}`;
   });
   if (a.perSpot === 'one') spots.push(`One ${thing.toLowerCase()} per spot: each gets its own label, and Find shows its exact spot.`);
   if (a.perSpot === 'many' || a.perSpot === 'mix') spots.push('Shared spots: label the box, bin or pallet once and list what is in it. Search finds anything inside.');

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp } from '../../app/state';
 import { useSite } from '../../site/routing';
 import { uuid } from '../../domain/codes';
-import { BLANK_ANSWERS, PLACE_NAME, PRINTERS, recommend, saveSurvey, type Place, type Recommendation, type SurveyAnswers, type ZoneCount } from '../../domain/survey';
+import { BLANK_ANSWERS, PLACE_NAME, PLACE_SUB, placesFor, PRINTERS, recommend, saveSurvey, type Place, type Recommendation, type SurveyAnswers, type ZoneCount } from '../../domain/survey';
 import { PRESETS } from '../../domain/terms';
 import { cleanZip, recommendPlan } from '../../domain/plans';
 import { TRIAL_DAYS } from '../../domain/license';
@@ -14,10 +14,32 @@ import { Icon, type IconName } from '../../ui/icons';
 import './survey.css';
 
 type Opt = { id: string; title: string; sub?: string; icon: IconName };
-type Step = { id: keyof SurveyAnswers; q: string; why: string; hint?: string; kind: 'one' | 'many' | 'text' | 'zones'; options?: Opt[]; placeholder?: string; show?: (a: SurveyAnswers) => boolean; site?: boolean; numeric?: boolean; valid?: (v: string) => boolean };
+type Step = { id: keyof SurveyAnswers; q: string; why: string; hint?: string; kind: 'one' | 'many' | 'text' | 'zones'; options?: Opt[]; optionsFor?: (a: SurveyAnswers) => Opt[]; moreFor?: (a: SurveyAnswers) => Opt[]; placeholder?: string; show?: (a: SurveyAnswers) => boolean; site?: boolean; numeric?: boolean; valid?: (v: string) => boolean };
 
 const STORE_ICON: Record<string, IconName> = { pallets: 'pallet', items: 'box', shelves: 'grid', long: 'layers', equipment: 'hardhat', custom: 'sparkle' };
-const PLACE_ICON: Record<Place, IconName> = { racks: 'layers', shelves: 'grid', floor: 'map', yard: 'truck', long: 'list' };
+const PLACE_ICON: Record<Place, IconName> = {
+  racks: 'layers',
+  shelves: 'grid',
+  cabinets: 'archive',
+  tires: 'target',
+  long: 'list',
+  wall: 'settings',
+  hanging: 'link',
+  rooms: 'building',
+  cages: 'lock',
+  floor: 'map',
+  mezzanine: 'stack',
+  yard: 'truck',
+  sheds: 'building',
+  containers: 'box',
+  trailers: 'truck',
+  vehicles: 'truck',
+  cold: 'sparkle',
+  basement: 'building',
+  offsite: 'pin',
+  carts: 'move',
+};
+const placeOpt = (p: Place): Opt => ({ id: p, title: PLACE_NAME[p], sub: PLACE_SUB[p], icon: PLACE_ICON[p] });
 const PRINTER_ICON: Record<string, IconName> = { handheld: 'labels', other: 'question', office: 'print' };
 const ZONE_OPTS: { id: ZoneCount; title: string }[] = [
   { id: 'one', title: '1' },
@@ -28,7 +50,7 @@ const ZONE_OPTS: { id: ZoneCount; title: string }[] = [
 
 const STEPS: Step[] = [
   { id: 'store', q: 'What are you storing?', why: 'This sets the words the app uses and turns on only the features you need.', hint: 'Pick the closest. You can change it later.', kind: 'one', options: PRESETS.map((p) => ({ id: p.id, title: p.title, sub: p.examples, icon: STORE_ICON[p.id] })) },
-  { id: 'word', q: 'What do you call one of them?', why: 'The app will use your word on every screen and label.', kind: 'text', placeholder: 'Unit, tote, crate, kit…', show: (a) => a.store === 'custom' },
+  { id: 'word', q: 'What do you call one of the things you store?', why: 'The app uses this word on every button, screen and label. A moving company might say “crate”, a school “kit”, a parts shop “bin”. If you pick “Tote”, the app says “Receive a tote” and “Find a tote”.', hint: 'One word, like Unit, Tote, Crate or Kit.', kind: 'text', placeholder: 'Unit, tote, crate, kit…', show: (a) => a.store === 'custom' },
   {
     id: 'count',
     q: 'About how many do you have on hand?',
@@ -41,7 +63,7 @@ const STEPS: Step[] = [
       { id: 'over10000', title: 'More than 10,000', icon: 'building' },
     ],
   },
-  { id: 'places', q: 'Where are you storing things?', why: 'We need to know this to create your storage zones.', hint: 'Pick all that fit.', kind: 'many', options: (Object.keys(PLACE_NAME) as Place[]).map((p) => ({ id: p, title: PLACE_NAME[p], icon: PLACE_ICON[p] })) },
+  { id: 'places', q: 'Where are you storing things?', why: 'We need to know this to create your storage zones.', hint: 'Pick all that fit.', kind: 'many', optionsFor: (a) => placesFor(a.store).main.map(placeOpt), moreFor: (a) => placesFor(a.store).more.map(placeOpt) },
   { id: 'zones', q: 'How many areas of each?', why: 'Each area becomes its own storage zone with a letter, like A or B, so people know which part of the building to walk to.', hint: 'A guess is fine.', kind: 'zones', show: (a) => a.places.length > 0 },
   {
     id: 'perSpot',
@@ -81,7 +103,7 @@ const STEPS: Step[] = [
       { id: 'other', title: 'Something else', icon: 'sparkle' },
     ],
   },
-  { id: 'groupWord', q: 'What do you call one of those?', why: 'The app will use your word for these groups.', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.group === 'other' },
+  { id: 'groupWord', q: 'What do you call the thing you set items aside for?', why: 'The app groups your things under this word. A caterer might say “event”, a builder “build”, a rental shop “rental”. You’d see screens like “Items for this rental”.', hint: 'One word, like Rental, Build or Delivery.', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.group === 'other' },
   {
     id: 'hasPrinter',
     q: 'Do you already have a printer for labels?',
@@ -257,23 +279,14 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
                 ))}
               </div>
             ) : (
-              <div className={`survey-opts${(step.options?.length ?? 0) > 4 ? ' many' : ''}`} role={step.kind === 'many' ? 'group' : 'radiogroup'} aria-label={step.q}>
-                {step.options!.map((o, n) => {
-                  const on = step.kind === 'many' ? (a.places as string[]).includes(o.id) : a[step.id] === o.id;
-                  return (
-                    <button key={o.id} type="button" role={step.kind === 'many' ? 'checkbox' : 'radio'} aria-checked={on} className={`survey-opt${on ? ' on' : ''}`} style={{ ['--n' as string]: n }} onClick={() => pick(step, o.id)}>
-                      <span className="survey-bubble">
-                        <Icon name={o.icon} />
-                      </span>
-                      <span>
-                        <strong>{o.title}</strong>
-                        {o.sub && <small>{o.sub}</small>}
-                      </span>
-                      {on && <Icon name="check" />}
-                    </button>
-                  );
-                })}
-              </div>
+              <OptionGrid
+                key={step.id}
+                step={step}
+                main={step.optionsFor ? step.optionsFor(a) : step.options!}
+                more={step.moreFor?.(a) ?? []}
+                isOn={(id) => (step.kind === 'many' ? (a.places as string[]).includes(id) : a[step.id] === id)}
+                onPick={(id) => pick(step, id)}
+              />
             )}
             {step.id === 'printer' && a.printer && <PrinterVerdict id={a.printer} />}
             <div className="survey-nav">
@@ -290,6 +303,40 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
         )}
       </main>
     </div>
+  );
+}
+
+/** Big icon bubbles; less common options wait behind "Show more" unless one is already picked. */
+function OptionGrid({ step, main, more, isOn, onPick }: { step: Step; main: Opt[]; more: Opt[]; isOn: (id: string) => boolean; onPick: (id: string) => void }) {
+  const [open, setOpen] = useState(() => more.some((o) => isOn(o.id)));
+  const shown = open ? [...main, ...more] : main;
+  const one = (o: Opt, n: number) => {
+    const on = isOn(o.id);
+    return (
+      <button key={o.id} type="button" role={step.kind === 'many' ? 'checkbox' : 'radio'} aria-checked={on} className={`survey-opt${on ? ' on' : ''}`} style={{ ['--n' as string]: n }} onClick={() => onPick(o.id)}>
+        <span className="survey-bubble">
+          <Icon name={o.icon} />
+        </span>
+        <span>
+          <strong>{o.title}</strong>
+          {o.sub && <small>{o.sub}</small>}
+        </span>
+        {on && <Icon name="check" />}
+      </button>
+    );
+  };
+  return (
+    <>
+      <div className={`survey-opts${shown.length > 4 ? ' many' : ''}`} role={step.kind === 'many' ? 'group' : 'radiogroup'} aria-label={step.q}>
+        {main.map(one)}
+        {open && more.map((o, n) => one(o, n))}
+      </div>
+      {more.length > 0 && (
+        <button type="button" className="survey-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Icon name={open ? 'chevronDown' : 'plus'} /> {open ? 'Show fewer' : `Show ${more.length} more storage options`}
+        </button>
+      )}
+    </>
   );
 }
 

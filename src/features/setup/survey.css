@@ -1,4 +1,6 @@
 /* Setup survey: full-screen, one question at a time, with slide and fade transitions. */
+/* Icons have no size of their own; the rules below make some bigger. */
+.survey svg, .getting-started svg { width: 20px; height: 20px; flex: none; }
 .survey {
   --sv-ink: #10151c;
   --sv-ink-2: #4a5360;
@@ -368,3 +370,5 @@ a.survey-ghost, a.survey-go { text-decoration: none; }
 .gs-dot { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
 .gs-step > span { flex: 1; display: grid; gap: 2px; }
 .gs-step small { color: var(--ink-3); }
+.survey-more { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 16px; border-radius: 999px; border: 1.5px dashed var(--sv-line); background: transparent; color: var(--sv-accent); font: inherit; font-weight: 700; cursor: pointer; }
+.survey-more:hover { border-color: var(--sv-accent); }

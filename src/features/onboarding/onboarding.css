@@ -1,4 +1,5 @@
 /* "Set up your warehouse" wizard and its sidebar group. */
+.wizard svg, .setup-nav svg, .setup-back svg { width: 20px; height: 20px; flex: none; }
 .wizard { display: grid; gap: 16px; max-width: 920px; }
 .wizard-head .eyebrow { margin: 0 0 8px; }
 .wizard-bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }

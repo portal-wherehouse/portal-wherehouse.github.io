@@ -38,6 +38,9 @@ test('the website survey checks the printer, recommends a setup and leads to the
   await s.getByRole('radio', { name: /Parts and boxes on shelves/ }).click();
   await s.getByRole('radio', { name: /100 to 1,000/ }).click();
   await expect(s).toContainText('We need to know this to create your storage zones');
+  await expect(s.getByRole('checkbox', { name: /Pallet racks/ })).toHaveCount(0);
+  await s.getByRole('button', { name: /more storage options/ }).click();
+  await expect(s.getByRole('checkbox', { name: /Sheds or outbuildings/ })).toBeVisible();
   await s.getByRole('checkbox', { name: /Shelves and bins/ }).click();
   await s.getByRole('button', { name: 'Continue' }).click();
   await s.getByRole('radio', { name: 'Shelves and bins: 2 to 5' }).click();

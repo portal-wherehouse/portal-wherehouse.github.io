@@ -131,7 +131,7 @@ test.describe('keyboard-wedge scanner emulation', () => {
     await expect(panel.getByText('Waiting for a scan')).toBeVisible();
     await wedgeScan(page, 'A-03-02');
     await expect(panel.locator('.hw-received')).toHaveText('A-03-02');
-    await expect(panel).toContainText('Rack code A-03-02');
+    await expect(panel).toContainText('Spot code A-03-02');
     await expect(panel).toContainText('Scanner speed. The portal will treat this as a scan.');
     await wedgeScan(page, 'CMD:MODE_COUNT');
     await expect(panel.locator('.hw-received')).toHaveText('CMD:MODE_COUNT');

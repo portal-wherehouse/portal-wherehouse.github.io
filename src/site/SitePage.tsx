@@ -14,6 +14,7 @@ const HardwarePage = lazy(() =>
 import { IndustriesPage } from "./pages/Industries";
 import { CustomersPage } from "./pages/Customers";
 import { PricingPage } from "./pages/Pricing";
+import { FitPage } from "./fit/FitPage";
 import { FounderPage } from "./pages/Founder";
 import { ContactPage } from "./pages/Contact";
 import { SecurityPage } from "./pages/Security";
@@ -52,6 +53,7 @@ const SITE_PAGES: Record<SiteRouteName, React.ComponentType> = {
   contact: ContactPage,
   security: SecurityPage,
   start: StartPage,
+  fit: FitPage,
 };
 
 export function SitePage({ route }: { route: SiteRouteName }) {

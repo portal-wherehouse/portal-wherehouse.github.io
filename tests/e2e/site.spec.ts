@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { watchErrors } from './helpers';
-const pages=[['mission','Make warehouse work easier.'],['product','From delivery to the right rack.'],['hardware','Start with a printer and a phone.'],['pricing','Start with what you have.'],['customers','Start small. Make it routine.'],['founder','Less time looking. More time moving.'],['contact','Let’s look at your warehouse.'],['security','Shared with your crew. Controlled by you.'],['why','The next shift shouldn’t have to guess.'],['showcase','From delivery to dispatch.']];
+const pages=[['mission','Make warehouse work easier.'],['product','From delivery to the right spot.'],['hardware','Start with a printer and a phone.'],['pricing','Start with what you have.'],['customers','Start small. Make it routine.'],['founder','Less time looking. More time moving.'],['contact','Let’s look at your warehouse.'],['security','Shared with your crew. Controlled by you.'],['why','The next shift shouldn’t have to guess.'],['showcase','From delivery to dispatch.']];
 test('short public pages load, pricing is consistent, and contact opens a real email draft',async({page})=>{
  const errors=watchErrors(page);await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('Keep your');
  await expect(page.locator('.home-hero')).toContainText('$29/warehouse/month');

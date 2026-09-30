@@ -8,7 +8,7 @@ import type { Engine } from '../demo/engine';
 import { ReadError } from '../domain/readError';
 
 /** Public website pages (no account needed). */
-export const SITE_ROUTES = ['home', 'why', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'start'] as const;
+export const SITE_ROUTES = ['home', 'why', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'start', 'fit'] as const;
 export type SiteRouteName = (typeof SITE_ROUTES)[number];
 
 export function isSiteRoute(name: RouteName): name is SiteRouteName {

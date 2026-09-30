@@ -4460,3 +4460,10 @@
     padding: 18px;
   }
 }
+.printer-check{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin:0 0 18px}
+.printer-row{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
+.printer-row>span:last-child{display:grid;gap:2px}
+.printer-row small{color:var(--ink-3)}
+.printer-verdict{flex:none;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--ok-soft);color:var(--ok)}
+.printer-row.no .printer-verdict{background:var(--bad-soft);color:var(--bad)}
+.printer-row.maybe .printer-verdict{background:var(--warn-soft);color:var(--warn)}

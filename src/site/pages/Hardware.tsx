@@ -5,18 +5,19 @@ import { normalizeCode, parseLabelPayload, parsePalletCode, rackFields } from '.
 import { Icon, type IconName } from '../../ui/icons';
 import { FeatureCards, PageHero, Section, SiteLink } from '../kit';
 import { BRAND } from '../../brand';
+import { PRINTERS } from '../../domain/survey';
 import { QrCode, Code128, SAMPLE_PALLET_PAYLOAD } from './c-mocks';
 import './pages-c.css';
 export function HardwarePage() { return <>
-<PageHero eyebrow="Printing & scanning" title="Start with a printer and a phone." lede="You don’t need a warehouse full of special equipment." />
+<PageHero eyebrow="Printing & scanning" title="Start with a printer and a phone." lede="Pallets, boxes, bins, parts or equipment: you don’t need special equipment to label any of it." />
 <Section><FeatureCards items={[
-{icon:'print',title:'At receiving',body:'Print pallet labels from a computer. Use an ordinary Letter printer to start, or a USB 4 × 6 thermal label printer.'},
-{icon:'camera',title:'On the floor',body:'A phone camera reads the QR labels. A 2D USB or Bluetooth keyboard scanner is optional for faster scanning.'},
-{icon:'locations',title:'On the racks',body:'Print a location label for each rack. Keep it visible from the aisle and use the same names your crew already uses.'}
+{icon:'print',title:'Labels for anything',body:'Print a QR label for each thing you track, or use the barcode it already has. An ordinary office printer works; a 4-inch thermal label printer is faster.'},
+{icon:'camera',title:'Scan with a phone',body:'A phone camera reads the labels, with no app to install. A 2D USB or Bluetooth scanner is optional for faster scanning.'},
+{icon:'locations',title:'A label on every spot',body:'Label each place things can go: a rack level, shelf, bin, floor lane or yard row. Use the names your crew already knows.'}
 ]} /></Section>
-<Section tone="surface" title="Use your printer. Or let us arrange one."><p>Most standard printers can print our labels. We’ll check your model during setup. Need a printer, labels or a scanner? We can include them in a setup package.</p><SiteLink to="pricing" className="site-link">View plans & setup →</SiteLink></Section>
-<Section title="Make the labels survive the work." lede="Stick them to a clean, dry surface. Keep the code flat and clear. For outdoor storage or rough handling, use a protective pouch or labels rated for those conditions."><p>Print at actual size, with browser headers and footers off. Confirm the paper size in the print dialog. Reprint damaged labels from the pallet record.</p></Section>
-<Section id="setup" tone="surface" title="Three scanner settings."><p>Keyboard (HID) mode. QR and Code 128 enabled. Enter after each scan.</p><p>Open Move, scan the pallet, then scan the rack. Check the saved confirmation before moving on.</p></Section>
+<Section tone="surface" title="Will my printer work?" lede="Our labels need a regular letter page or a label printer that takes 4-inch-wide labels. Widths checked against each maker’s specs."><div className="printer-check">{PRINTERS.map(p=><div key={p.id} className={`printer-row ${p.verdict}`}><span className="printer-verdict">{p.verdict==='works'?'Works':p.verdict==='no'?'Too narrow':'Check with us'}</span><span><strong>{p.title}</strong><small>{p.examples}</small></span></div>)}</div><p>Need a printer, labels or a scanner? We can include them with setup.</p><SiteLink to="start" className="site-link">Check your printer in the setup survey →</SiteLink></Section>
+<Section title="Make the labels survive the work." lede="Stick them to a clean, dry surface. Keep the code flat and clear. For outdoor storage or rough handling, use a protective pouch or labels rated for those conditions."><p>Print at actual size, with browser headers and footers off. Confirm the paper size in the print dialog. Reprint a damaged label from its record.</p></Section>
+<Section id="setup" tone="surface" title="Three scanner settings."><p>Keyboard (HID) mode. QR and Code 128 enabled. Enter after each scan.</p><p>Open Move, scan the thing, then scan the spot where you put it. Check the saved confirmation before moving on.</p></Section>
 <Section id="try" title="Try your scanner"><details><summary>Open scanner test</summary><ScannerTest /></details></Section>
 <Section narrow><SiteLink to="contact" className="site-btn primary">Get remote setup help</SiteLink><p>Printer, label and scanner setup are included in remote support.</p></Section>
 </>; }
@@ -37,8 +38,8 @@ function classify(text: string): Verdict {
   const label = parseLabelPayload(text);
   if (label) {
     return label.kind === 'P'
-      ? { tone: 'ok', title: `${BRAND.name} pallet label`, detail: 'Read correctly. In the portal, this opens the pallet it belongs to.' }
-      : { tone: 'ok', title: `${BRAND.name} rack label`, detail: 'Read correctly. In the portal, this picks the rack, for example as the destination of a move.' };
+      ? { tone: 'ok', title: `${BRAND.name} item label`, detail: 'Read correctly. In the portal, this opens the record it belongs to.' }
+      : { tone: 'ok', title: `${BRAND.name} spot label`, detail: 'Read correctly. In the portal, this picks the spot, for example as the destination of a move.' };
   }
   if (parseLabelPayload(text.toUpperCase())) {
     return { tone: 'warn', title: 'A label, but the letters changed case', detail: 'Caps Lock may be on, or the scanner is set to change case. Turn Caps Lock off and scan again.' };
@@ -52,11 +53,11 @@ function classify(text: string): Verdict {
   }
   const pallet = parsePalletCode(text);
   if (pallet) {
-    return { tone: 'ok', title: `Pallet code ${pallet}`, detail: 'The code printed large on a label. The portal accepts it scanned or typed.' };
+    return { tone: 'ok', title: `Item code ${pallet}`, detail: 'The code printed large on a label. The portal accepts it scanned or typed.' };
   }
   const code = normalizeCode(text);
   if (rackFields(code).zone) {
-    return { tone: 'ok', title: `Rack code ${code}`, detail: 'A rack name like the ones on rack labels. The portal accepts it scanned or typed.' };
+    return { tone: 'ok', title: `Spot code ${code}`, detail: 'A spot name like the ones on spot labels. The portal accepts it scanned or typed.' };
   }
   if (/^https?:\/\//i.test(text) || /^www\./i.test(text)) {
     return { tone: 'bad', title: 'A web address', detail: 'Your scanner works, but the portal never opens scanned web addresses. Only its own labels are accepted.' };
@@ -84,8 +85,8 @@ function speed(e: ScanEvent, maxGapMs: number): { value: string; note: string; t
 }
 
 const SAMPLES: { label: string; text: string; icon: IconName }[] = [
-  { label: 'Pallet label', text: SAMPLE_PALLET_PAYLOAD, icon: 'qr' },
-  { label: 'Rack code', text: 'A-03-02', icon: 'locations' },
+  { label: 'Item label', text: SAMPLE_PALLET_PAYLOAD, icon: 'qr' },
+  { label: 'Spot code', text: 'A-03-02', icon: 'locations' },
   { label: 'Confirm command', text: commandPayload('CONFIRM'), icon: 'barcode' },
   { label: 'Wrong keyboard layout', text: SAMPLE_PALLET_PAYLOAD.replace(/:/g, ';'), icon: 'keyboard' },
 ];
@@ -142,7 +143,7 @@ function ScannerTest() {
           <div className="hw-sample-top">
             <QrCode payload={SAMPLE_PALLET_PAYLOAD} className="hw-sample-qr" />
             <figcaption>
-              <strong>Sample pallet label</strong>
+              <strong>Sample item label</strong>
               <span>Scan the QR or the barcode. The QR holds a random token, and the barcode holds the printed code, P-000042.</span>
             </figcaption>
           </div>

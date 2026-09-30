@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { useApp } from '../../app/state';
 import { useSetup } from '../../app/words';
 import { hashString, normalizeCode, uuid } from '../../domain/codes';
-import { loadSavedSurvey, PLACE_NAME, recommend, saveSurvey, type Place, type ZoneCount } from '../../domain/survey';
+import { loadSavedSurvey, PLACES, PLACE_NAME, recommend, saveSurvey, type ZoneCount } from '../../domain/survey';
 import { PRESETS, pluralize, type SetupPreset } from '../../domain/terms';
 import type { LocationKind, Onboarding, OnboardingZone, Warehouse } from '../../domain/types';
 import { PLANS } from '../../domain/plans';
@@ -45,7 +45,6 @@ function useOpenStep() {
 }
 
 const BLANK: Onboarding = { state: 'pending', done: [], zones: [], leave: null, files: null, barcodes: null };
-const KIND_FOR_PLACE: Record<Place, LocationKind> = { racks: 'RACK', shelves: 'RACK', long: 'RACK', floor: 'FLOOR', yard: 'FLOOR' };
 const ZONE_N: Record<ZoneCount, number> = { one: 1, few: 3, several: 6, many: 8 };
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
 const KIND_LABEL: Partial<Record<LocationKind, string>> = { RACK: 'Racks or shelves', FLOOR: 'Floor, lanes or yard', STAGING: 'Staging area', RECEIVING: 'Receiving area' };
@@ -57,7 +56,7 @@ function zonesFromSurvey(): OnboardingZone[] {
   const out: OnboardingZone[] = [];
   for (const p of s.places) {
     const n = ZONE_N[s.zones[p] ?? 'one'];
-    for (let k = 0; k < n && out.length < LETTERS.length; k++) out.push({ letter: LETTERS[out.length], name: n > 1 ? `${PLACE_NAME[p]} ${k + 1}` : PLACE_NAME[p], kind: KIND_FOR_PLACE[p] });
+    for (let k = 0; k < n && out.length < LETTERS.length; k++) out.push({ letter: LETTERS[out.length], name: n > 1 ? `${PLACE_NAME[p]} ${k + 1}` : PLACE_NAME[p], kind: PLACES[p].kind });
   }
   return out;
 }

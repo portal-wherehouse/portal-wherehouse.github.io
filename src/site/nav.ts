@@ -1,6 +1,7 @@
 import type { SiteRouteName } from '../app/state';
 export const SITE_NAV: {route:SiteRouteName;label:string;blurb:string}[] = [
 {route:'product',label:'How it works',blurb:'Receive. Move. Find.'},
+{route:'fit',label:'Is it for me?',blurb:'Does it work for your business?'},
 {route:'why',label:'Why Wherehouse',blurb:'A shared answer for the next shift.'},
 {route:'hardware',label:'Printing & scanning',blurb:'Start with the equipment you have.'},
 {route:'pricing',label:'Pricing',blurb:'Software, equipment and setup options.'},

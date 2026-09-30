@@ -239,7 +239,7 @@ function SiteFooter({ onGo }: { onGo: (r: SiteRouteName) => void }) {
               <span className="shell-brand-name">{BRAND.name}</span>
             </button>
             <p className="shell-footer-tagline">{BRAND.tagline}</p>
-            <p className="shell-footer-about">Keep the job, the pallet and its location together.</p>
+            <p className="shell-footer-about">Know what you have, where it is and who moved it.</p>
           </div>
           <nav className="shell-footer-cols" aria-label="Footer">
             {FOOTER_COLUMNS.map((col) => (
