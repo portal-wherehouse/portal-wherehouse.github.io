@@ -102,8 +102,8 @@ cd ~/wherehouse
 git pull --ff-only
 npm ci
 npm --prefix firebase/functions ci
-npx firebase deploy --only functions:command,firestore:rules --project wherehouseportal
-npx firebase deploy --only functions:getWarehouseSummary --project wherehouseportal
+npx firebase deploy --only functions:wherehouse:command,firestore:rules --project wherehouseportal
+npx firebase deploy --only functions:wherehouse:getWarehouseSummary --project wherehouseportal
 ```
 
 Only run the second deploy after the first succeeds. No signup configuration or billing-plan change is involved. Existing pallets need no migration; the new detail fields are optional. Refresh the app after deployment.
