@@ -37,8 +37,12 @@ test('the website survey checks the printer, recommends a setup and leads to the
   await s.getByRole('button', { name: 'Start' }).click();
   await s.getByRole('radio', { name: /Parts and boxes on shelves/ }).click();
   await s.getByRole('radio', { name: /100 to 1,000/ }).click();
+  await expect(s).toContainText('We need to know this to create your storage zones');
   await s.getByRole('checkbox', { name: /Shelves and bins/ }).click();
   await s.getByRole('button', { name: 'Continue' }).click();
+  await s.getByRole('radio', { name: 'Shelves and bins: 2 to 5' }).click();
+  await s.getByRole('button', { name: 'Continue' }).click();
+  await s.getByRole('radio', { name: /Many things in one spot/ }).click();
   await s.getByRole('radio', { name: /2 to 5/ }).click();
   await s.getByRole('radio', { name: /For orders/ }).click();
   await s.getByRole('radio', { name: /^Yes/ }).click();
@@ -50,6 +54,7 @@ test('the website survey checks the printer, recommends a setup and leads to the
   const results = s.getByTestId('survey-results');
   await expect(results).toContainText('Items');
   await expect(results).toContainText('Avery 5160');
+  await expect(results).toContainText('zones A to C');
   await expect(results).toContainText('This is a starting point');
   await results.getByRole('button', { name: /Start your free trial/ }).click();
   await expect(page).toHaveURL(/#signin/);
@@ -69,6 +74,9 @@ test('a manager can retake the survey in the portal and apply it', async ({ page
   await s.getByRole('radio', { name: /Under 100/ }).click();
   await s.getByRole('checkbox', { name: /Long-goods racks/ }).click();
   await s.getByRole('button', { name: 'Continue' }).click();
+  await s.getByRole('radio', { name: 'Long-goods racks: 1' }).click();
+  await s.getByRole('button', { name: 'Continue' }).click();
+  await s.getByRole('radio', { name: /One thing per spot/ }).click();
   await s.getByRole('radio', { name: /Just me/ }).click();
   await s.getByRole('radio', { name: /^No/ }).first().click();
   await s.getByRole('radio', { name: /No, not yet/ }).click();

@@ -9,6 +9,12 @@ import './home.css';
 import './pilot.css';
 export function Home() { return <>
 <div className="home-hero-wrap"><div className="site-inner home-hero"><div className="home-hero-text"><p className="site-eyebrow">Know where everything is</p><h1 className="home-hello"><span className="home-hello-sub">Keep your</span><span className="home-hello-sub">warehouse moving<span className="home-dot">.</span></span></h1><p className="site-lede home-pitch">Scan the thing. Scan the place. Now everyone knows where it is, who moved it and when. Pallets, boxes, parts, furniture or equipment, in a warehouse, stockroom or yard.</p><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Start your free trial</SiteLink><SiteLink to="contact" className="site-btn ghost">Book a free walkthrough</SiteLink></div><p className="home-price">Free for {PRICING.pilotDays} days, then ${PRICING.monthly}/warehouse/month. No card to start. Want help? We’ll set it up with you.</p><PortalCTA variant="inline" /><a className="home-sample-link" href="?demo=1#signin">Explore the sample warehouse →</a></div><HeroArt /></div></div>
+<Section eyebrow="Free setup survey" title="Put your warehouse in Wherehouse in about 2 minutes." lede="Before you start your free trial, answer a few quick questions. We’ll recommend a starting setup built around how you work."><div className="home-survey">{([
+['box','What you store','Pallets, parts, furniture, lumber, equipment or a mix. The app uses your own words.'],
+['locations','Where you keep it','Racks, shelves, floor or yard. We plan your storage zones from your answers.'],
+['print','Your printer','Pick your printer and we’ll tell you if it works, or what to get.'],
+['checklist','Your next steps','A setup checklist walks you through zones, labels, your first items and your crew.'],
+] as [IconName,string,string][]).map(([icon,title,body])=><article key={title} className="home-survey-step"><span className="home-survey-bubble"><Icon name={icon}/></span><h3>{title}</h3><p>{body}</p></article>)}</div><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Take the 2-minute survey</SiteLink><span className="home-survey-note">Free. No card. You still set up your own spots and labels; the survey gives you the plan.</span></div></Section>
 <Section tone="surface"><FeatureCards items={[
 {icon:'receive',title:'Add',body:'Give each thing a label, or use the barcode it already has.'},
 {icon:'move',title:'Move',body:'Scan it, then scan the shelf, rack or spot where you put it.'},

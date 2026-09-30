@@ -970,3 +970,10 @@
 @keyframes hero-copy-in {from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
 @keyframes hero-art-in {from{opacity:0;transform:translateY(24px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
 @media(prefers-reduced-motion:reduce){.home-hero-text > *,.home-art{animation:none;}}
+.home-survey{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}
+.home-survey-step{padding:20px;border-radius:20px;border:1px solid var(--line);background:var(--surface)}
+.home-survey-step h3{margin:12px 0 6px;font-size:18px}
+.home-survey-step p{margin:0;color:var(--ink-2);line-height:1.45}
+.home-survey-bubble{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;color:var(--accent);background:var(--accent-soft)}
+.home-survey-bubble svg{width:26px;height:26px}
+.home-survey-note{color:var(--ink-3);font-size:14px;align-self:center}

@@ -8,7 +8,9 @@ export type Count = 'under100' | 'to1000' | 'to10000' | 'over10000';
 export type Place = 'racks' | 'shelves' | 'floor' | 'yard' | 'long';
 export type People = 'solo' | 'small' | 'medium' | 'large';
 export type Group = 'none' | 'customer' | 'order' | 'project' | 'event' | 'other';
-export type PrinterModel = 'thermal' | 'office' | 'brother' | 'dymo' | 'handheld' | 'other';
+export type PrinterModel = 'thermal4' | 'thermal2' | 'office' | 'brotherWide' | 'brother' | 'dymoXL' | 'dymo' | 'handheld' | 'other';
+export type ZoneCount = 'one' | 'few' | 'several' | 'many';
+export type PerSpot = 'one' | 'many' | 'mix';
 export type Scanner = 'phone' | 'scanner' | 'unsure';
 
 export interface SurveyAnswers {
@@ -17,6 +19,9 @@ export interface SurveyAnswers {
   word: string;
   count: Count | null;
   places: Place[];
+  /** How many areas of each kind, which become storage zones. */
+  zones: Partial<Record<Place, ZoneCount>>;
+  perSpot: PerSpot | null;
   people: People | null;
   group: Group | null;
   groupWord: string;
@@ -26,7 +31,7 @@ export interface SurveyAnswers {
   limits: 'yes' | 'no' | null;
 }
 
-export const BLANK_ANSWERS: SurveyAnswers = { store: null, word: '', count: null, places: [], people: null, group: null, groupWord: '', hasPrinter: null, printer: null, scanner: null, limits: null };
+export const BLANK_ANSWERS: SurveyAnswers = { store: null, word: '', count: null, places: [], zones: {}, perSpot: null, people: null, group: null, groupWord: '', hasPrinter: null, printer: null, scanner: null, limits: null };
 
 export type Verdict = 'works' | 'maybe' | 'no' | 'none';
 
@@ -50,14 +55,23 @@ const clean = (w: string) =>
     .replace(/^[^\p{L}]+/u, '')
     .slice(0, 24);
 
-export const PRINTERS: { id: PrinterModel; title: string; examples: string; verdict: Verdict; body: string }[] = [
-  { id: 'thermal', title: '4×6 thermal label printer', examples: 'Zebra ZD420 or ZD421, GK420d, Rollo, MUNBYN, iDPRT', verdict: 'works', body: 'Works. Print 4×6 labels straight from the browser on a computer. This is the fastest way to label a lot of things.' },
+// Label widths checked against the makers' specs: our labels need a 4-inch-wide printer or a letter page.
+export const PRINTERS: { id: PrinterModel; title: string; examples: string; verdict: Verdict; body: string; wide?: boolean }[] = [
+  { id: 'thermal4', title: '4-inch thermal label printer', examples: 'Zebra ZD421, ZD621, GK420d, Rollo, MUNBYN, iDPRT', verdict: 'works', wide: true, body: 'Works. Print 4×6 labels straight from the browser on a computer. This is the fastest way to label a lot of things.' },
   { id: 'office', title: 'Regular office printer', examples: 'Any inkjet or laser that prints letter paper', verdict: 'works', body: 'Works. Print full-page labels on plain paper, or Avery 5160 sticker sheets (30 per page) for shelves and bins.' },
-  { id: 'brother', title: 'Brother QL label printer', examples: 'QL-800, QL-820NWB, QL-1100, QL-1110NWB', verdict: 'maybe', body: 'Depends on the model. The QL-1100 and QL-1110 take 4-inch labels, so 4×6 works. The QL-800 and QL-820 top out near 2.4 inches, which is too narrow for our labels.' },
-  { id: 'dymo', title: 'DYMO LabelWriter', examples: 'LabelWriter 4XL, 5XL, 450, 550', verdict: 'maybe', body: 'Depends on the model. The 4XL and 5XL print 4×6 labels and work. The standard 450 and 550 are too narrow for our labels.' },
+  { id: 'dymoXL', title: 'DYMO LabelWriter 4XL or 5XL', examples: 'The wide DYMO models', verdict: 'works', wide: true, body: 'Works. The 4XL and 5XL take 4×6 labels.' },
+  { id: 'brotherWide', title: 'Brother QL-1100 or QL-1110NWB', examples: 'The wide Brother QL models', verdict: 'works', wide: true, body: 'Works. These take labels up to about 4 inches wide, so 4×6 labels fit.' },
+  { id: 'dymo', title: 'DYMO LabelWriter 450 or 550', examples: 'The standard DYMO models', verdict: 'no', body: 'Too narrow. These top out near 2.3 inches, and our labels need 4 inches. Use an office printer, or the 5XL.' },
+  { id: 'brother', title: 'Brother QL-800, QL-810W or QL-820NWB', examples: 'The standard Brother QL models', verdict: 'no', body: 'Too narrow. These top out at 62 mm (about 2.4 inches), and our labels need 4 inches. Use an office printer, or the QL-1100.' },
+  { id: 'thermal2', title: '2-inch thermal printer', examples: 'Zebra ZD410, ZD411 and similar', verdict: 'no', body: 'Too narrow for our labels, which need 4 inches. Use an office printer or a 4-inch thermal printer.' },
   { id: 'handheld', title: 'Handheld label maker', examples: 'Brother P-touch, DYMO LabelManager', verdict: 'no', body: 'Not a good fit. These print text on tape and cannot print a QR code big enough to scan. Use an office printer instead.' },
   { id: 'other', title: 'Something else', examples: 'Not sure of the model', verdict: 'maybe', body: 'Probably. Anything that prints a 4×6 label or a letter page from a computer works. We will check your model with you.' },
 ];
+
+export const PLACE_NAME: Record<Place, string> = { racks: 'Pallet racks', shelves: 'Shelves and bins', floor: 'Floor space', yard: 'Outside yard', long: 'Long-goods racks' };
+const ZONE_WORDS: Record<ZoneCount, string> = { one: 'one area', few: '2 to 5 areas', several: '6 to 20 areas', many: 'more than 20 areas' };
+const ZONE_N: Record<ZoneCount, number> = { one: 1, few: 3, several: 6, many: 6 };
+const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
 
 export function recommend(a: SurveyAnswers): Recommendation {
   const preset: SetupPreset = a.store ?? 'custom';
@@ -83,7 +97,7 @@ export function recommend(a: SurveyAnswers): Recommendation {
           : 'Start with any office printer and Avery 5160 sticker sheets. You can add a 4×6 thermal printer later if you print a lot.',
       };
 
-  const thermal = model?.verdict === 'works' && model.id === 'thermal';
+  const thermal = !!model?.wide;
   const labels = [
     thermal ? `${things}: 4×6 thermal labels.` : `${things}: full-page labels on plain paper, or 4×6 labels if you get a thermal printer.`,
     a.places.includes('shelves') || preset === 'shelves' ? 'Shelves and bins: small Avery 5160 labels, 30 per page.' : thermal ? 'Racks and spots: 4×6 labels, or Avery 5160 sheets for tight shelf edges.' : 'Racks and spots: one label per spot, or Avery 5160 sheets for shelf edges.',
@@ -99,13 +113,25 @@ export function recommend(a: SurveyAnswers): Recommendation {
 
   const places: Place[] = a.places.length ? a.places : ['racks'];
   const SPOT: Record<Place, string> = {
-    racks: 'Pallet racks: use Build a rack for zone, aisles, bays and levels. Codes like A-01-03-2 are made for you.',
-    shelves: 'Shelves and bins: build each shelf unit as a rack, with one level per shelf.',
-    floor: 'Floor space: make a spot for each lane or marked area, like FLOOR-01.',
-    yard: 'Yard: make a spot for each row or area, like YARD-A.',
-    long: 'Long goods: one spot per rack arm or bay.',
+    racks: 'Build each rack with Build a rack: aisles, bays and levels. Codes like A-01-03-2 are made for you.',
+    shelves: 'Build each shelf unit as a rack, with one level per shelf.',
+    floor: 'Make a spot for each lane or marked area.',
+    yard: 'Make a spot for each row or area.',
+    long: 'Make one spot per rack arm or bay.',
   };
-  const spots = places.map((p) => SPOT[p]);
+  // Hand out zone letters in order, so the plan reads like a real layout: racks A to C, shelves D, and so on.
+  let next = 0;
+  const spots = places.map((p) => {
+    const count = a.zones[p] ?? 'one';
+    const n = ZONE_N[count];
+    const from = LETTERS[Math.min(next, LETTERS.length - 1)];
+    const to = LETTERS[Math.min(next + n - 1, LETTERS.length - 1)];
+    next += n;
+    const zones = n === 1 ? `zone ${from}` : count === 'many' ? `zones ${from}, ${LETTERS[Math.min(next - n + 1, LETTERS.length - 1)]} and on` : `zones ${from} to ${to}`;
+    return `${PLACE_NAME[p]} (${ZONE_WORDS[count]}): ${zones}. ${SPOT[p]}`;
+  });
+  if (a.perSpot === 'one') spots.push(`One ${thing.toLowerCase()} per spot: each gets its own label, and Find shows its exact spot.`);
+  if (a.perSpot === 'many' || a.perSpot === 'mix') spots.push('Shared spots: label the box, bin or pallet once and list what is in it. Search finds anything inside.');
   if (advanced) spots.push('Weight and size limits are on. Set them per spot when you build it.');
 
   const steps = [

@@ -137,8 +137,8 @@
   gap: 12px;
   text-align: left;
   padding: 16px;
-  min-height: 64px;
-  border-radius: 16px;
+  min-height: 84px;
+  border-radius: 20px;
   border: 1.5px solid var(--sv-line);
   background: var(--sv-card);
   color: inherit;
@@ -152,7 +152,6 @@
 .survey-opt:focus-visible { outline: 3px solid var(--sv-accent-2); outline-offset: 2px; }
 .survey-opt > span { flex: 1; display: grid; gap: 2px; }
 .survey-opt small { color: var(--sv-ink-2); font-size: 13px; }
-.survey-opt > svg:first-child { color: var(--sv-accent); flex: none; }
 .survey-opt.on {
   border-color: var(--sv-accent);
   background: linear-gradient(135deg, color-mix(in srgb, var(--sv-accent) 14%, transparent), transparent);
@@ -254,6 +253,75 @@
 @media (prefers-reduced-motion: reduce) {
   .survey *, .survey *::before { animation: none !important; transition: none !important; }
 }
+.survey-bubble {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--sv-accent);
+  background: radial-gradient(circle at 30% 25%, #fff, color-mix(in srgb, var(--sv-accent) 16%, transparent));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sv-accent) 28%, transparent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, color 0.2s;
+}
+.survey-bubble svg { width: 26px; height: 26px; }
+.survey-opt > .survey-bubble { display: grid; flex: none; }
+.survey-opt:hover > .survey-bubble { transform: scale(1.08) rotate(-4deg); }
+.survey-opt.on > .survey-bubble { color: #fff; background: linear-gradient(135deg, var(--sv-accent), var(--sv-accent-2)); transform: scale(1.06); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .survey-bubble { background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.18), color-mix(in srgb, var(--sv-accent) 20%, transparent)); }
+}
+:root[data-theme='dark'] .survey-bubble { background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.18), color-mix(in srgb, var(--sv-accent) 20%, transparent)); }
+.survey-why {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--sv-ink-2);
+  background: color-mix(in srgb, var(--sv-accent) 8%, transparent);
+  animation: sv-pop 0.4s both 60ms;
+}
+.survey-why svg { flex: none; color: var(--sv-accent); margin-top: 1px; }
+.survey-intro-list { list-style: none; padding: 0; margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 14px 22px; }
+.survey-intro-list li { display: flex; align-items: center; gap: 10px; font-weight: 600; animation: sv-pop 0.45s both; }
+.survey-intro-list li:nth-child(2) { animation-delay: 90ms; }
+.survey-intro-list li:nth-child(3) { animation-delay: 180ms; }
+.survey-zones { display: grid; gap: 10px; margin-top: 24px; }
+.survey-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--sv-line);
+  background: var(--sv-card);
+  animation: sv-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--n, 0) * 60ms + 120ms);
+}
+.survey-zone-name { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+.survey-zone-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.survey-chip {
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--sv-line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s, border-color 0.2s;
+}
+.survey-chip:hover { transform: translateY(-1px); border-color: var(--sv-accent); }
+.survey-chip.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--sv-accent), var(--sv-accent-2)); }
 /* Setup checklist on the dashboard. */
 .getting-started { display: grid; gap: 12px; }
 .gs-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
