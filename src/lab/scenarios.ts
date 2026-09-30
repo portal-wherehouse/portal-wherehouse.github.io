@@ -654,20 +654,26 @@ add({
   group: 'Import & export',
   title: 'Atomic, repeat-safe CSV import',
   page: 27,
-  proves: 'A malformed row blocks the whole batch; the same batch twice creates no duplicates; a changed file under the same batch ID is rejected.',
+  proves: 'A malformed row blocks the whole batch; unknown job codes become new open jobs; the same batch twice creates no duplicates; a changed file under the same batch ID is rejected.',
   run(h) {
-    const bad = prepareImport('pallets', 'job_code,description\nJ-214,Grid\nJ-404,Mystery\nJ-190,Late\n');
+    const bad = prepareImport('pallets', 'job_code,description\nJ-214,Grid\nJ-404,\nJ-190,Late\n');
+    const jobsBefore = Object.keys(h.db.jobs).length;
     const batchBad = uuid();
     const before = Object.keys(h.db.pallets).length;
     const r = h.cmd(h.users.supervisor, 'import_batch', { import_kind: 'pallets', checksum: 'x', rows: bad.rows }, null, { commandId: batchBad });
     h.expect(!r.ok && r.errors?.length === 2, 'Two row errors reported', r.ok ? '' : (r.errors ?? []).map((e) => `row ${e.row} ${e.column}`).join('; '));
     h.equal(Object.keys(h.db.pallets).length, before, 'Nothing imported');
+    h.equal(Object.keys(h.db.jobs).length, jobsBefore, 'No job created for the new code in a failed batch');
+    const fresh = h.cmd(h.users.supervisor, 'import_batch', { import_kind: 'pallets', checksum: 'n', rows: [{ job_code: 'J-405', job_name: 'New customer', description: 'Pallet for a new job' }] }, null, { commandId: uuid() });
+    const newJob = Object.values(h.db.jobs).find((j) => j.code === 'J-405');
+    h.expect(fresh.ok && newJob?.name === 'New customer' && newJob.status === 'OPEN', 'An unknown job code becomes a new open job');
+    const before2 = Object.keys(h.db.pallets).length;
     const good = prepareImport('pallets', 'job_code,description\nj-214 ,Acoustic grid\nJ-221,Stone veneer\n');
     const batch = uuid();
     const a = h.cmd(h.users.supervisor, 'import_batch', { import_kind: 'pallets', checksum: 'abc', rows: good.rows }, null, { commandId: batch });
     const b = h.cmd(h.users.supervisor, 'import_batch', { import_kind: 'pallets', checksum: 'abc', rows: good.rows }, null, { commandId: batch });
     h.expect(a.ok && b.ok && b.replayed, 'Second submission replays');
-    h.equal(Object.keys(h.db.pallets).length, before + 2, 'Two pallets, not four');
+    h.equal(Object.keys(h.db.pallets).length, before2 + 2, 'Two pallets, not four');
     const c = h.cmd(h.users.supervisor, 'import_batch', { import_kind: 'pallets', checksum: 'def', rows: [...good.rows, { job_code: 'J-214', description: 'Sneaky' }] }, null, { commandId: batch });
     h.expect(!c.ok && c.code === 'COMMAND_KEY_REUSED', 'Changed file with the same batch ID rejected');
     const imported = a.ok ? h.db.pallets[a.created_ids![0]] : null;

@@ -294,8 +294,10 @@ export async function loadCommand(
     for (const code of new Set<string>(
       (p.rows || []).map((r: any) => normalizeCode(r[field] || "")),
     )) {
+      if (!code) continue;
       await find(table, "code", code);
-      if (["jobs", "locations"].includes(p.import_kind))
+      // Pallet imports can add missing jobs, so they take the same uniqueness lock as job imports.
+      if (["jobs", "locations", "pallets"].includes(p.import_kind))
         await tx.get(
           root
             .collection("codeLocks")

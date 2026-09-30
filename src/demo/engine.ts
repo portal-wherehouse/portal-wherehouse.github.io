@@ -791,6 +791,7 @@ export class Engine {
     const get = (r: Record<string, string>, k: string) => (r[k] ?? '').trim();
     const created: string[] = [];
     let skipped = 0;
+    let jobsAdded = 0;
 
     if (p.import_kind === 'jobs' || p.import_kind === 'locations') {
       if (member.role !== 'OWNER' && member.role !== 'SUPERVISOR') return reject('FORBIDDEN', 'Only supervisors and owners can import jobs or locations.');
@@ -871,26 +872,38 @@ export class Engine {
       }
     } else {
       const jobsByCode = new Map(Object.values(this.db.jobs).filter((j) => j.workspace_id === ws).map((j) => [normalizeCode(j.code), j]));
+      // Job codes the warehouse doesn't have yet become new open jobs, named by job_name or their code.
+      const newJobs = new Map<string, string>();
       rows.forEach((r, i) => {
-        const job = jobsByCode.get(normalizeCode(get(r, 'job_code')));
+        const code = normalizeCode(get(r, 'job_code'));
+        const job = code ? jobsByCode.get(code) : undefined;
         const d = get(r, 'description');
-        if (!get(r, 'job_code')) err(i, 'job_code', 'Job code is required.');
-        else if (!job) err(i, 'job_code', `Job ${normalizeCode(get(r, 'job_code'))} does not exist.`);
-        else if (job.status !== 'OPEN') err(i, 'job_code', `Job ${job.code} is closed.`);
+        if (code && !job) {
+          if (code.length > 20) err(i, 'job_code', 'Job code is limited to 20 characters.');
+          else if (get(r, 'job_name').length > 120) err(i, 'job_name', 'Job name is limited to 120 characters.');
+          else if (member.role !== 'OWNER' && member.role !== 'SUPERVISOR') err(i, 'job_code', `Job ${code} does not exist. Only supervisors and owners can add jobs.`);
+          else if (!newJobs.get(code)) newJobs.set(code, get(r, 'job_name'));
+        } else if (job && job.status !== 'OPEN') err(i, 'job_code', `Job ${job.code} is closed.`);
         if (!d) err(i, 'description', 'Description is required.');
         else if (d.length > 160) err(i, 'description', 'Description is limited to 160 characters.');
         if (get(r, 'notes').length > 1000) err(i, 'notes', 'Notes are limited to 1,000 characters.');
       });
+      if (!errors.length) for (const [code, name] of newJobs) {
+        const job: Job = { id: this.newId(), workspace_id: ws, code, name: name || code, destination_notes: null, status: 'OPEN', version: 1, created_at: now, updated_at: now };
+        tx.put('jobs', job.id, job);
+        jobsByCode.set(code, job);
+      }
+      jobsAdded = newJobs.size;
       if (errors.length) return { ...reject('INVALID_INPUT', `${errors.length} problem${errors.length === 1 ? '' : 's'} found. Nothing was imported.`), errors };
       rows.forEach((r, i) => {
-        const job = jobsByCode.get(normalizeCode(get(r, 'job_code')))!;
+        const job = jobsByCode.get(normalizeCode(get(r, 'job_code')));
         const n = tx.counter(ws);
         const pallet: Pallet = {
           id: this.newId(),
           workspace_id: ws,
           warehouse_id: wh.id,
           code: formatPalletCode(n),
-          job_id: job.id,
+          job_id: job?.id ?? '',
           description: get(r, 'description'),
           notes: get(r, 'notes') || null,
           supplier_ref: get(r, 'supplier_ref') || null,
@@ -927,7 +940,7 @@ export class Engine {
         created.push(pallet.id);
       });
     }
-    const summary = `${created.length} ${p.import_kind} created${skipped ? `, ${skipped} already existed` : ''}`;
+    const summary = `${created.length} ${p.import_kind} created${skipped ? `, ${skipped} already existed` : ''}${jobsAdded ? `, ${jobsAdded} new job${jobsAdded === 1 ? '' : 's'} added` : ''}`;
     tx.put('imports', cmd.command_id, { id: cmd.command_id, workspace_id: ws, kind: p.import_kind, checksum: p.checksum, status: 'committed', summary, created_ids: created, actor_id: actorId, created_at: now });
     tx.appendAudit({ id: this.newId(), workspace_id: ws, actor_id: actorId, action: 'import_batch', target_id: cmd.command_id, before: null, after: { kind: p.import_kind, summary }, reason: null, accepted_at: now, command_id: cmd.command_id });
     const res = this.accepted(cmd, now, null, null, cmd.command_id);

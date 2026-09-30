@@ -1,9 +1,9 @@
 import { FirebaseBackend } from '../../data/firebase';
 // CSV import (page 27): template, paste or choose a file, preview with row errors, then one atomic batch.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { hashString } from '../../domain/codes';
-import { IMPORT_TEMPLATES, detectImportKind, prepareImport, templateCsv, type ImportKind } from '../../domain/csv';
+import { IMPORT_TEMPLATES, applyMapping, detectImportKind, guessMapping, headerKey, parseCsv, prepareImport, templateCsv, type ColumnMap, type ImportKind, type SavedImportTemplate } from '../../domain/csv';
 import { roleAllows } from '../../domain/transitions';
 import { useApp } from '../../app/state';
 import { canDownload, copyText, downloadText } from '../../device/output';
@@ -15,6 +15,15 @@ import { LabelSheet } from '../labels/LabelSheet';
 
 const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets', shipments: 'Expected shipments' };
 
+// Saved column layouts live in this browser, per warehouse.
+const templatesKey = (ws: string | null) => `wherehouse.importTemplates.${ws ?? 'none'}`;
+function loadTemplates(ws: string | null): SavedImportTemplate[] {
+  try { const v = JSON.parse(localStorage.getItem(templatesKey(ws)) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+function storeTemplates(ws: string | null, list: SavedImportTemplate[]): boolean {
+  try { localStorage.setItem(templatesKey(ws), JSON.stringify(list)); return true; } catch { return false; }
+}
+
 export function Import() {
   const { role, toast, backend, go, workspaceId, v } = useApp();
   const [kind, setKind] = useState<ImportKind>('locations');
@@ -23,8 +32,23 @@ export function Import() {
   const [labels, setLabels] = useState<string[] | null>(null);
   const cmd = useCommand();
 
-  const parsed = useMemo(() => (text.trim() ? prepareImport(kind, text) : null), [kind, text]);
-  const checksum = useMemo(() => (text.trim() ? hashString(text.replace(/\r\n/g, '\n').trim()) : ''), [text]);
+  const [map, setMap] = useState<ColumnMap | null>(null);
+  const [mapFor, setMapFor] = useState('');
+  const [templates, setTemplates] = useState<SavedImportTemplate[]>(() => loadTemplates(workspaceId));
+  const [tplName, setTplName] = useState('');
+  useEffect(() => setTemplates(loadTemplates(workspaceId)), [workspaceId]);
+  const fileHeader = useMemo(() => (text.trim() ? parseCsv(text).header : []), [text]);
+  const fileKey = useMemo(() => (text.trim() ? headerKey(text) : ''), [text]);
+  // A file whose columns don't match the template gets a column matcher instead of a wall of errors.
+  const needsMap = useMemo(() => !!text.trim() && prepareImport(kind, text).headerErrors.length > 0, [kind, text]);
+  useEffect(() => {
+    if (!needsMap) return;
+    const key = `${kind}|${fileKey}`;
+    if (mapFor !== key) { setMap(guessMapping(kind, fileHeader)); setMapFor(key); }
+  }, [needsMap, kind, fileKey, fileHeader, mapFor]);
+  const effective = useMemo(() => (needsMap && map ? applyMapping(kind, text, map) : text), [needsMap, map, kind, text]);
+  const parsed = useMemo(() => (effective.trim() ? prepareImport(kind, effective) : null), [kind, effective]);
+  const checksum = useMemo(() => (effective.trim() ? hashString(effective.replace(/\r\n/g, '\n').trim()) : ''), [effective]);
   const earlier = useMemo(
     () => Object.values(backend.db.imports).filter((b) => b.workspace_id === workspaceId).sort((a, b) => b.created_at.localeCompare(a.created_at)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,6 +69,14 @@ export function Import() {
   // A file whose header fits another template switches to it, instead of failing against the selected one.
   const adopt = (csv: string) => {
     const found = detectImportKind(csv, kinds);
+    const saved = found ? undefined : templates.find((tp) => tp.headerKey === headerKey(csv) && kinds.includes(tp.kind));
+    if (saved) {
+      setKind(saved.kind);
+      setMap(saved.map);
+      setMapFor(`${saved.kind}|${saved.headerKey}`);
+      toast(`Using your saved template “${saved.name}”. Check the preview, then import.`, 'info');
+      return;
+    }
     if (found && found !== kind) {
       setKind(found);
       toast(`This looks like a ${KIND_LABEL[found].toLowerCase()} file, so Import switched to ${KIND_LABEL[found]}.`, 'info');
@@ -57,7 +89,23 @@ export function Import() {
   const errors = cmd.state.rejected?.errors ?? [];
   const errorRows = new Set(errors.map((e) => e.row));
 
+  const saveTemplate = () => {
+    const name = tplName.trim();
+    if (!name || !map) return;
+    const next = [...templates.filter((tp) => !(tp.headerKey === fileKey && tp.kind === kind)), { id: Date.now().toString(36), name, kind, map, headerKey: fileKey }];
+    if (!storeTemplates(workspaceId, next)) return toast('This browser would not save the template. Private browsing can do this.', 'error');
+    setTemplates(next);
+    setTplName('');
+    toast(`Saved “${name}”. Files with these columns will use it automatically.`);
+  };
+  const removeTemplate = (id: string) => {
+    const next = templates.filter((tp) => tp.id !== id);
+    storeTemplates(workspaceId, next);
+    setTemplates(next);
+  };
   const reset = () => {
+    setMap(null);
+    setMapFor('');
     setText('');
     setFileName(null);
     cmd.reset();
@@ -139,6 +187,33 @@ export function Import() {
           {fileName && <span className="muted">Loaded {fileName}</span>}
         </div>
       </div>
+
+      {needsMap && map && !done && (
+        <div className="panel stack" data-testid="column-matcher">
+          <div className="panel-title">Match your columns</div>
+          <p style={{ margin: 0 }}>
+            This file's columns don't match the {KIND_LABEL[kind].toLowerCase()} template, so pick which of your columns fills each field. We guessed where we could. Columns you don't pick are ignored.
+          </p>
+          <div className="stack" style={{ gap: 8 }}>
+            {cols.map((field) => (
+              <label key={field} className="row nowrap" style={{ gap: 10 }}>
+                <span className="mono" style={{ minWidth: 150 }}>{field}{t.required.includes(field) ? ' *' : ''}</span>
+                <select className="input" aria-label={`Column for ${field}`} value={map[field] ?? ''} onChange={(e) => setMap({ ...map, [field]: e.target.value })} style={{ maxWidth: 320 }}>
+                  <option value="">Not in my file</option>
+                  {fileHeader.filter(Boolean).map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <input className="input" aria-label="Template name" placeholder="Name it, e.g. Timber Creek packing list" value={tplName} onChange={(e) => setTplName(e.target.value)} maxLength={60} style={{ maxWidth: 320 }} />
+            <button className="btn" disabled={!tplName.trim()} onClick={saveTemplate}>
+              <Icon name="download" /> Save as template
+            </button>
+          </div>
+          <span className="muted" style={{ fontSize: 13 }}>A saved template is used automatically the next time a file with these columns is added in this browser.</span>
+        </div>
+      )}
 
       {parsed && (
         <div className="panel stack">
@@ -222,6 +297,19 @@ export function Import() {
               </div>
             )
           )}
+        </div>
+      )}
+
+      {templates.length > 0 && (
+        <div className="panel stack">
+          <div className="panel-title">Your saved templates</div>
+          {templates.map((tp) => (
+            <div key={tp.id} className="row" style={{ fontSize: 14 }}>
+              <span className="tag">{KIND_LABEL[tp.kind]}</span>
+              <span className="grow">{tp.name}</span>
+              <button className="btn small ghost" onClick={() => removeTemplate(tp.id)}>Delete</button>
+            </div>
+          ))}
         </div>
       )}
 

@@ -88,14 +88,14 @@ export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional
     policy: 'Creates OPEN jobs. A code that already exists is an error.',
   },
   pallets: {
-    required: ['job_code', 'description'],
-    optional: ['notes', 'supplier_ref'],
+    required: ['description'],
+    optional: ['job_code', 'job_name', 'notes', 'supplier_ref'],
     sample: [
-      ['J-214', 'Acoustic ceiling grid', 'Two crates strapped together', 'ACME-4471'],
-      ['J-221', 'Stone veneer', '', ''],
+      ['Acoustic ceiling grid', 'J-214', '', 'Two crates strapped together', 'ACME-4471'],
+      ['Stone veneer', 'J-221', 'Retail storefront', '', ''],
     ],
     who: 'Supervisors and owners',
-    policy: 'Creates pallets as RECEIVED and unassigned. Staff confirm locations by placing them; history is never invented.',
+    policy: 'Creates pallets as RECEIVED and unassigned. A job code that doesn\'t exist yet is created as an open job (named by job_name, or its code). Staff confirm locations by placing them; history is never invented.',
   },
 };
 
@@ -135,4 +135,64 @@ export function prepareImport(kind: ImportKind, text: string): ParsedImport {
   if (dupes.length) headerErrors.push(`Duplicate column: ${dupes.join(', ')}.`);
   const objs = rows.map((r) => Object.fromEntries(header.map((h, i) => [h, (r[i] ?? '').trim()])));
   return { kind, rows: objs, headerErrors, unknownHeaders };
+}
+
+/** Which of the file's columns feeds each template field (field -> file header, lower case). */
+export type ColumnMap = Record<string, string>;
+
+export interface SavedImportTemplate {
+  id: string;
+  name: string;
+  kind: ImportKind;
+  map: ColumnMap;
+  /** The file's header row, normalized, so the same spreadsheet layout is recognized next time. */
+  headerKey: string;
+}
+
+const SYNONYMS: Record<string, string[]> = {
+  description: ['description', 'desc', 'item', 'item description', 'product', 'product name', 'contents', 'material', 'name', 'what'],
+  job_code: ['job code', 'job', 'job number', 'job no', 'order', 'order number', 'order no', 'project', 'project number', 'customer order'],
+  job_name: ['job name', 'customer', 'customer name', 'project name', 'order name'],
+  notes: ['notes', 'note', 'comments', 'comment', 'remarks', 'memo'],
+  supplier_ref: ['supplier ref', 'supplier reference', 'supplier tag', 'tag', 'reference', 'ref', 'po', 'po number', 'bol', 'lot', 'lot number'],
+  warehouse_code: ['warehouse code', 'warehouse', 'site', 'facility'],
+  location_code: ['location code', 'location', 'rack', 'bin', 'slot', 'area', 'spot'],
+  kind: ['kind', 'type', 'location type'],
+  destination_notes: ['destination notes', 'destination', 'deliver to', 'ship to'],
+  barcode: ['barcode', 'sscc', 'gtin', 'upc', 'ean'],
+  product_code: ['product code', 'sku', 'item code', 'item number', 'part number'],
+  quantity: ['quantity', 'qty', 'count', 'amount'],
+  unit: ['unit', 'units', 'uom'],
+  destination: ['destination', 'deliver to', 'ship to'],
+  remind_on: ['remind on', 'due', 'due date', 'date'],
+  details_json: ['details json', 'details'],
+};
+const norm = (h: string) => h.toLowerCase().replace(/#/g, ' number').replace(/[_\-.:\/]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+export function headerKey(text: string): string {
+  return parseCsv(text).header.map(norm).join('|');
+}
+
+/** Best guess at which file column feeds each field. Each file column is used once. */
+export function guessMapping(kind: ImportKind, header: string[]): ColumnMap {
+  const t = IMPORT_TEMPLATES[kind];
+  const map: ColumnMap = {};
+  const used = new Set<string>();
+  for (const field of [...t.required, ...t.optional]) {
+    const words = [norm(field), ...(SYNONYMS[field] ?? [])];
+    const hit = words.map((w) => header.find((h) => !used.has(h) && norm(h) === w)).find(Boolean);
+    if (hit) { map[field] = hit; used.add(hit); }
+  }
+  return map;
+}
+
+/** Rewrite a CSV under the template's column names. Columns the map doesn't use are left out. */
+export function applyMapping(kind: ImportKind, text: string, map: ColumnMap): string {
+  const t = IMPORT_TEMPLATES[kind];
+  const { header, rows } = parseCsv(text);
+  const fields = [...t.required, ...t.optional].filter((f) => map[f]);
+  const idx = fields.map((f) => header.indexOf(map[f]));
+  const lines = [fields.join(',')];
+  for (const r of rows) lines.push(idx.map((i) => quoteCell(i >= 0 ? (r[i] ?? '').trim() : '')).join(','));
+  return lines.join('\r\n') + '\r\n';
 }
