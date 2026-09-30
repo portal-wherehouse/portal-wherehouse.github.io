@@ -144,8 +144,8 @@ export function Import() {
     <div className="stack">
       <PageHead title="Import" sub="Load a supplier's list of what's coming, or set up locations and jobs, from a spreadsheet saved as CSV." />
       {kind === 'shipments' && (
-        <Notice tone="info" icon="receive" title="Importing a delivery list doesn't add stock">
-          Each row waits in <button className="link" onClick={() => go('incoming')}>Incoming</button> until the delivery arrives. Scan a pallet's barcode on Receive and Wherehouse fills in everything from this list. Check it and save, and only then is it a pallet on hand with its own label. Rows without a barcode can be found by searching Incoming and received with one tap.
+        <Notice tone="info" icon="barcode" title="Each row loads a pallet's barcode info into your system">
+          So when that pallet arrives and you scan it on Receive, Wherehouse already knows what it is: the description, quantity, job and everything else in the file. It's counted as stock once it's scanned in. Rows with no barcode wait in <button className="link" onClick={() => go('incoming')}>Incoming</button>, where you can receive them by hand.
         </Notice>
       )}
       {kind === 'pallets' && (

@@ -67,7 +67,7 @@ export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional
       ['Campfire bundles, 0.75 cu ft', '012345678905', '48', 'bundles', '012345678905', 'Bundles', '', '', '', '', '', '{"Grade":"A"}', ''],
     ],
     who: 'Supervisors and owners',
-    policy: 'Adds items to Incoming. Nothing becomes stock yet: when the delivery arrives, scanning its barcode on Receive fills in these details, and saving creates the pallet. Rows without a barcode wait in Incoming, where you can find them and receive them by hand.',
+    policy: "Each row loads a pallet's barcode and details into your system, so the pallet is identified the moment it's scanned in on Receive. It's counted as stock once it's scanned in.",
   },
   locations: {
     required: ['warehouse_code', 'location_code', 'kind'],

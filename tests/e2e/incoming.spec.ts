@@ -19,7 +19,7 @@ test('a delivery list goes to Incoming, adds no stock, and each item is received
   await page.goto('/?demo=1#import');
   await page.getByLabel('CSV text').fill(list);
   await expect(page.getByRole('group', { name: 'What to import' }).getByRole('button', { name: 'Incoming' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText("Importing a delivery list doesn't add stock")).toBeVisible();
+  await expect(page.getByText("Each row loads a pallet's barcode info into your system")).toBeVisible();
   await page.getByRole('button', { name: /^Import 2/ }).click();
   await expect(page.locator('#main')).toContainText('2 items added to Incoming. No stock was added.');
   await page.goto('/?demo=1#find');
