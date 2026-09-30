@@ -1,0 +1,119 @@
+/* Install the app: Help steps, the phone banner, and the new-version prompt. */
+
+.inst-guide {
+  gap: 12px;
+}
+
+.inst-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.inst-note,
+.inst-done {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  font-size: 14.5px;
+}
+
+.inst-note {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--warn-soft);
+  color: var(--ink);
+}
+
+.inst-note svg,
+.inst-done svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+}
+
+.inst-done svg {
+  color: var(--ok);
+}
+
+.inst-small {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.inst-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.inst-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.inst-banner-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.inst-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.inst-banner-text strong {
+  font-size: 15px;
+}
+
+.inst-banner-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.inst-banner-actions .btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.toast.inst-update {
+  padding: 8px 8px 8px 14px;
+}
+
+.toast.inst-update .grow {
+  flex: 1;
+}
+
+.toast.inst-update .btn {
+  flex: none;
+}
+
+.toast.inst-update .btn svg {
+  width: 16px;
+  height: 16px;
+}

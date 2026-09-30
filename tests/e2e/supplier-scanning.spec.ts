@@ -210,11 +210,12 @@ test('camera fallback reads a linear barcode and stops its stream after capture'
   await page.addInitScript(({widths, modules}) => {
     Object.defineProperty(window, 'BarcodeDetector', {value: undefined, configurable: true});
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {value: async () => {
-      const canvas = document.createElement('canvas'); canvas.width = modules * 3 + 60; canvas.height = 240;
+      // A 4:3 camera frame with the label in the middle, where the viewfinder's target box is.
+      const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 480;
       const context = canvas.getContext('2d')!;
       context.fillStyle = 'white'; context.fillRect(0, 0, canvas.width, canvas.height);
-      context.fillStyle = 'black'; let x = 30;
-      for (let i = 0; i < widths.length; i++) {if (i % 2 === 0) context.fillRect(x, 20, widths[i] * 3, 200); x += widths[i] * 3;}
+      context.fillStyle = 'black'; let x = (canvas.width - modules * 3) / 2;
+      for (let i = 0; i < widths.length; i++) {if (i % 2 === 0) context.fillRect(x, 140, widths[i] * 3, 200); x += widths[i] * 3;}
       const stream = canvas.captureStream(10);
       (window as any).__testCameraTracks = stream.getTracks();
       return stream;

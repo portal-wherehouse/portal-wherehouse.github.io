@@ -1,1 +1,1 @@
-declare const __BUILD_COMMIT__: string; declare const __BUILD_TIME__: string; declare const __BUILD_TARGET__: "artifact" | "app";
+declare const __BUILD_COMMIT__: string; declare const __BUILD_TIME__: string; declare const __BUILD_ID__: string; declare const __BUILD_TARGET__: "artifact" | "app";

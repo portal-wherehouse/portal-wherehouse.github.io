@@ -1850,6 +1850,24 @@ table.t th.n {
   cursor: pointer;
 }
 
+.viewfinder .vf-controls .vf-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.viewfinder .vf-controls .vf-light svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.viewfinder .vf-controls .vf-light[aria-pressed='true'] {
+  background: #f2b705;
+  border-color: #f2b705;
+  color: #14171a;
+}
+
 .demo-labels {
   display: flex;
   gap: 8px;

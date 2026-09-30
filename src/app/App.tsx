@@ -50,6 +50,9 @@ import { SignIn } from '../portal/SignIn';
 import { SitePage } from '../site/SitePage';
 import { SiteRouting } from '../site/routing';
 import './customer.css';
+import { InstallBanner, InstallGuide, installHelpShown } from '../features/install/Install';
+import { scrollToId } from '../features/help/helpers';
+import { usePwa } from '../device/pwa';
 
 const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.ReactNode> = {
   checklist: SetupChecklist,
@@ -277,6 +280,7 @@ function Portal() {
           </nav>
         )}
         <main key={`${route.name}:${route.id ?? ''}`} className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
+          {signedIn && <InstallBanner />}
           {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
           {backend.mode === 'firebase' && <>{backend.storageOk&&backend.storageError&&<Notice tone="warn" title="Offline saving needs attention">{backend.storageError}</Notice>}<RenewalNotice/><PendingCloudRequests /></>}
           {removed ? <RemovedAccess /> : signedIn && setupLocked && !setupOpen(route.name) ? (manager ? <SetupChecklist /> : route.name === 'help' ? <Screen /> : <SetupPending />) : signedIn ? <LiveView>{setupLocked && route.name !== 'checklist' && <div className="setup-back"><span>You’re setting up your warehouse.</span><button className="btn small primary" onClick={() => go('checklist')}><Icon name="chevronLeft" /> Back to setup</button></div>}<Screen key={`${route.name}:${route.id ?? ''}`} /></LiveView> : <Screen />}
@@ -397,12 +401,29 @@ function RemovedAccess() {
 }
 
 function LiveHelp() {
-  const {go,startGuide}=useApp();
-  return <div className="panel stack"><h1>Setup & support</h1>
+  const {go,startGuide,route}=useApp();
+  const pwa = usePwa();
+  const installShown = installHelpShown(pwa) && route.name === 'help';
+  // The phone banner's Show me how opens #help?q=install.
+  useEffect(() => {
+    if (!installShown || route.q !== 'install') return;
+    const t = setTimeout(() => scrollToId('help-install', 'help-install-h'), 60);
+    return () => clearTimeout(t);
+  }, [installShown, route.q]);
+  return <div className="stack">
+  <div className="panel stack"><h1>Setup & support</h1>
     <p>Shared records sync across your crew. If the signal drops, cached pallet moves are saved on this device until you reconnect. Receiving, photos and dispatch need a connection.</p>
     <div className="row"><button className="btn" onClick={()=>startGuide(0)}>Take the tour</button><a className="btn" href={`${location.pathname}?demo=1#help`}>Open sample warehouse</a></div>
     <p>The tour explains your screens. Use the separate sample warehouse to practice with example records.</p>
     <p>Need help with labels, scanning or your crew?</p><button className="btn primary" onClick={()=>go('contact')}>Contact remote support</button>
+  </div>
+  {installShown && (
+    <section className="stack live-install" id="help-install" aria-labelledby="help-install-h">
+      <h2 id="help-install-h" tabIndex={-1}>Install the {BRAND.name} app</h2>
+      <p className="muted" style={{ margin: 0 }}>Add it to your home screen for one-tap access, full screen, with no app store needed.</p>
+      <InstallGuide />
+    </section>
+  )}
   </div>;
 }
 

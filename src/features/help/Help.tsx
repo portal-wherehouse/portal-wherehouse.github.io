@@ -15,10 +15,13 @@ import { TUTORIALS } from './tutorials';
 import { TutorialsSection, type TutorialFilter } from './Tutorials';
 import { VideoSection } from './Video';
 import { VIDEO_CHAPTERS, VIDEO_LENGTH_LABEL } from './videoChapters';
+import { InstallGuide, installHelpShown } from '../install/Install';
+import { usePwa } from '../../device/pwa';
 import './help.css';
 
 const SECTIONS = [
   { id: 'start', label: 'Start here', icon: 'rocket' },
+  { id: 'install', label: 'Install app', icon: 'phone' },
   { id: 'video', label: 'Video', icon: 'video' },
   { id: 'tutorials', label: 'Tutorials', icon: 'checklist' },
   { id: 'faq', label: 'Questions', icon: 'question' },
@@ -31,6 +34,9 @@ type Hit = { kind: 'tutorial' | 'chapter' | 'faq'; id: string; title: string; de
 
 export function Help() {
   const { route, role, backend } = useApp();
+  const pwa = usePwa();
+  // Install steps are only offered where they work, and not inside the installed app.
+  const sections = installHelpShown(pwa) ? SECTIONS : SECTIONS.filter((s) => s.id !== 'install');
   const [current, setCurrent] = useState<SectionId>('start');
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [tutFilter, setTutFilter] = useState<TutorialFilter>('all');
@@ -164,7 +170,7 @@ export function Help() {
       </Explain>
 
       <nav className="help-nav" aria-label="Help sections" style={{ top: navTop }}>
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <button key={s.id} type="button" aria-current={current === s.id ? 'true' : undefined} onClick={() => scrollToId(`help-${s.id}`, `help-${s.id}-h`)}>
             <Icon name={s.icon} />
             {s.label}
@@ -187,6 +193,12 @@ export function Help() {
           <QuickAction icon="mail" title="Contact support" body="Describe the problem or idea. You get a reference and a ready-made email." cta="Write to support" onClick={() => scrollToId('help-contact', 'help-name')} />
         </div>
       </HelpSection>
+
+      {installHelpShown(pwa) && (
+        <HelpSection id="install" title={`Install the ${BRAND.name} app`} lede="Add it to your home screen for one-tap access, full screen, with no app store needed.">
+          <InstallGuide />
+        </HelpSection>
+      )}
 
       <HelpSection id="video" title="Video tutorial" lede={`One walkthrough of the whole portal, ${VIDEO_LENGTH_LABEL} long, in ${VIDEO_CHAPTERS.length} chapters. Coming soon.`}>
         <VideoSection expanded={chaptersOpen} setExpanded={setChaptersOpen} flash={flash} onGo={run} />

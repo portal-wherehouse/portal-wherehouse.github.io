@@ -5,6 +5,7 @@ import { STATE_LABEL } from '../domain/display';
 import type { Location, Pallet, PalletState, Role } from '../domain/types';
 import { useApp } from '../app/state';
 import { Icon, type IconName } from './icons';
+import { UpdatePrompt } from '../features/install/Install';
 
 // ------------------------------------------------------------------ time
 
@@ -339,6 +340,7 @@ export function Toasts() {
           {t.text}
         </div>
       ))}
+      <UpdatePrompt />
     </div>
   );
 }
