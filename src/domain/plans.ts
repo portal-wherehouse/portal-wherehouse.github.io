@@ -1,7 +1,7 @@
 // Plans, the on-site setup fee and the area a tech can drive to. Beta prices: change them here and the
 // website, survey and pricing page all follow.
 
-import type { SurveyAnswers } from './survey';
+import { surveyNumbers, type SurveyAnswers } from './survey';
 
 export type PlanId = 'starter' | 'plus' | 'business';
 export interface Plan {
@@ -10,16 +10,19 @@ export interface Plan {
   monthly: number;
   people: number;
   warehouses: number;
-  files: 'paper' | 'cloud';
   blurb: string;
   features: string[];
 }
 
 export const PLANS: Plan[] = [
-  { id: 'starter', name: 'Starter', monthly: 29, people: 5, warehouses: 1, files: 'paper', blurb: 'Find anything, with paper records.', features: ['Up to 5 people', 'Every tracking feature', 'Printed paperwork; nothing extra saved online'] },
-  { id: 'plus', name: 'Plus', monthly: 49, people: 15, warehouses: 1, files: 'cloud', blurb: 'Photos and paperwork saved online.', features: ['Up to 15 people', 'Every tracking feature', 'Photos and documents saved online'] },
-  { id: 'business', name: 'Business', monthly: 99, people: 50, warehouses: 5, files: 'cloud', blurb: 'Bigger crews and more than one building.', features: ['Up to 50 people', 'Up to 5 warehouses', 'Photos and documents saved online'] },
+  { id: 'starter', name: 'Starter', monthly: 29, people: 5, warehouses: 1, blurb: 'For a small crew in one building.', features: ['Up to 5 people', 'Every tracking feature', 'Paper records included'] },
+  { id: 'plus', name: 'Plus', monthly: 49, people: 15, warehouses: 1, blurb: 'For a full crew on more than one shift.', features: ['Up to 15 people', 'Every tracking feature', 'Paper records included'] },
+  { id: 'business', name: 'Business', monthly: 99, people: 50, warehouses: 5, blurb: 'Bigger crews and more than one building.', features: ['Up to 50 people', 'Up to 5 warehouses', 'Paper records included'] },
 ];
+
+/** Optional add-on on any plan: photos and documents on every record, backed up online. */
+export const CLOUD_ADDON = { name: 'Cloud document backup', monthly: 5.99 } as const;
+export const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 
 /** One-time price for a tech to come set everything up: zones, spots, labels hung, items loaded, crew trained. */
 export const SETUP_FEE = { small: 299, large: 499 } as const;
@@ -38,21 +41,22 @@ export const inSetupArea = (zip: string) => SETUP_ZIPS.has(cleanZip(zip));
 export interface PlanPick {
   plan: Plan;
   why: string;
+  /** Plan plus the cloud add-on when it was picked. */
+  monthly: number;
+  cloud: boolean;
   setupFee: number;
+  /** Estimated hours to set it up yourself, from the survey's zones, spots and labels. */
+  hours: number;
   techAvailable: boolean;
 }
 
+/** A tech visit is the small fee when the setup is about a day's work or less. */
+const SMALL_SETUP_HOURS = 6;
+
 export function recommendPlan(a: SurveyAnswers): PlanPick {
-  const big = a.count === 'to10000' || a.count === 'over10000';
-  const zones = Object.values(a.zones).some((z) => z === 'several' || z === 'many');
-  const plan = a.people === 'large' || a.people === 'medium' ? (a.people === 'large' ? PLANS[2] : PLANS[1]) : a.files === 'cloud' ? PLANS[1] : PLANS[0];
-  const why =
-    plan.id === 'business'
-      ? 'You have a big crew, so you need room for more people.'
-      : plan.id === 'plus'
-        ? a.people === 'medium'
-          ? 'Your crew is more than 5 people.'
-          : 'You want photos and paperwork saved online.'
-        : 'A small crew with paper records keeps it simple and cheap.';
-  return { plan, why, setupFee: big || zones ? SETUP_FEE.large : SETUP_FEE.small, techAvailable: inSetupArea(a.zip) };
+  const plan = a.people === 'large' ? PLANS[2] : a.people === 'medium' ? PLANS[1] : PLANS[0];
+  const why = plan.id === 'business' ? 'More than 15 people will use it.' : plan.id === 'plus' ? 'Your crew is more than 5 people.' : 'Up to 5 people in one building.';
+  const cloud = a.files === 'cloud';
+  const hours = surveyNumbers(a).hours;
+  return { plan, why, monthly: Math.round((plan.monthly + (cloud ? CLOUD_ADDON.monthly : 0)) * 100) / 100, cloud, setupFee: hours > SMALL_SETUP_HOURS ? SETUP_FEE.large : SETUP_FEE.small, hours, techAvailable: inSetupArea(a.zip) };
 }

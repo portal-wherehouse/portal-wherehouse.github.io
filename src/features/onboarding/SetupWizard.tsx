@@ -6,10 +6,10 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { useApp } from '../../app/state';
 import { useSetup } from '../../app/words';
 import { hashString, normalizeCode, uuid } from '../../domain/codes';
-import { loadSavedSurvey, PLACES, PLACE_NAME, recommend, saveSurvey, type ZoneCount } from '../../domain/survey';
+import { loadSavedSurvey, recommend, saveSurvey, surveyZones } from '../../domain/survey';
 import { PRESETS, pluralize, type SetupPreset } from '../../domain/terms';
 import type { LocationKind, Onboarding, OnboardingZone, Warehouse } from '../../domain/types';
-import { PLANS } from '../../domain/plans';
+import { CLOUD_ADDON, money } from '../../domain/plans';
 import { Icon, type IconName } from '../../ui/icons';
 import { Notice, Spinner } from '../../ui/ui';
 import { buildCodes } from '../admin/RackBuilder';
@@ -45,20 +45,13 @@ function useOpenStep() {
 }
 
 const BLANK: Onboarding = { state: 'pending', done: [], zones: [], leave: null, files: null, barcodes: null };
-const ZONE_N: Record<ZoneCount, number> = { one: 1, few: 3, several: 6, many: 8 };
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
 const KIND_LABEL: Partial<Record<LocationKind, string>> = { RACK: 'Racks or shelves', FLOOR: 'Floor, lanes or yard', STAGING: 'Staging area', RECEIVING: 'Receiving area' };
 
-/** Zones the survey implies: two areas of pallet racks become zones A and B, and so on. */
+/** Zones the survey implies: two areas of tires become zones A and B, and so on. */
 function zonesFromSurvey(): OnboardingZone[] {
   const s = loadSavedSurvey();
-  if (!s?.places.length) return [];
-  const out: OnboardingZone[] = [];
-  for (const p of s.places) {
-    const n = ZONE_N[s.zones[p] ?? 'one'];
-    for (let k = 0; k < n && out.length < LETTERS.length; k++) out.push({ letter: LETTERS[out.length], name: n > 1 ? `${PLACE_NAME[p]} ${k + 1}` : PLACE_NAME[p], kind: PLACES[p].kind });
-  }
-  return out;
+  return s ? surveyZones(s) : [];
 }
 
 export function useOnboarding(): { wh: Warehouse | null; ob: Onboarding | null } {
@@ -261,7 +254,7 @@ function WordsStep({ busy, save }: StepProps) {
   const [w, setW] = useState({ thing: start.thing, things: start.things, job: start.job, jobs: start.jobs, jobs_on: start.jobs_on });
   const [err, setErr] = useState('');
   const go = async () => {
-    const o = await send('set_setup', { preset, ...w, ...(survey?.limits === 'yes' ? { advanced: true } : {}) }, null, { commandId: uuid() });
+    const o = await send('set_setup', { preset, ...w, ...(survey?.limits.includes('weight') ? { advanced: true } : {}) }, null, { commandId: uuid() });
     if (!(o.status === 'result' && o.result.ok)) return setErr(o.status === 'result' && !o.result.ok ? o.result.message : 'Could not save. Try again.');
     await save({}, 'words');
   };
@@ -561,14 +554,12 @@ function LeaveStep({ ob, busy, save }: StepProps) {
 function FilesStep({ ob, busy, save }: StepProps) {
   const survey = useMemo(() => loadSavedSurvey(), []);
   const [pick, setPick] = useState(ob.files ?? survey?.files ?? null);
-  const cloud = PLANS.find((p) => p.files === 'cloud')!;
-  const paper = PLANS.find((p) => p.files === 'paper')!;
   return (
     <>
       <StepHead icon="cloud" title="How do you want to keep records?" why="Photos of damage, delivery papers and signed receipts can live online with each record, or on paper only." />
       <div className="wizard-choices" role="radiogroup">
-        <Choice on={pick === 'cloud'} icon="cloud" title="Save photos and paperwork online" sub={`Attach photos and documents to any record. ${cloud.name} plan, $${cloud.monthly}/month after the trial.`} onClick={() => setPick('cloud')} />
-        <Choice on={pick === 'paper'} icon="print" title="Paper only" sub={`Print what you need; nothing extra is stored online. ${paper.name} plan, $${paper.monthly}/month after the trial.`} onClick={() => setPick('paper')} />
+        <Choice on={pick === 'cloud'} icon="cloud" title="Save photos and paperwork online" sub={`Cloud backup of photos and documents on every record. +${money(CLOUD_ADDON.monthly)}/month after the trial.`} onClick={() => setPick('cloud')} />
+        <Choice on={pick === 'paper'} icon="print" title="Paper only" sub="Print what you need; nothing extra is stored online. +$0.00, included." onClick={() => setPick('paper')} />
       </div>
       <Continue busy={busy} disabled={!pick} onClick={() => void save({ files: pick }, 'files')} />
     </>
