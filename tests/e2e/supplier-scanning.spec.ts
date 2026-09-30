@@ -56,7 +56,8 @@ for (const width of [375, 1280])
     await expect(
       page.getByRole("heading", { name: "Pallet saved" }),
     ).toHaveCount(0);
-    await page.locator("#rcv-job").selectOption({ index: 1 });
+    await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator("#rcv-job").selectOption({ index: 1 });
     await page.locator("#rcv-desc").fill("Supplier scan receiving test");
     await page.screenshot({
       path: `test-results/supplier-receive-${width}.png`,
@@ -183,7 +184,8 @@ test("a receiving QR photo fills the description and remains searchable by its s
   );
   await expect(page.locator("#rcv-desc")).toHaveValue(description);
   await page.keyboard.press("Escape");
-  await page.locator("#rcv-job").selectOption({ index: 1 });
+  await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator("#rcv-job").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Save pallet", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Pallet saved" }),

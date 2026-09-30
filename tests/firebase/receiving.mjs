@@ -19,6 +19,14 @@ export async function testReceiving({
   send,
   adminDb,
 }) {
+  const unassigned = await send(owner, 'receive', {description:'General stock without a job'});
+  assert.equal(unassigned.ok, true); assert.equal(unassigned.current_state.job_id, '');
+  let free = unassigned.current_state;
+  for (const [kind, payload] of [['place',{location_id:location.target_id}],['dispatch',{destination:'Customer pickup'}],['return',{condition_note:'Unopened'}]]) {
+    const result = await send(owner, kind, payload, {pallet_id:free.id,expected_version:free.version});
+    assert.equal(result.ok, true, JSON.stringify(result)); free = result.current_state;
+  }
+  console.log('PASS shared receive without a job, placement, dispatch and return');
   const info = {
     product_code: "BIRCH-WHITE",
     quantity: "48",

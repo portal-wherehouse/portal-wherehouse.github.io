@@ -81,10 +81,10 @@ function ScreenHead({ eyebrow, title, sub }: { eyebrow: string; title: ReactNode
   );
 }
 
-function JobLine({ job }: { job: Job }) {
+function JobLine({ job }: { job: Job | undefined }) {
   return (
     <span>
-      <span className="jcode">{job.code}</span> {job.name}
+      <span className="jcode">{job?.code ?? 'No job'}</span> {job?.name}
     </span>
   );
 }
@@ -216,7 +216,7 @@ function Waiting({ rows, mine }: { rows: SearchRow[]; mine: string | null }) {
               {r.pallet.description}
               {r.pallet.id === mine && <span className="sr-only"> (the one you just received)</span>}
             </span>
-            <span className="jcode">{r.job.code}</span>
+            <span className="jcode">{r.job?.code ?? 'No job'}</span>
           </li>
         ))}
       </ul>

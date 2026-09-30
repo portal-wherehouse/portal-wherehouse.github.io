@@ -114,7 +114,7 @@ export function PalletRecord() {
   return (
     <div className="stack">
       <PageHead
-        eyebrow={`Pallet · ${detail.job.code}`}
+        eyebrow={`Pallet · ${detail.job?.code ?? 'No job'}`}
         title={<span style={{ fontSize: '1.25em' }}>{p.code}</span>}
         sub={p.description}
         actions={
@@ -180,10 +180,10 @@ export function PalletRecord() {
           <dl className="kv">
             <dt>Job</dt>
             <dd>
-              <button className="btn ghost small" style={{ padding: 0, minHeight: 0 }} onClick={() => go({ name: 'job', id: detail.job.id })}>
-                <span className="jcode">{detail.job.code}</span>&nbsp;{detail.job.name}
+              <button disabled={!detail.job} className="btn ghost small" style={{ padding: 0, minHeight: 0 }} onClick={() => detail.job && go({ name: 'job', id: detail.job.id })}>
+                <span className="jcode">{detail.job?.code ?? 'No job assigned'}</span>&nbsp;{detail.job?.name}
               </button>
-              {detail.job.status === 'CLOSED' && <span className="tag"> closed</span>}
+              {detail.job?.status === 'CLOSED' && <span className="tag"> closed</span>}
             </dd>
             <dt>Description</dt>
             <dd>{p.description}</dd>

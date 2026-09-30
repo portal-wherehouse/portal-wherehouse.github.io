@@ -285,3 +285,10 @@ No new index, service, scheduler or billing upgrade is needed for this release. 
 Keep automated tests local: `npm test`, `npm run test:e2e`, `npm run test:firebase`, and `npm run test:firebase:load`. The Firebase browser suite now builds an explicitly guarded emulator-only bundle so a real service worker/offline reload can be tested. It refuses live project IDs, buckets and App Check keys; that bundle goes in `dist-emulator`, never the Pages artifact.
 
 For a small manual live check after deployment, use one existing test pallet: open it and two locations online, briefly disable the device connection, queue one move, reload, reconnect, and confirm a single new history event. Do not use a customer's operational pallet, revoke a customer or expire a customer's license for testing. Grace/renewal boundary tests are already exercised locally. Run `npm run format:functions` before changing server code; CI runs `npm run format:check` to prevent dense one-line server files from returning.
+
+
+### Optional jobs on Receive
+
+Receive now starts with **Add job (optional)**. Choosing it opens the existing job picker; owners and managers can create a job in a popup without leaving their receipt. Employees can choose an existing job or skip it. Unassigned pallets are stored with an empty `job_id`, not a fabricated project, and remain usable in search, labels, moves, dispatch, returns and splits. Existing job assignments and history are unchanged.
+
+Deploy `functions:wherehouse:command` first, then `functions:wherehouse:getWarehouseSummary` using the two-step deployment above. The summary advertises `optional_jobs_version: 1` only after the handler supports unassigned pallets. Until then, the client explains that a server update is required rather than claiming an unassigned receipt was saved. No new rules, indexes or migration are required for this addition.

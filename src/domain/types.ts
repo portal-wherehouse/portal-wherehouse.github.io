@@ -79,6 +79,7 @@ export interface Pallet {
   workspace_id: string;
   warehouse_id: string;
   code: string;
+  /** Empty string means no job assigned. Existing job IDs remain unchanged. */
   job_id: string;
   description: string;
   notes: string | null;
@@ -103,6 +104,7 @@ export interface PalletSnapshot {
   current_location_code: string | null;
   last_confirmed_location_id: string | null;
   last_confirmed_location_code: string | null;
+  /** Empty string means no job assigned. Existing job IDs remain unchanged. */
   job_id: string;
   job_code: string;
   hold: boolean;

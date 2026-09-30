@@ -119,7 +119,7 @@ function PalletHead({ p, job, size }: { p: Pallet; job: Job | null; size?: 'lg' 
       <div className="st-phead-desc">{p.description}</div>
       {job && (
         <div className="st-phead-job">
-          <span className="jcode">{job.code}</span> {job.name}
+          <span className="jcode">{job?.code ?? 'No job'}</span> {job?.name}
         </div>
       )}
     </div>
@@ -209,8 +209,8 @@ export function LookupView({
           </div>
           <div className="st-look-desc">{p.description}</div>
           <div className="st-look-job">
-            <span className="jcode">{job.code}</span> {job.name}
-            {job.status === 'CLOSED' && <span className="tag">closed</span>}
+            <span className="jcode">{job?.code ?? 'No job'}</span> {job?.name}
+            {job?.status === 'CLOSED' && <span className="tag">closed</span>}
           </div>
         </div>
         <div className="st-look-where">

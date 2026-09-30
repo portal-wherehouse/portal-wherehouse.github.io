@@ -41,7 +41,7 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
   const events = read((e, a, ws) => e.history(a, ws, p.id)) ?? [];
   const users = read((e) => e.db.users) ?? {};
   const [reason, setReason] = useState('');
-  const [destination, setDestination] = useState(p.receiving?.destination || detail.job.destination_notes || '');
+  const [destination, setDestination] = useState(p.receiving?.destination || detail.job?.destination_notes || '');
   const [note, setNote] = useState('');
   const [holdReason, setHoldReason] = useState('');
   const [locationId, setLocationId] = useState(detail.pallet.last_confirmed_location_id ?? '');
@@ -120,7 +120,7 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
           </span>
           <span style={{ fontWeight: 600 }}>{p.description}</span>
           <span className="muted">
-            · <span className="jcode">{detail.job.code}</span> · v{p.version}
+            · <span className="jcode">{detail.job?.code ?? 'No job'}</span> · v{p.version}
           </span>
           {p.hold && <HoldBadge title={p.hold.reason} />}
         </div>
@@ -143,14 +143,14 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
               <input id="act-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Truck, driver, bill of lading…" maxLength={500} />
             </Field>
             <Notice tone="info" icon="truck">
-              Leaving from <strong>{detail.location?.code}</strong> for job <strong>{detail.job.code}</strong> {detail.job.name}. The result will read “Dispatched from WH-01”, never “Delivered”.
+              Leaving from <strong>{detail.location?.code}</strong> for job <strong>{detail.job?.code ?? 'No job'}</strong> {detail.job?.name}. The result will read “Dispatched from WH-01”, never “Delivered”.
             </Notice>
           </>
         )}
 
         {kind === 'return' && (
           <>
-            {detail.job.status !== 'OPEN' && <Notice tone="warn">Job {detail.job.code} is closed. A supervisor must reopen it (Jobs screen) before this return can be recorded.</Notice>}
+            {detail.job && detail.job.status !== 'OPEN' && <Notice tone="warn">Job {detail.job?.code ?? 'No job'} is closed. A supervisor must reopen it (Jobs screen) before this return can be recorded.</Notice>}
             <Field label="Condition note (optional)" htmlFor="act-cond">
               <textarea id="act-cond" className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Unused, wrap intact" maxLength={1000} />
             </Field>

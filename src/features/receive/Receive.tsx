@@ -1,3 +1,4 @@
+import { CreateJob } from '../admin/Jobs';
 import { FirebaseBackend } from '../../data/firebase';
 import { barcodeMatchKey, blankInfo, productKey, receivingSchema, type ExpectedShipment, type ProductMemory } from '../../domain/receiving';
 import { PalletFields } from './PalletFields';
@@ -23,6 +24,9 @@ export function Receive() {
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
   const [jobId, setJobId] = useState('');
+  const [showJob, setShowJob] = useState(false);
+  const [creatingJob, setCreatingJob] = useState(false);
+  const optionalJobs = !(backend instanceof FirebaseBackend) || backend.summary?.optional_jobs_version === 1;
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [supplier, setSupplier] = useState('');
@@ -92,7 +96,7 @@ export function Receive() {
 
   const job = openJobs.find((j) => j.id === jobId) ?? null;
   const descErr = touched && !description.trim() ? 'Description is required.' : description.length > 160 ? 'Keep it to 160 characters.' : null;
-  const jobErr = touched && !jobId ? 'Choose the job this material belongs to.' : null;
+  const jobErr = touched && jobId && !job ? 'Choose an open job, or remove the job.' : null;
 
   const recentDescs = useMemo(() => {
     const all = read((e, _a, ws) => Object.values(e.db.pallets).filter((p) => p.workspace_id === ws && p.job_id === jobId)) ?? [];
@@ -122,8 +126,9 @@ export function Receive() {
 
   const submit = async () => {
     setTouched(true);
-    if (!jobId || !description.trim() || description.length > 160 || notes.length > 1000) return;
+    if ((jobId && !job) || !description.trim() || description.length > 160 || notes.length > 1000) return;
     if (lookupLock.current || locked) return;
+    if (!jobId && !optionalJobs) return toast('Receiving without a job needs the warehouse server update. Your entries are still here.', 'error');
     if (enhanced) {
       const checked=receivingSchema.safeParse(info);
       if (!checked.success) return toast(checked.error.issues[0].message,'error');
@@ -193,7 +198,7 @@ export function Receive() {
             </span>
           </div>
           <div>
-            <strong>{live.description}</strong> for <span className="jcode">{job?.code}</span> {job?.name}
+            <strong>{live.description}</strong>{job ? <> for <span className="jcode">{job.code}</span> {job.name}</> : <span className="muted"> · No job assigned</span>}
           </div>
           <div className="muted">
             This is a new pallet with its own code. Print and attach its label before placement.
@@ -268,7 +273,7 @@ export function Receive() {
       <Explain refs="pages 9, 11, 25">
         <p>A pallet is one physically handled unit, not a product SKU. Two identical pallets are two records, because they can be stored in different places.</p>
         <ul>
-          <li>Only open jobs appear. Closed jobs reject new receipts, and the form keeps what you typed.</li>
+          <li>Jobs are optional. If you assign one, it must be open.</li>
           <li>The readable code (like P-000042) is assigned by the server after saving, and is never reused.</li>
           <li>The photo is optional and uploads separately. If it fails, the pallet stays saved and you can retry the photo.</li>
           <li>If the connection drops while saving, “Check result” recovers the original receipt instead of creating a second pallet.</li>
@@ -283,16 +288,23 @@ export function Receive() {
         }}
         noValidate
       >
-        <Field label="Job" htmlFor="rcv-job" hint={jobErr ?? (job?.destination_notes ? `Ships to: ${job.destination_notes}` : 'Material for one job per pallet.')}>
-          <select id="rcv-job" className="select" value={jobId} onChange={(e) => setJobId(e.target.value)} disabled={locked} aria-invalid={!!jobErr}>
-            <option value="">Choose a job…</option>
-            {openJobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.code} · {j.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="stack" style={{ gap: 10 }}>
+          {!showJob && !jobId && <button type="button" className="btn" disabled={locked} onClick={() => setShowJob(true)}><Icon name="plus" />Add job (optional)</button>}
+          <div hidden={!showJob && !jobId}>
+            <Field label="Job (optional)" htmlFor="rcv-job" hint={jobErr || (job?.destination_notes ? `Ships to: ${job.destination_notes}` : 'Assign this pallet to a project or order. Leave blank for general stock.')}>
+              <select id="rcv-job" className="select" value={jobId} onChange={e => setJobId(e.target.value)} disabled={locked} aria-invalid={!!jobErr}>
+                <option value="">No job assigned</option>
+                {openJobs.map(j => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}
+              </select>
+            </Field>
+            {!openJobs.length && <p className="hint">No open jobs yet. You can receive this pallet without one.</p>}
+            <div className="row" style={{ marginTop: 10 }}>
+              {roleAllows(role, 'create_job') ? <button type="button" className="btn" disabled={locked || backend.network === 'offline'} onClick={() => setCreatingJob(true)}><Icon name="plus" />New job</button> : <p className="hint">A manager can create a new job for your team.</p>}
+              <button type="button" className="btn ghost" disabled={locked} onClick={() => { setJobId(''); setShowJob(false); }}>Skip job</button>
+            </div>
+          </div>
+          {!optionalJobs && !jobId && <Notice tone="info">Receiving without a job needs the warehouse server update. You can still add an existing job.</Notice>}
+        </div>
         <Field label="Description" htmlFor="rcv-desc" hint={descErr ?? 'Your warehouse’s product name, e.g. White birch. Put changing quantities and other details below.'} count={description.length} max={160}>
           <input
             id="rcv-desc"
@@ -354,9 +366,10 @@ export function Receive() {
           </button>
         )}
         <p className="faint" style={{ fontSize: 12.5 }}>
-          Required: job and description. Each physical pallet gets a separate code after saving.
+          Required: description. Job is optional. Each physical pallet gets a separate code after saving.
         </p>
       </form>
+      {creatingJob && <CreateJob onClose={() => setCreatingJob(false)} onCreated={id => { setJobId(id); setShowJob(true); }} />}
     </div>
   );
 }

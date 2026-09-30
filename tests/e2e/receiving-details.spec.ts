@@ -18,7 +18,8 @@ for (const width of [375, 1280])
     await signInAs(page, "owner");
     await page.goto("/?demo=1#receive");
     await scan(page, "BIRCH-WHITE");
-    await page.locator("#rcv-job").selectOption({ index: 1 });
+    await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator("#rcv-job").selectOption({ index: 1 });
     await page.getByLabel("Description", { exact: true }).fill("White birch");
     await page
       .getByLabel("Reusable product barcode (optional)")
@@ -70,7 +71,8 @@ for (const width of [375, 1280])
     await expect(page.locator("#detail-value-0")).toHaveValue("");
     await expect(page.locator("#pallet-destination")).toHaveValue("");
     await expect(page.locator("#pallet-reminder")).toHaveValue("");
-    await page.locator("#rcv-job").selectOption({ index: 1 });
+    await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator("#rcv-job").selectOption({ index: 1 });
     await page.locator("#pallet-quantity").fill("60");
     await page
       .getByRole("button", { name: "Save pallet", exact: true })

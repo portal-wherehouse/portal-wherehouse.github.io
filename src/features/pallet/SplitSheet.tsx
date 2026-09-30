@@ -25,7 +25,7 @@ export function SplitSheet({ detail, onClose }: { detail: PalletDetail; onClose:
   const cmd = useCommand();
   const offline = backend.network === 'offline';
 
-  const valid = rows.length >= 2 && rows.every((r) => r.description.trim() && r.description.length <= 160 && r.job_id) && reason.trim() && verified;
+  const valid = rows.length >= 2 && rows.every((r) => r.description.trim() && r.description.length <= 160) && reason.trim() && verified;
   const update = (i: number, patch: Partial<(typeof rows)[number]>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   const commit = async () => {
@@ -83,8 +83,9 @@ export function SplitSheet({ detail, onClose }: { detail: PalletDetail; onClose:
                 </Field>
               </div>
               <div style={{ minWidth: 180, flex: '0 1 220px' }}>
-                <Field label="Job" htmlFor={`split-j-${i}`}>
+                <Field label="Job (optional)" htmlFor={`split-j-${i}`}>
                   <select id={`split-j-${i}`} className="select" value={r.job_id} onChange={(e) => update(i, { job_id: e.target.value })} disabled={preview}>
+                    <option value="">No job assigned</option>
                     {jobs.map((j) => (
                       <option key={j.id} value={j.id}>
                         {j.code} · {j.name}

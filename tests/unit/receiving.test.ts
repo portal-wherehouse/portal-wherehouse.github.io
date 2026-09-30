@@ -218,3 +218,21 @@ test('a quantity-only expected shipment can be imported, but receiving still req
  expect(h.cmd(h.users.operator,'receive',payload)).toMatchObject({ok:false,code:'INVALID_INPUT'});
  expect(h.cmd(h.users.operator,'receive',{...payload,description:'White birch'}).ok).toBe(true);
 });
+
+
+test('general stock has no job and still supports search, movement, dispatch, return and splitting', () => {
+ const h = new Harness();
+ const first = h.cmd(h.users.operator, 'receive', {description:'Unassigned warehouse stock'});
+ expect(first.ok).toBe(true); if(!first.ok) throw Error();
+ const pallet = first.current_state!;
+ expect(pallet.job_id).toBe('');
+ expect(h.engine.pallet(h.users.owner,h.ws,pallet.id).job).toBeUndefined();
+ expect(h.engine.search(h.users.owner,h.ws,{q:'Unassigned warehouse stock'}).items.some(r=>r.pallet.id===pallet.id)).toBe(true);
+ const location = h.loc('A-01-01').id;
+ for(const [kind,payload] of [['place',{location_id:location}],['move',{location_id:h.loc('A-01-02').id}],['dispatch',{destination:'Customer pickup'}],['return',{condition_note:'Unopened'}],['place',{location_id:location}]] as const) {
+  const result=h.cmd(h.users.operator,kind,payload,pallet); expect(result.ok).toBe(true);
+ }
+ const split=h.cmd(h.users.supervisor,'split',{reason:'Separate loads',children:[{description:'Part one',job_id:''},{description:'Part two',job_id:''}]},pallet);
+ expect(split.ok).toBe(true);
+ expect(h.cmd(h.users.operator,'receive',{job_id:'missing-job',description:'Invalid job'})).toMatchObject({ok:false,code:'NOT_FOUND'});
+});

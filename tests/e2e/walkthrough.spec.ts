@@ -31,7 +31,8 @@ test('example shift through the practice shift: receive, place, move, find, disp
   await expect(shift.getByRole('button', { name: 'Expand practice shift' })).toBeVisible();
 
   await nav(page, 'Receive');
-  await page.locator('#rcv-job').selectOption({ label: 'J-214 · School renovation' });
+  await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator('#rcv-job').selectOption({ label: 'J-214 · School renovation' });
   await page.locator('#rcv-desc').fill('Lighting fixtures');
   await page.getByRole('button', { name: 'Save pallet' }).click();
   await expect(page.getByText('P-000042').first()).toBeVisible();

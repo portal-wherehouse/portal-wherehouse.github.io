@@ -12,7 +12,8 @@ test('operator receives matching pallets, prints both labels, places and retriev
   await expect(page.getByText('Local demo', {exact:true})).toBeVisible();
   await expect(sidebar.getByRole('button', {name:'Manager dashboard',exact:true})).toHaveCount(0);
   await expect(sidebar.getByRole('button', {name:'Integrity lab',exact:true})).toHaveCount(0);
-  await page.locator('#rcv-job').selectOption({label:'J-214 · School renovation'});
+  await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator('#rcv-job').selectOption({label:'J-214 · School renovation'});
   await page.locator('#rcv-desc').fill('Pilot lighting fixtures');
   await page.locator('#rcv-sup').fill('PO-PILOT-01');
   await page.locator('#rcv-note').fill('Only this pallet has damaged wrapping');

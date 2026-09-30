@@ -187,7 +187,7 @@ class Tx {
 
 export interface PalletDetail {
   pallet: Pallet;
-  job: Job;
+  job: Job | undefined;
   location: Location | null;
   lastLocation: Location | null;
   attachments: Attachment[];
@@ -366,6 +366,7 @@ export class Engine {
     const pallet = this.db.pallets[cmd.pallet_id!];
     if (!pallet || pallet.workspace_id !== ws) return reject('NOT_FOUND', 'Pallet not found.');
     const job = this.db.jobs[pallet.job_id];
+    if (pallet.job_id && (!job || job.workspace_id !== ws)) return reject('NOT_FOUND', 'Job not found.');
     let location: Location | null = null;
     if (typeof p.location_id === 'string') {
       const loc = this.db.locations[p.location_id];
@@ -425,8 +426,8 @@ export class Engine {
       const children = (p.children as { description: string; job_id: string }[]).map((c) => ({ description: c.description.trim(), job_id: c.job_id }));
       for (const [i, c] of children.entries()) {
         const j = this.db.jobs[c.job_id];
-        if (!j || j.workspace_id !== ws) return reject('NOT_FOUND', `Portion ${i + 1}: job not found.`);
-        if (j.status !== 'OPEN') return reject('JOB_CLOSED', `Portion ${i + 1}: job ${j.code} is closed.`);
+        if (c.job_id && (!j || j.workspace_id !== ws)) return reject('NOT_FOUND', `Portion ${i + 1}: job not found.`);
+        if (j && j.status !== 'OPEN') return reject('JOB_CLOSED', `Portion ${i + 1}: job ${j.code} is closed.`);
       }
       const parentLoc = pallet.current_location_id!;
       const locCode = this.db.locations[parentLoc]?.code ?? '';
@@ -527,12 +528,12 @@ export class Engine {
   }
 
   private receive(tx: Tx, actorId: string, cmd: CommandEnvelope, now: string, reject: (c: ErrorCode, m: string) => CommandRejected): CommandResult {
-    const p = cmd.payload as { job_id: string; description: string; notes?: string; supplier_ref?: string; receiving?: import('../domain/receiving').PalletInfo; remember_product?: boolean; shipment_id?: string };
+    const p = cmd.payload as { job_id?: string; description: string; notes?: string; supplier_ref?: string; receiving?: import('../domain/receiving').PalletInfo; remember_product?: boolean; shipment_id?: string };
     const wh = this.activeWarehouse(cmd.workspace_id);
     if (!wh) return reject('INVALID_STATE', 'This company has no active warehouse.');
-    const job = this.db.jobs[p.job_id];
-    if (!job || job.workspace_id !== cmd.workspace_id) return reject('NOT_FOUND', 'Job not found.');
-    if (job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed. Choose an open job.`);
+    const job = p.job_id ? this.db.jobs[p.job_id] : undefined;
+    if (p.job_id && (!job || job.workspace_id !== cmd.workspace_id)) return reject('NOT_FOUND', 'Job not found.');
+    if (job && job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed. Choose an open job.`);
     const description = p.description.trim();
     if (!description) return reject('INVALID_INPUT', 'Description is required.');
     if (description.length > 160) return reject('INVALID_INPUT', 'Description is limited to 160 characters.');
@@ -556,7 +557,7 @@ export class Engine {
       workspace_id: cmd.workspace_id,
       warehouse_id: wh.id,
       code: formatPalletCode(n),
-      job_id: job.id,
+      job_id: job?.id ?? '',
       description,
       receiving: info,
       ...(shipment ? {shipment_id: shipment.id} : {}),
@@ -596,7 +597,7 @@ export class Engine {
       after_state: this.snapshot(pallet),
       reason: null,
       command_id: cmd.command_id,
-      detail: { job: job.code },
+      detail: { job: job?.code ?? null },
     };
     tx.appendEvent(event);
     return this.accepted(cmd, now, event.id, pallet);
@@ -931,7 +932,7 @@ export class Engine {
       last_confirmed_location_id: p.last_confirmed_location_id,
       last_confirmed_location_code: last?.code ?? null,
       job_id: p.job_id,
-      job_code: job?.code ?? '?',
+      job_code: job?.code ?? (p.job_id ? '?' : 'No job'),
       hold: !!p.hold,
       hold_reason: p.hold?.reason ?? null,
       description: p.description,

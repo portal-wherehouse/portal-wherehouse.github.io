@@ -29,7 +29,7 @@ export function Jobs() {
     <div className="stack">
       <PageHead
         title="Jobs"
-        sub="A job is the project that owns the material. Every pallet belongs to exactly one job."
+        sub="Group pallets by project or order. General stock can be received without a job."
         actions={
           canAdmin && (
             <button className="btn primary" onClick={() => setCreating(true)} disabled={backend.network === 'offline'}>
@@ -98,7 +98,7 @@ export function Jobs() {
   );
 }
 
-function CreateJob({ onClose }: { onClose: () => void }) {
+export function CreateJob({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
   const { go } = useApp();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -112,7 +112,7 @@ function CreateJob({ onClose }: { onClose: () => void }) {
       intro="Job codes are shown on every label, so keep them short. Codes are stored in capitals without extra spaces."
       valid={!!normalizeCode(code) && normalizeCode(code).length <= 20 && !!name.trim() && name.length <= 120}
       payload={() => ({ code, name, destination_notes: dest || undefined })}
-      onDone={(id) => id && go({ name: 'job', id })}
+      onDone={(id) => { if (id) { if (onCreated) onCreated(id); else go({ name: 'job', id }); } }}
       onClose={onClose}
     >
       <Field label="Job code" htmlFor="job-code" hint={code ? `Saved as ${normalizeCode(code) || '…'}` : 'For example J-240'} count={normalizeCode(code).length} max={20}>

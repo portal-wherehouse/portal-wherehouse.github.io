@@ -14,7 +14,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     receiving: receivingSchema.optional(),
     remember_product: z.boolean().optional(),
     shipment_id: id.optional(),
-    job_id: id,
+    job_id: id.or(z.literal('')).optional(),
     description: text(400),
     notes: text(2000).optional(),
     supplier_ref: text(200).optional(),
@@ -50,7 +50,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   rotate_label: z.object({ reason }),
   label_applied: z.object({}),
   split: z.object({
-    children: z.array(z.object({ description: text(400), job_id: id })).max(40),
+    children: z.array(z.object({ description: text(400), job_id: id.or(z.literal('')) })).max(40),
     reason,
   }),
   create_job: z.object({ code: text(40), name: text(200), destination_notes: text(1000).optional() }),

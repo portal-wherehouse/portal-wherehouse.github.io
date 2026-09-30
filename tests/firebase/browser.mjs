@@ -60,7 +60,8 @@ try {
  await page.goto('http://127.0.0.1:4175/#jobs');await page.getByRole('button',{name:'New job',exact:true}).click();
  await page.locator('#job-code').fill('J-LIVE');await page.locator('#job-name').fill('Live browser delivery');await page.getByRole('button',{name:'Create job',exact:true}).click();
  await page.getByRole('heading',{name:'Live browser delivery',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(-4000));throw e;});
- await page.goto('http://127.0.0.1:4175/#receive');await page.locator('#rcv-job').selectOption({label:'J-LIVE · Live browser delivery'});await page.locator('#rcv-desc').fill('Shared browser pallet');
+ await page.goto('http://127.0.0.1:4175/#receive');await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
+await page.locator('#rcv-job').selectOption({label:'J-LIVE · Live browser delivery'});await page.locator('#rcv-desc').fill('Shared browser pallet');
  await page.getByRole('button',{name:'Scan supplier barcode',exact:true}).click();await page.getByLabel('Printed barcode number').fill(']C100006141411234567890');await page.getByRole('button',{name:'Use barcode',exact:true}).click();await expect(page.getByRole('dialog')).toBeHidden();await expect(page.locator('#rcv-sup')).toHaveValue('006141411234567890');
  await page.getByRole('button',{name:'Save pallet',exact:true}).click();await page.getByRole('heading',{name:'Pallet saved',exact:true}).waitFor();
  // Add a real browser-compressed image, then prove another sign-in downloads no photo bytes.

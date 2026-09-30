@@ -6,7 +6,7 @@ import type { Job, Location, Pallet, PalletState } from './types';
 
 export interface SearchRow {
   pallet: Pallet;
-  job: Job;
+  job: Job | undefined;
   location: Location | null;
   lastLocation: Location | null;
 }
@@ -36,11 +36,11 @@ export function rankRow(row: SearchRow, rawQuery: string): number {
   const asPallet = parsePalletCode(q);
   const supplierCode = normalizeCode(row.pallet.supplier_ref ?? '');
   if ((supplierCode && q === supplierCode) || (row.pallet.receiving?.product_code && q === normalizeCode(row.pallet.receiving.product_code))) return 0;
-  const jobCode = normalizeCode(row.job.code);
+  const jobCode = normalizeCode(row.job?.code ?? '');
   const locCode = row.location ? normalizeCode(row.location.code) : '';
   if (q === palletCode || asPallet === palletCode || q === jobCode || (locCode && q === locCode)) return 0;
   if (palletCode.startsWith(q) || jobCode.startsWith(q) || (locCode && locCode.startsWith(q))) return 1;
-  const hay = `${row.pallet.description} ${row.job.name} ${row.pallet.supplier_ref ?? ''} ${row.pallet.notes ?? ''} ${row.pallet.receiving?.product_code ?? ''} ${row.pallet.receiving?.destination ?? ''} ${(row.pallet.receiving?.fields??[]).map(f=>f.name+' '+f.value).join(' ')}`.toUpperCase();
+  const hay = `${row.pallet.description} ${row.job?.name ?? ''} ${row.pallet.supplier_ref ?? ''} ${row.pallet.notes ?? ''} ${row.pallet.receiving?.product_code ?? ''} ${row.pallet.receiving?.destination ?? ''} ${(row.pallet.receiving?.fields??[]).map(f=>f.name+' '+f.value).join(' ')}`.toUpperCase();
   const words = q.split(' ').filter(Boolean);
   if (words.every((w) => hay.includes(w))) return 2;
   return -1;

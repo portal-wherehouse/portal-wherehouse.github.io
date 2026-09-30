@@ -593,8 +593,8 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
     const code = typeof p.code === 'string' ? p.code : p.id;
     if (!ws(p.workspace_id)) problems.push(`Pallet ${code} belongs to a company that is not in the file.`);
     const job = own(d.jobs, p.job_id);
-    if (!job) problems.push(`Pallet ${code} points at a job that is not in the file.`);
-    else if (job.workspace_id !== p.workspace_id) problems.push(`Pallet ${code} points at another company's job.`);
+    if (p.job_id !== '' && !job) problems.push(`Pallet ${code} points at a job that is not in the file.`);
+    else if (job && job.workspace_id !== p.workspace_id) problems.push(`Pallet ${code} points at another company's job.`);
     for (const id of [p.current_location_id, p.last_confirmed_location_id]) {
       if (id === null || id === undefined) continue;
       const loc = own(d.locations, id);

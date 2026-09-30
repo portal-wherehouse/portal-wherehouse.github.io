@@ -91,7 +91,7 @@ export const EVENT_LABEL: Record<EventType, string> = {
 
 export interface TransitionInput {
   pallet: Pallet;
-  job: Job;
+  job: Job | undefined;
   /** Destination or observed location, already checked to belong to the same workspace. */
   location?: Location | null;
   newJob?: Job | null;
@@ -210,7 +210,7 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
         return reject('INVALID_STATE', `${pallet.code} is ${STATE_LABEL[pallet.state].toLowerCase()}. Only a pallet stored on a rack or area can be dispatched.`);
       }
       if (pallet.hold) return reject('INVALID_STATE', `${pallet.code} is on hold (${pallet.hold.reason}). A supervisor must clear the hold first.`);
-      if (job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed.`);
+      if (job && job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed.`);
       const destination = str(payload.destination);
       if (!destination) return reject('INVALID_INPUT', 'Enter a destination.');
       if (destination.length > 200) return reject('INVALID_INPUT', 'Destination is limited to 200 characters.');
@@ -223,7 +223,7 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
     }
     case 'return': {
       if (pallet.state !== 'DISPATCHED') return reject('INVALID_STATE', 'Only a dispatched pallet can be returned.');
-      if (job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed. A supervisor must reopen it before the return.`);
+      if (job && job.status !== 'OPEN') return reject('JOB_CLOSED', `Job ${job.code} is closed. A supervisor must reopen it before the return.`);
       const holdReason = str(payload.hold_reason);
       const condition = str(payload.condition_note);
       if (condition.length > 1000) return reject('INVALID_INPUT', 'Condition note is limited to 1,000 characters.');
@@ -272,7 +272,7 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
         ok: true,
         patch: { job_id: newJob.id, label_needs_reprint: true },
         reason,
-        detail: { from_job: job.code, to_job: newJob.code },
+        detail: { from_job: job?.code ?? null, to_job: newJob.code },
       };
     }
     case 'edit_details': {

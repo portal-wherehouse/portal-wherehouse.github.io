@@ -24,13 +24,13 @@ export function Qr({ payload, className }: { payload: string; className?: string
   return <div className={className} dangerouslySetInnerHTML={{ __html: svg }} role="img" aria-label={`QR code ${payload}`} />;
 }
 
-export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet: Pallet; job: Job; token: string; format: LabelFormat; warehouse: string }) {
+export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet: Pallet; job: Job | undefined; token: string; format: LabelFormat; warehouse: string }) {
   const payload = makeLabelPayload('P', token);
   if (format === 'sheet') {
     return (
       <div className="label-card label-sheet">
         <FitCode text={pallet.code} className="l-code" maxHeight="0.56in" />
-        <div className="l-job">JOB {job.code}</div>
+        <div className="l-job">{job ? `JOB ${job.code}` : 'No job assigned'}</div>
         <div className="l-desc l-clamp">{palletContents(pallet)}</div>
         <div className="l-row">
           <Qr payload={payload} className="l-qr" />
@@ -44,10 +44,10 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
   return (
     <div className="label-card label-4x6 has-bc">
       <FitCode text={pallet.code} className="l-code" maxHeight="0.95in" />
-      <div className="l-job">JOB {job.code}</div>
+      <div className="l-job">{job ? `JOB ${job.code}` : 'No job assigned'}</div>
       <div className="l-desc l-clamp">{palletContents(pallet)}</div>
       <div className="l-desc l-one" style={{ fontWeight: 400, fontSize: '0.14in' }}>
-        {job.name}
+        {job?.name}
       </div>
       <Qr payload={payload} className="l-qr" />
       <Barcode128 value={pallet.code} className="l-bc" height="0.5in" />

@@ -281,7 +281,7 @@ export function ResultRow({
       </div>
       <div className="meta">
         <span>
-          <span className="jcode">{row.job.code}</span> {row.job.name}
+          <span className="jcode">{row.job?.code ?? 'No job'}</span> {row.job?.name}
         </span>
         {p.hold && <HoldBadge title={p.hold.reason} />}
         {p.label_needs_reprint && <span className="tag warn">Reprint label</span>}
