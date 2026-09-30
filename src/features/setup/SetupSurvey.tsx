@@ -4,6 +4,7 @@
 // trial; in the portal it applies the words.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../app/state';
 import { useSite } from '../../site/routing';
 import { uuid } from '../../domain/codes';
@@ -217,14 +218,21 @@ const VERDICT: Record<string, { label: string; tone: string; icon: IconName }> =
 };
 const fmt = (n: number) => n.toLocaleString('en-US');
 
-export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'portal'; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
+/** Full screen over everything (rendered on the page body, so no card or animation around it can box it in). onSkip adds a Skip button. */
+export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site' | 'portal'; onClose: () => void; onApplied?: (rec: Recommendation) => void; onSkip?: () => void }) {
   const resume = useMemo(() => loadSurveyProgress(mode), [mode]);
   const planned = useMemo(() => (mode === 'portal' ? loadSavedSurvey() : null), [mode]);
   const [a, setA] = useState<SurveyAnswers>(resume?.answers ?? planned ?? BLANK_ANSWERS);
   const visible = (x: SurveyAnswers) => STEPS.filter((s) => (!s.part || (s.part === 'plan') === (mode === 'site')) && (!s.show || s.show(x)));
   const [i, setI] = useState(() => (resume ? visible(resume.answers).findIndex((s) => s.id === resume.step) : -1)); // -1 is the intro
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
-  const [phase, setPhase] = useState<'ask' | 'curate' | 'result'>(() => (resume?.step === 'result' ? 'result' : 'ask'));
+  const [phase, setPhase] = useState<'loading' | 'ask' | 'curate' | 'result'>(() => (resume?.step === 'result' ? 'result' : mode === 'portal' ? 'loading' : 'ask'));
+  // In the portal, a short loading sequence first, while the questions are tailored to the plan survey's answers.
+  useEffect(() => {
+    if (phase !== 'loading') return;
+    const t = window.setTimeout(() => setPhase('ask'), matchMedia('(prefers-reduced-motion: reduce)').matches ? 200 : 2000);
+    return () => window.clearTimeout(t);
+  }, [phase]);
   const timer = useRef<number | undefined>(undefined);
   const steps = visible(a);
   const step = i >= 0 ? steps[i] : null;
@@ -272,7 +280,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
     if (s.id !== 'printer') timer.current = window.setTimeout(() => next(answers), 320);
   };
   const answered = (s: Step) => (s.kind === 'many' ? (a[s.id as ListField] as string[]).length > 0 : s.kind === 'layout' ? true : s.kind === 'text' ? (s.valid ? s.valid(String(a[s.id])) : String(a[s.id]).trim().length > 0) : a[s.id] !== null);
-  const progress = phase === 'ask' ? Math.max(0, i) / steps.length : 1;
+  const progress = phase === 'loading' ? 0 : phase === 'ask' ? Math.max(0, i) / steps.length : 1;
   const close = () => {
     if (phase === 'result') saveSurveyProgress(mode, null);
     onClose();
@@ -285,7 +293,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
     setI(-1);
   };
 
-  return (
+  return createPortal(
     <div className={`survey survey-${mode}`} role="dialog" aria-modal="true" aria-label="Setup survey" data-keep-words data-testid="setup-survey">
       <div className="survey-bg" aria-hidden="true">
         <span />
@@ -297,12 +305,19 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
         <div className="survey-bar" aria-hidden="true">
           <i style={{ transform: `scaleX(${progress})` }} />
         </div>
+        {onSkip && phase !== 'result' && (
+          <button type="button" className="survey-skip" onClick={onSkip}>
+            Skip for now <Icon name="arrowRight" />
+          </button>
+        )}
         <button type="button" className="survey-close" aria-label="Close the survey" onClick={close}>
           <Icon name="x" />
         </button>
       </header>
       <main className="survey-stage">
-        {phase === 'curate' ? (
+        {phase === 'loading' ? (
+          <Curating title="Getting your setup questions ready…" steps={planned ? ['Reading your plan survey', 'Picking questions for your business', 'Getting your storage questions ready'] : ['Loading your warehouse', 'Getting your setup questions ready']} />
+        ) : phase === 'curate' ? (
           <Curating steps={CURATE[mode]} />
         ) : phase === 'result' ? (
           <Results rec={rec} mode={mode} onBack={back} onRestart={restart} onClose={close} onApplied={onApplied} answers={a} />
@@ -392,7 +407,8 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
           </Card>
         )}
       </main>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -537,7 +553,7 @@ function PrinterVerdict({ id }: { id: string }) {
   );
 }
 
-function Curating({ steps }: { steps: string[] }) {
+function Curating({ steps, title = 'Building your plan…' }: { steps: string[]; title?: string }) {
   const [n, setN] = useState(0);
   useEffect(() => {
     const t = window.setInterval(() => setN((x) => Math.min(steps.length, x + 1)), 480);
@@ -546,7 +562,7 @@ function Curating({ steps }: { steps: string[] }) {
   return (
     <section className="survey-card survey-curate enter-fwd" role="status" aria-live="polite">
       <div className="survey-orb" aria-hidden="true" />
-      <h1 className="survey-q">Building your plan…</h1>
+      <h1 className="survey-q">{title}</h1>
       <ul>
         {steps.map((c, k) => (
           <li key={c} className={k < n ? 'done' : k === n ? 'now' : ''}>

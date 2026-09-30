@@ -280,7 +280,7 @@ function WordsStep({ busy, save }: StepProps) {
           <Icon name="sparkle" /> {survey?.layout && Object.keys(survey.layout).length ? 'Review the setup questions' : 'Answer the setup questions'}
         </button>
       </div>
-      {asking && <SetupSurvey mode="portal" onClose={() => setAsking(false)} onApplied={() => void save({}, 'words')} />}
+      {asking && <SetupSurvey mode="portal" onClose={() => setAsking(false)} onApplied={() => void save({}, 'words')} onSkip={() => (setAsking(false), void go())} />}
       <details className="wizard-manual">
         <summary>Or just set the words by hand</summary>
         <div className="wizard-choices" role="radiogroup" aria-label="What are you storing?">
