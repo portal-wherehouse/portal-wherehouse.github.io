@@ -3,7 +3,7 @@ import { FirebaseBackend } from '../../data/firebase';
 
 import { useMemo, useState } from 'react';
 import { hashString } from '../../domain/codes';
-import { IMPORT_TEMPLATES, prepareImport, templateCsv, type ImportKind } from '../../domain/csv';
+import { IMPORT_TEMPLATES, detectImportKind, prepareImport, templateCsv, type ImportKind } from '../../domain/csv';
 import { roleAllows } from '../../domain/transitions';
 import { useApp } from '../../app/state';
 import { canDownload, copyText, downloadText } from '../../device/output';
@@ -41,6 +41,15 @@ export function Import() {
     );
   }
 
+  const kinds = (Object.keys(IMPORT_TEMPLATES) as ImportKind[]).filter(k=>k!=='shipments'||!(backend instanceof FirebaseBackend)||backend.summary?.receiving_version===1);
+  // A file whose header fits another template switches to it, instead of failing against the selected one.
+  const adopt = (csv: string) => {
+    const found = detectImportKind(csv, kinds);
+    if (found && found !== kind) {
+      setKind(found);
+      toast(`This looks like a ${KIND_LABEL[found].toLowerCase()} file, so Import switched to ${KIND_LABEL[found]}.`, 'info');
+    }
+  };
   const t = IMPORT_TEMPLATES[kind];
   const cols = [...t.required, ...t.optional];
   const tooMany = (parsed?.rows.length ?? 0) > 200;
@@ -58,7 +67,9 @@ export function Import() {
     if (f.size > 1_000_000) return toast('That file is larger than 1 MB. Split it into smaller files.', 'error');
     cmd.reset();
     setFileName(f.name);
-    setText(await f.text());
+    const csv = await f.text();
+    adopt(csv);
+    setText(csv);
   };
   const template = async () => {
     const csv = templateCsv(kind);
@@ -85,7 +96,7 @@ export function Import() {
       </Explain>
 
       <div className="seg" role="group" aria-label="What to import" data-tour="import-kind">
-        {(Object.keys(IMPORT_TEMPLATES) as ImportKind[]).filter(k=>k!=='shipments'||!(backend instanceof FirebaseBackend)||backend.summary?.receiving_version===1).map((k) => (
+        {kinds.map((k) => (
           <button key={k} aria-pressed={kind === k} onClick={() => (setKind(k), cmd.reset())}>
             {KIND_LABEL[k]}
           </button>
@@ -121,7 +132,7 @@ export function Import() {
             aria-label="CSV text"
             placeholder={`…or paste CSV here, starting with the header row:\n${cols.join(',')}`}
             value={text}
-            onChange={(e) => (setText(e.target.value), setFileName(null), cmd.state.phase !== 'idle' && !cmd.locked && cmd.reset())}
+            onChange={(e) => (adopt(e.target.value), setText(e.target.value), setFileName(null), cmd.state.phase !== 'idle' && !cmd.locked && cmd.reset())}
             style={{ minHeight: 140, fontFamily: 'var(--font-mono)', fontSize: 13 }}
             disabled={cmd.locked || !!done}
           />

@@ -113,6 +113,15 @@ export interface ParsedImport {
   unknownHeaders: string[];
 }
 
+/** Guess which import a CSV is for from its header row, so a file isn't checked against the wrong template. */
+export function detectImportKind(text: string, allowed: readonly ImportKind[] = Object.keys(IMPORT_TEMPLATES) as ImportKind[]): ImportKind | null {
+  const header = new Set(parseCsv(text).header);
+  if (!header.size) return null;
+  const fits = allowed.filter((k) => IMPORT_TEMPLATES[k].required.every((c) => header.has(c)));
+  const exact = fits.find((k) => [...header].every((h) => !h || IMPORT_TEMPLATES[k].required.includes(h) || IMPORT_TEMPLATES[k].optional.includes(h)));
+  return exact ?? (fits.length === 1 ? fits[0] : null);
+}
+
 export function prepareImport(kind: ImportKind, text: string): ParsedImport {
   const t = IMPORT_TEMPLATES[kind];
   const { header, rows } = parseCsv(text);
