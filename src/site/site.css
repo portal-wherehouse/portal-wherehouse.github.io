@@ -346,3 +346,27 @@
 .contact-email{font-size:clamp(16px,2vw,20px);overflow-wrap:anywhere;}.contact-details dl{margin:0;}.contact-details dt{font-weight:550;margin:14px 0 4px;}.contact-details dd{margin:0 0 14px;color:var(--ink-2);}
 .workflow-rows{max-width:800px;}.workflow-rows article{display:flex;gap:24px;border-top:1px solid var(--line);padding:25px 0;}.workflow-rows article>span{color:var(--ink-3);font-size:14px;padding-top:5px;}.workflow-rows p{margin:0;max-width:62ch;}
 @media(max-width:650px){.site-hero{padding-top:32px;padding-bottom:12px;}.site-section{padding:28px 0;}.site-h1{font-size:29px;font-weight:500;}.site-h2{font-size:23px;font-weight:500;}.site-lede{font-size:15px;}.plan-options,.contact-layout,.buyer-columns{grid-template-columns:1fr;gap:18px;}.plan-option,.contact-card{padding:20px;}.plan-option h2,.contact-layout h2,.buyer-columns h2,.workflow-rows h2{font-size:21px;font-weight:500;}.plan-price{font-size:29px;}.buyer-table th,.buyer-table td{padding:10px;font-size:12px;}.buyer-table{min-width:0;table-layout:fixed;}.site .site-btn{font-size:14px;}.workflow-rows article{gap:15px;}}
+
+/* Founder initials badge (kit.tsx Monogram): a stand-in for a photo. */
+.site-mono {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #fff 22%, transparent), transparent 55%),
+    var(--hazard);
+  color: #14171a;
+  font: 700 24px/1 var(--font-display);
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px rgba(20, 23, 26, 0.12);
+}
+.site-mono-photo {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 16px;
+  object-fit: cover;
+}

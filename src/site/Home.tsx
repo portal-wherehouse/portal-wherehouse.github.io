@@ -3,24 +3,131 @@ import { qrSvg } from '../device/output';
 import { Plate, StateBadge } from '../ui/ui';
 import { Icon, type IconName } from '../ui/icons';
 import { encodeCode128 } from '../device/code128';
-import { FeatureCards, Section, SiteLink, PortalCTA } from './kit';
+import { Section, SiteLink } from './kit';
 import { PRICING } from './prices';
+import { useSite } from './routing';
+import { SeeItWork } from './SeeItWork';
+import { Examples, Founding } from './HomeStories';
 import './home.css';
 import './pilot.css';
-export function Home() { return <>
-<div className="home-hero-wrap"><div className="site-inner home-hero"><div className="home-hero-text"><p className="site-eyebrow">Know where everything is</p><h1 className="home-hello"><span className="home-hello-sub">Keep your</span><span className="home-hello-sub">warehouse moving<span className="home-dot">.</span></span></h1><p className="site-lede home-pitch">Scan the item. Scan the place. Now everyone knows where it is, who moved it and when. Pallets, boxes, parts, furniture or equipment, in a warehouse, stockroom or yard.</p><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Start your free trial</SiteLink><SiteLink to="contact" className="site-btn ghost">Book a free walkthrough</SiteLink></div><p className="home-price">Free for {PRICING.pilotDays} days, then from ${PRICING.monthly}/warehouse/month. No card to start. Want help? We’ll set it up with you.</p><PortalCTA variant="inline" /><a className="home-sample-link" href="?demo=1#signin">Explore the sample warehouse →</a></div><HeroArt /></div></div>
-<Section eyebrow="Free setup survey" title="Put your warehouse in Wherehouse in about 2 minutes." lede="Before you start your free trial, answer a few quick questions. We’ll recommend a starting setup built around how you work."><div className="home-survey">{([
-['box','What you store','Pallets, parts, furniture, lumber, equipment or a mix. The app uses your own words.'],
-['locations','Where you keep it','Racks, shelves, floor or yard. We plan your storage zones from your answers.'],
-['print','Your printer','Pick your printer and we’ll tell you if it works, or what to get.'],
-['checklist','Your next steps','A setup checklist walks you through zones, labels, your first items and your crew.'],
-] as [IconName,string,string][]).map(([icon,title,body])=><article key={title} className="home-survey-step"><span className="home-survey-bubble"><Icon name={icon}/></span><h3>{title}</h3><p>{body}</p></article>)}</div><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Take the 2-minute survey</SiteLink><span className="home-survey-note">Free. No card. You still set up your own spots and labels; the survey gives you the plan.</span></div></Section>
-<Section tone="surface"><FeatureCards items={[
-{icon:'receive',title:'Add',body:'Give each item a label, or use the barcode it already has.'},
-{icon:'move',title:'Move',body:'Scan it, then scan the shelf, rack or spot where you put it.'},
-{icon:'find',title:'Find',body:'Search a name, code or what is on it. See exactly where it is.'}
-]} /><div className="site-hero-actions"><SiteLink to="hardware">Printing & scanning →</SiteLink><SiteLink to="simple">What we leave out →</SiteLink><SiteLink to="mission">Our mission →</SiteLink><SiteLink to="showcase">Process walkthrough →</SiteLink></div></Section>
-</>; }
+
+/** Scrolls down to the "See it work" section, without animating for visitors who prefer less motion. */
+function scrollToDemo() {
+  const el = document.getElementById('see-it-work');
+  if (!el) return;
+  let reduce = false;
+  try {
+    reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    /* animate */
+  }
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+}
+
+/** The sample warehouse: opens the app with sample data, no account. */
+const SAMPLE_HREF = '?demo=1#signin';
+
+// The page shows the product working first (hero, animation, examples, founding customers)
+// and only then asks visitors to set up their own warehouse.
+export function Home() {
+  const { go } = useSite();
+  return (
+    <>
+      <div className="home-hero-wrap">
+        <div className="site-inner home-hero">
+          <div className="home-hero-text">
+            <p className="site-eyebrow">Know where everything is</p>
+            <h1 className="home-hello">
+              <span className="home-hello-sub">Keep your</span>
+              <span className="home-hello-sub">
+                warehouse moving<span className="home-dot">.</span>
+              </span>
+            </h1>
+            <p className="site-lede home-pitch">Scan the item. Scan the spot where you put it. Now anyone on your team can find it, and see who moved it and when. For pallets, boxes, parts, furniture or equipment, in a warehouse, stockroom or yard.</p>
+            <div className="site-hero-actions home-actions">
+              <a className="site-btn primary" href={SAMPLE_HREF} data-testid="hero-sample">
+                <Icon name="play" />
+                Try the sample warehouse
+              </a>
+              <SiteLink to="start" className="site-btn ghost">
+                Start your free trial
+              </SiteLink>
+            </div>
+            <p className="home-price">
+              <span className="home-price-lead">No account needed for the sample.</span> Free for {PRICING.pilotDays} days when you’re ready, then from ${PRICING.monthly}/warehouse/month. No card to start.
+            </p>
+            <div className="home-hero-foot">
+              <button type="button" className="home-watch" onClick={scrollToDemo}>
+                <Icon name="chevronDown" />
+                See how it works first
+              </button>
+              <span className="home-hero-sep" aria-hidden="true" />
+              <span className="home-signin">
+                Already a customer?{' '}
+                <button type="button" className="site-link" onClick={() => go('signin')}>
+                  Sign in
+                </button>
+              </span>
+            </div>
+          </div>
+          <HeroArt />
+        </div>
+      </div>
+
+      <Section id="see-it-work" eyebrow="See it work" title="Two scans. Then anyone can find it." lede="This is the whole routine. No counting, no forms. Here it is with one box and one shelf.">
+        <SeeItWork />
+        <div className="home-try">
+          <div>
+            <strong>Want to try it yourself?</strong>
+            <span>The sample warehouse has items, shelves and history already in it. Nothing to set up.</span>
+          </div>
+          <a className="site-btn primary" href={SAMPLE_HREF}>
+            Open the sample warehouse
+          </a>
+        </div>
+      </Section>
+
+      <Section tone="surface" id="examples" eyebrow="Examples" title="Different businesses. Same routine." lede="Wherehouse works anywhere you store inventory. Here is how three very different businesses could set it up.">
+        <Examples />
+      </Section>
+
+      <Founding />
+
+      <Section eyebrow="When you’re ready" title="Put your warehouse in Wherehouse in about 2 minutes." lede="Answer a few quick questions before your free trial. We’ll recommend a starting setup built around how you work.">
+        <div className="home-survey">
+          {(
+            [
+              ['box', 'What you store', 'Pallets, parts, furniture, equipment or a mix. The app uses your own words.'],
+              ['locations', 'Where you keep it', 'Racks, shelves, floor or yard. We plan your storage zones from your answers.'],
+              ['print', 'Your printer', 'Pick your printer and we’ll tell you if it works, or what to get.'],
+              ['checklist', 'Your next steps', 'A setup checklist walks you through zones, labels, your first items and your crew.'],
+            ] as [IconName, string, string][]
+          ).map(([icon, title, body]) => (
+            <article key={title} className="home-survey-step">
+              <span className="home-survey-bubble">
+                <Icon name={icon} />
+              </span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="site-hero-actions">
+          <SiteLink to="start" className="site-btn primary">
+            Take the 2-minute survey
+          </SiteLink>
+          <span className="home-survey-note">Free. No card. You still set up your own spots and labels; the survey gives you the plan.</span>
+        </div>
+        <div className="home-more-links">
+          <SiteLink to="hardware">Printing & scanning →</SiteLink>
+          <SiteLink to="simple">What we leave out →</SiteLink>
+          <SiteLink to="mission">Our mission →</SiteLink>
+          <SiteLink to="showcase">Process walkthrough →</SiteLink>
+        </div>
+      </Section>
+    </>
+  );
+}
 /** A printed pallet label next to a phone showing where that pallet was last confirmed. */
 function HeroArt() {
   const [qr, setQr] = useState('');

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { watchErrors } from './helpers';
-const pages=[['mission','Make warehouse work easier.'],['product','From delivery to the right spot.'],['hardware','Start with a printer and a phone.'],['pricing','Start with what you have.'],['customers','Start small. Make it routine.'],['founder','Less time looking. More time moving.'],['contact','Let’s look at your warehouse.'],['security','Shared with your crew. Controlled by you.'],['why','The next shift shouldn’t have to guess.'],['showcase','From delivery to dispatch.']];
+const pages=[['mission','Make warehouse work easier.'],['product','From delivery to the right spot.'],['hardware','Start with a printer and a phone.'],['pricing','Start with what you have.'],['customers','Start small. Make it routine.'],['founder','Built in Charleston by the person you’ll talk to.'],['contact','Let’s look at your warehouse.'],['security','Shared with your crew. Controlled by you.'],['why','The next shift shouldn’t have to guess.'],['showcase','From delivery to dispatch.']];
 test('short public pages load, pricing is consistent, and contact opens a real email draft',async({page})=>{
  const errors=watchErrors(page);await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('Keep your');
  await expect(page.locator('.home-hero')).toContainText('$29/warehouse/month');
@@ -45,4 +45,28 @@ test('Why Wherehouse compares price, features and support with other tools and d
   await expect(table.locator('thead th.c-fishbowl')).toBeVisible();
   await expect(table.locator('thead th.c-sortly')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('homepage shows the product, labeled examples and the founding-customer offer before setup', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/');
+  await expect(page.getByTestId('hero-sample')).toHaveAttribute('href', /demo=1/);
+  await expect(page.getByTestId('see-it-work')).toBeVisible();
+  const examples = page.getByTestId('home-examples');
+  await expect(examples.locator('.ex-card')).toHaveCount(3);
+  await expect(examples.locator('.ex-tag')).toHaveText(['Example', 'Example', 'Example']);
+  await expect(examples).toContainText('They are not customer stories.');
+  const founding = page.getByTestId('home-founding');
+  await expect(founding).toContainText('Founding customers');
+  await expect(founding.locator('a[href^="mailto:johnhenry.mims@gmail.com"]')).toHaveCount(1);
+  await page.goto('/#founder');
+  await expect(page.getByTestId('about-facts')).toContainText('Charleston, SC');
+  await expect(page.locator('main a[href*="linkedin.com"]').first()).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const route of ['/', '/#founder']) {
+    await page.goto(route);
+    await page.getByTestId(route === '/' ? 'home-founding' : 'about-facts').scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  }
+  expect(errors).toEqual([]);
 });
