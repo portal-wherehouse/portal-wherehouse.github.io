@@ -794,7 +794,7 @@ export class Engine {
         const job = Object.values(this.db.jobs).find(j=>j.workspace_id===ws && normalizeCode(j.code)===normalizeCode(get(r,'job_code')));
         if (!job || job.status!=='OPEN') err(i,'job_code','Choose an existing open job.');
         const description = get(r,'description');
-        if (!description || description.length>160) err(i,'description','Enter a description up to 160 characters.');
+        if (description.length>160) err(i,'description','Description is limited to 160 characters.');
         let barcode = '';
         try { barcode = readSupplierBarcode(get(r,'barcode')).reference; } catch { err(i,'barcode','Enter a valid supplier barcode.'); }
         let fields: {name:string;value:string}[] = [];

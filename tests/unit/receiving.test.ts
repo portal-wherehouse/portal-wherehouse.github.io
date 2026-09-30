@@ -207,3 +207,14 @@ test("GTIN lookup matches zero-padded supplier representations without merging a
   );
   expect(productKey("ws", "BIRCH-01")).not.toBe(productKey("ws", "BIRCH01"));
 });
+
+test('a quantity-only expected shipment can be imported, but receiving still requires a product description',()=>{
+ const h=new Harness();
+ const result=h.cmd(h.users.owner,'import_batch',{import_kind:'shipments',checksum:'quantity-only',rows:[{barcode:'BIRCH-INCOMING',job_code:'J-214',quantity:'48',unit:'logs'}]});
+ expect(result.ok).toBe(true);if(!result.ok)throw Error();
+ const row=h.db.shipments[result.created_ids![0]];
+ expect(row.description).toBe('');expect(row.receiving.quantity).toBe('48');
+ const payload={job_id:row.job_id,shipment_id:row.id,supplier_ref:row.barcode,description:'',receiving:row.receiving};
+ expect(h.cmd(h.users.operator,'receive',payload)).toMatchObject({ok:false,code:'INVALID_INPUT'});
+ expect(h.cmd(h.users.operator,'receive',{...payload,description:'White birch'}).ok).toBe(true);
+});

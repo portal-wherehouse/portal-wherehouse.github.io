@@ -85,7 +85,7 @@ existing contents. Find extracts the same reference to search saved records.
 
 ### Product memory and pallet details
 
-Receive can match a supplier scan to **Import → Expected shipments**, a warehouse's remembered product name, or an optional `WHR1` description. Ordinary supplier barcodes do not provide a universal description lookup. Expected shipments do not add stock until a receiver reviews and saves the pallet. Multiple matching deliveries require a choice; consuming a shipment and creating its pallet are one transaction.
+Receive can match a supplier scan to **Import → Expected shipments**, a warehouse's remembered product name, or an optional `WHR1` description. Ordinary supplier barcodes do not provide a universal description lookup. Expected shipments do not add stock until a receiver reviews and saves the pallet. A shipment can omit its description: known quantities and other details still prefill, and the receiver must supply the product name before saving. Multiple matching deliveries require a choice; consuming a shipment and creating its pallet are one transaction.
 
 Keep the preferred product name in Description (for example, White birch). Quantity/unit (48 logs), destination, notes, date and up to 12 named custom details belong to that individual pallet. A reusable product barcode can remember the preferred description, unit and custom field names. Quantities and field values never become defaults. SSCC pallet IDs cannot be saved as reusable product codes. GTIN lookups accept equivalent zero-padded representations. Imported `details_json` is a JSON object of text values, such as `{"Grade":"A","Length":"16 inches"}`.
 

@@ -60,8 +60,8 @@ export type ImportKind = 'locations' | 'jobs' | 'pallets' | 'shipments';
 
 export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional: string[]; sample: string[][]; who: string; policy: string }> = {
   shipments: {
-    required: ['barcode', 'job_code', 'description'],
-    optional: ['product_code', 'quantity', 'unit', 'destination', 'remind_on', 'notes', 'details_json'],
+    required: ['barcode', 'job_code'],
+    optional: ['description', 'product_code', 'quantity', 'unit', 'destination', 'remind_on', 'notes', 'details_json'],
     sample: [['006141411234567890', 'J-214', 'White birch', '', '48', 'logs', 'Distribution center', '', '', '{"Grade":"A"}']],
     who: 'Supervisors and owners',
     policy: 'Expected deliveries only: no stock is received until staff scan, review and save each pallet. Barcode must be the exact decoded identifier (SSCC without the (00) prefix). Use details_json for custom fields, e.g. {"Grade":"A"}.',
