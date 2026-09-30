@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // Offline inbox and network lab (Stage C, pages 23-24): queued moves, conflicts, unknown results,
 // and switches to simulate a dead zone or a lost response.
 
@@ -27,16 +28,22 @@ export function Sync() {
   const f = backend.faults;
   const now = () => new Date().toISOString();
 
+  const discard = async (id:string) => {
+    try { if(backend instanceof FirebaseBackend)await backend.changeOfflineQueue('discard',id);else await backend.outbox.discard(id,now()); }
+    catch(e){toast(`Could not update the queue: ${(e as Error).message}`,'error');}
+  };
+
   const syncNow = async () => {
     setBusy('sync');
-    const s = await backend.sync(actorId, workspaceId);
-    setBusy(null);
+    let s;
+    try { s=await backend.sync(actorId, workspaceId); } catch(e){toast((e as Error).message,'error');return;} finally{setBusy(null);}
     if (!s) return;
     if (s.sent === 0 && s.unanswered === 0) toast('Nothing waiting to send', 'info');
     else toast(`Sent ${s.sent}: ${s.acknowledged} saved${s.conflicts ? `, ${s.conflicts} need a decision` : ''}${s.blocked ? `, ${s.blocked} refused` : ''}${s.unanswered ? ', network dropped, will retry' : ''}`, s.conflicts || s.blocked ? 'error' : 'ok');
   };
 
   const moveAgain = async (e: OutboxEntry) => {
+    if(backend instanceof FirebaseBackend)await backend.preloadScan(e.pallet_code);
     const pallet = backend.db.pallets[e.pallet_id];
     const loc = Object.values(backend.db.locations).find((l) => l.workspace_id === workspaceId && l.code === e.to_code);
     if (!pallet || !loc) return;
@@ -45,7 +52,7 @@ export function Sync() {
     const out = await backend.send(actorId, envelope(kind, { location_id: loc.id }, pallet));
     setBusy(null);
     if (out.status === 'result' && out.result.ok) {
-      await backend.outbox.resolveWith(e.command.command_id, now());
+      await discard(e.command.command_id);
       toast(`${pallet.code}: ${kind === 'verify_location' ? 'confirmed at' : 'moved to'} ${loc.code} against the latest record`);
     } else if (out.status === 'result' && !out.result.ok) toast(out.result.message, 'error');
     else toast('No answer. Open the pallet to check.', 'error');
@@ -67,7 +74,7 @@ export function Sync() {
         <p>When the connection returns, queued moves are sent in order with their original request IDs, so a retry can never double-apply. If someone else changed the pallet in the meantime, the server refuses with a conflict and the app asks you to decide. It never overwrites their change silently.</p>
       </Explain>
 
-      <div className="panel stack" data-tour="sync-lab">
+      {backend.mode==='demo' && <div className="panel stack" data-tour="sync-lab">
         <div className="panel-title">Network lab</div>
         <div className="seg" role="group" aria-label="Connection">
           <button aria-pressed={!offline} onClick={() => backend.setNetwork('online')}>
@@ -93,7 +100,7 @@ export function Sync() {
           <span className="label">Simulated latency: {f.latencyMs} ms</span>
           <input type="range" min={0} max={3000} step={50} value={f.latencyMs} onChange={(e) => backend.setFaults({ latencyMs: Number(e.target.value) })} />
         </label>
-      </div>
+      </div>}
 
       {unknown.length > 0 && (
         <div className="panel stack">
@@ -132,7 +139,7 @@ export function Sync() {
         <div className="panel-title">
           Queued on this device ({open.length}) <span className="grow" />
         </div>
-        {open.length === 0 && <p className="muted" style={{ margin: 0 }}>Nothing is waiting. {offline ? 'Go to Move and scan a stored pallet and a rack to queue one.' : 'Switch to Offline above, then use Move to try it.'}</p>}
+        {open.length === 0 && <p className="muted" style={{ margin: 0 }}>Nothing is waiting. {offline ? 'Go to Move and scan a stored pallet and a rack to queue one.' : backend.mode==='demo'?'Switch to Offline above, then use Move to try it.':'Moves saved in a dead zone appear here until confirmed by the server.'}</p>}
         {open.map((e) => {
           const server = e.server_state;
           const serverLoc = server?.current_location_id ? backend.db.locations[server.current_location_id]?.code : null;
@@ -157,7 +164,7 @@ export function Sync() {
                       <button className="btn small primary" onClick={() => void moveAgain(e)} disabled={!!busy || offline}>
                         {busy === e.command.command_id ? <Spinner /> : <Icon name="move" />} {serverLoc === e.to_code ? `Confirm at ${e.to_code}` : `Still move it to ${e.to_code}`}
                       </button>
-                      <button className="btn small" onClick={() => void backend.outbox.discard(e.command.command_id, now())}>
+                      <button className="btn small" onClick={() => void discard(e.command.command_id)}>
                         Keep theirs, discard mine
                       </button>
                     </>
@@ -171,7 +178,7 @@ export function Sync() {
                   tone="error"
                   title={`Refused: ${e.last_error?.message}`}
                   actions={
-                    <button className="btn small" onClick={() => void backend.outbox.discard(e.command.command_id, now())}>
+                    <button className="btn small" onClick={() => void discard(e.command.command_id)}>
                       Dismiss
                     </button>
                   }
@@ -182,7 +189,7 @@ export function Sync() {
               {e.status === 'queued' && (
                 <div className="row">
                   {e.last_error && <span className="muted">Last try: {e.last_error.message}</span>}
-                  <button className="btn small" onClick={() => void backend.outbox.discard(e.command.command_id, now())}>
+                  <button className="btn small" onClick={() => void discard(e.command.command_id)}>
                     Discard
                   </button>
                 </div>
@@ -196,7 +203,7 @@ export function Sync() {
         <div className="panel stack">
           <div className="panel-title">
             Finished ({done.length}) <span className="grow" />
-            <button className="btn ghost small" onClick={() => void backend.outbox.clearAcknowledged(actorId, workspaceId)}>
+            <button className="btn ghost small" onClick={() => void (backend instanceof FirebaseBackend ? backend.changeOfflineQueue('clear') : backend.outbox.clearAcknowledged(actorId, workspaceId)).catch(e=>toast(e.message,'error'))}>
               Clear
             </button>
           </div>

@@ -1,32 +1,71 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from './app/App';
-import { AppProvider } from './app/state';
-import { ScanRouterProvider } from './device/scanRouter';
-import { FirebaseBackend } from './data/firebase';
-import { Backend } from './data/backend';
-import { BRAND } from './brand';
-import { setupInstallableShell } from './device/pwa';
-import './app/styles.css';
-
+import { StrictMode, Suspense, lazy, useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { isSiteRoute, parseHash, type Route } from "./app/state";
+import { SitePage } from "./site/SitePage";
+import { SiteRouting } from "./site/routing";
+import { ScanRouterProvider } from "./device/scanRouter";
+import { setupInstallableShell } from "./device/pwa";
+import "./app/styles.css";
+const WarehouseApp = lazy(() => import("./portal/WarehouseApp"));
 setupInstallableShell();
-
-const root = createRoot(document.getElementById('root')!);
-
-(new URLSearchParams(location.search).get('demo') === '1' || import.meta.env.VITE_APP_MODE === 'demo' ? Backend.open(new URLSearchParams(location.search).get('demo')==='1') : FirebaseBackend.connect())
-  .then((backend) => {
-    if(import.meta.env.DEV&&import.meta.env.VITE_FIREBASE_EMULATORS==='true')(window as any).__wherehouseBackend=backend;
-    root.render(
-      <StrictMode>
-        <AppProvider backend={backend}>
-          <ScanRouterProvider>
-            <App />
-          </ScanRouterProvider>
-        </AppProvider>
-      </StrictMode>,
+function Entry() {
+  const [route, setRoute] = useState<Route>(
+    () => parseHash(location.hash) ?? { name: "home" },
+  );
+  const [entered, setEntered] = useState(!isSiteRoute(route.name));
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    const change = () => {
+      const next = parseHash(location.hash) ?? { name: "home" };
+      setRoute(next);
+      if (!isSiteRoute(next.name)) setEntered(true);
+    };
+    window.addEventListener("hashchange", change);
+    window.addEventListener("popstate", change);
+    return () => {
+      window.removeEventListener("hashchange", change);
+      window.removeEventListener("popstate", change);
+    };
+  }, []);
+  if (entered)
+    return (
+      <Suspense
+        fallback={
+          <main className="auth-shell">
+            <p role="status">Opening your warehouse…</p>
+          </main>
+        }
+      >
+        <WarehouseApp />
+      </Suspense>
     );
-  })
-  .catch((err: unknown) => {
-    const el = document.getElementById('root')!;
-    el.textContent = `${BRAND.name} could not start: ${err instanceof Error ? err.message : String(err)}`;
-  });
+  return (
+    <SiteRouting
+      value={{
+        route,
+        go: (to) => {
+          location.hash = typeof to === "string" ? to : to.name;
+          window.scrollTo(0, 0);
+        },
+        toast: (text) => {
+          setMessage(text);
+          setTimeout(() => setMessage(""), 4500);
+        },
+      }}
+    >
+      <ScanRouterProvider>
+        <SitePage route={isSiteRoute(route.name) ? route.name : "home"} />
+      </ScanRouterProvider>
+      {message && (
+        <div className="toasts" role="status">
+          {message}
+        </div>
+      )}
+    </SiteRouting>
+  );
+}
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <Entry />
+  </StrictMode>,
+);

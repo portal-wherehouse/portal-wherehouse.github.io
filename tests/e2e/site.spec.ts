@@ -19,3 +19,17 @@ test('walkthrough contains only the requested one-second placeholder',async({pag
  await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.duration)).toBeCloseTo(1,1);
  await expect(page.getByText('Animation placeholder · the full warehouse walkthrough will go here.')).toBeVisible();
 });
+
+
+test('homepage stays below its script budget and defers the warehouse application',async({page})=>{
+  const scripts:string[]=[];
+  page.on('request',request=>{if(request.resourceType()==='script')scripts.push(request.url());});
+  await page.goto('/');await expect(page.locator('.home-hero')).toBeVisible();
+  expect(scripts.some(url=>/WarehouseApp-|backend-|firebase-/.test(url))).toBe(false);
+  const bytes=await page.evaluate(()=>performance.getEntriesByType('resource').filter((entry:any)=>entry.initiatorType==='script').reduce((total,entry:any)=>total+entry.decodedBodySize,0));
+  expect(bytes).toBeLessThan(400_000);
+  await page.locator('.shell-header').getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect(page).toHaveURL(/#signin$/);
+  await expect(page.locator('[data-tour=signin], .door, .auth-shell').first()).toBeVisible();
+  expect(scripts.some(url=>/WarehouseApp-/.test(url))).toBe(true);
+});

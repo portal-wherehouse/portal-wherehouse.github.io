@@ -1,7 +1,7 @@
 // Shared interface pieces. State is always a glyph plus a word, never color alone.
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { STATE_LABEL } from '../domain/transitions';
+import { STATE_LABEL } from '../domain/display';
 import type { Location, Pallet, PalletState, Role } from '../domain/types';
 import { useApp } from '../app/state';
 import { Icon, type IconName } from './icons';

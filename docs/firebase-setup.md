@@ -145,18 +145,18 @@ node firebase/functions/scripts/license.cjs revoke YOUR_PROJECT_ID WORKSPACE_ID
 
 Customers and their managers cannot mint keys, change licenses or grant themselves ownership. Managers can authorize other managers and employees. Only owners can grant or change owner access; the last owner cannot be removed.
 
-Expired or revoked licenses block warehouse reads, writes and photo downloads. The app clears displayed warehouse data when it sees revocation. Renewal reopens the same records rather than creating a new warehouse. A manager-authorized employee joins under the warehouse license, with no separate activation key.
+Expiry pauses new changes and uploads immediately. Existing members retain read-only records, photos and history for 14 days; owners and managers can prepare the complete CSV export during that grace period. After grace, access is blocked but records are not deleted. Explicit revocation has no grace and blocks reads, writes and downloads immediately when connected. The app clears displayed and cached warehouse data when it sees revocation. Renewal reopens the same records rather than creating a new warehouse. A manager-authorized employee joins under the warehouse license, with no separate activation key.
 
 Billing and renewal are manual for now. There is no payment-provider integration that automatically extends licenses after a charge. Keep your billing records and license periods aligned.
 
 ## Operation and maintenance
 
-- Live saving requires internet. The sample warehouse (`?demo=1#signin`) is separate and uses browser storage. Its reset controls cannot reset live data.
+- Live stored-pallet moves and location verifications can be queued offline for previously cached pallets and active locations. Receiving, initial placement, dispatch, photos, splitting and administration still require a connection. The sample warehouse (`?demo=1#signin`) is separate and uses browser storage. Its reset controls cannot reset live data.
 - Unknown request results are saved on the originating device and retried with the same ID, avoiding duplicate receipts. Signing out clears displayed warehouse data; pending requests remain scoped to that account for recovery.
 - Managers can export CSV. Enable a Firestore scheduled backup and test a restore before relying on the warehouse operationally. Cloud Storage photos need their own retention/backup policy; CSV does not contain photos.
 - One account can create one warehouse. A warehouse plan includes up to ten people, counting pending email authorizations. Import at most 80 rows per request.
 - Commands read the affected pallet, permission/license, receipt and relevant job/location documents. They never read accumulated event/audit collections. Every accepted change and its immutable event/receipt commit together. Duplicate requests return the original result without another write. Pallet number allocation is queued briefly per warehouse inside each function instance, with cross-instance safety still enforced by Firestore transactions.
-- The SDK retries a transaction at most five times. There is no unbounded client command retry loop. An unknown result keeps the original command ID for explicit recovery. Do not generate a new ID just because a request timed out.
+- The SDK retries a transaction at most five times. There is no unbounded client command retry loop. An unknown result keeps the original command ID for explicit recovery. Offline replay drains at most 100 commands per sync in batches of 10 and stops on an unanswered/transient failure; conflicts and permanent refusals require a human decision. Do not generate a new ID just because a request timed out.
 - Query pages are 50 rows, with cursor pagination. Rules reject collection reads without a limit or with a limit above 100. Visible record lists/history use bounded subscriptions; additional pages load when requested. A full CSV export deliberately walks every page after **Prepare complete export** is clicked. It can cost more than an ordinary view.
 - Overview and rack/job totals use server count queries cached for 60 seconds. Counts are not instant. A count query scans indexes and incurs aggregation reads; it is not a free metadata lookup. Pallet updates remain immediate to listeners viewing those records.
 - Limits: ten members including pending authorizations; 80 import rows; 256 KiB command payload; 120 commands per user per minute and 5,000 per day; 120 photo reservations per user per day; 5 MiB detail and 128 KiB thumbnail; 1 GiB of new reserved photo bytes per warehouse/calendar month and 10 GiB retained by default. The existing three-active-photos-per-pallet rule stays. Owners cannot raise these limits; the service operator can set `licenses/WORKSPACE_ID.limits.photoMonthBytes` and `.photoStoredBytes` after agreeing appropriate capacity. Raising them changes the cost exposure.
@@ -251,3 +251,37 @@ For that one manual verification: confirm `--check` succeeds, open Create accoun
 The signup endpoint permits at most 200 attempts per UTC day per project, 50 per IP per day and 10 per IP per hour. It uses one bounded counter document and returns a clear retry-later error; it never deletes existing accounts. Bad requests and App Check failures can still incur function usage. The counters do not cap all Firebase Auth API traffic or guarantee a dollar maximum.
 
 References: [Enterprise checkbox assessments](https://docs.cloud.google.com/recaptcha/docs/create-assessment-website), [signup permissions](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/Config), [configuration field masks](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/projects/updateConfig).
+
+
+## September 29 follow-up: offline moves and renewal grace
+
+The web app now keeps an account/project/warehouse-scoped IndexedDB snapshot of records already opened on that device. It keeps at most 500 pallets, 500 rows per directory/metadata table, 1,500 label tokens and 100 recent history events. It does not download a warehouse to prepare this cache and does not store the photo library. The app shell is cached by the service worker after the installed worker controls a visit; open the warehouse once online, reload once, and check offline readiness before taking a device into a dead zone.
+
+Offline rules:
+
+- Only stored-pallet moves and location checks can be queued, for cached pallets and known active locations, by an authorized moving role. An uncached pallet needs an online lookup first. Up to 100 unresolved moves per device/account/warehouse; one unresolved move per pallet.
+- Reopening an offline warehouse or recording an offline move requires access verified within the previous 24 hours and the appropriate license state. A cached record is not a claim of current server authorization; removal while disconnected is enforced when the device reconnects. Existing cached information cannot be remotely withdrawn from a disconnected device.
+- A queue entry must be committed to IndexedDB before the UI says queued. A full/blocked device store produces an error. Web Locks serialize enqueue, replay and explicit discard across tabs. Queued is visibly different from confirmed; the last confirmed location is not optimistically overwritten.
+- Reconnect checks membership/license again. Every replay goes through the existing transactional command function with the original ID and expected version. Accepted receipts are immutable. Stale moves stop in **Support → Sync and offline**. There is no automatic last-write-wins overwrite or indefinite retry loop.
+- Sign-out clears displayed/cached warehouse records. Unconfirmed requests remain scoped to their originating account so that the same user can recover them after signing back in. Another account does not inherit that queue.
+- Complete CSV export requires a connection; offline search only covers the bounded cache. Photos still use authenticated on-demand downloads.
+
+**Publish renewal grace to the existing project** after reviewing the local verification results. The Pages build publishes browser changes; it cannot update Firebase rules/functions. In the owner's already authenticated Cloud Shell:
+
+```bash
+cd ~/wherehouse
+git pull --ff-only
+npm ci
+npm ci --prefix firebase/functions
+npx firebase deploy --only firestore:rules,storage,functions:wherehouse:command,functions:wherehouse:getDirectoryCounts,functions:wherehouse:reservePhotoUpload --project wherehouseportal
+# Continue only after the command above succeeds:
+npx firebase deploy --only functions:wherehouse:getWarehouseSummary --project wherehouseportal
+```
+
+Deploy the summary function last: it advertises the new receiving fields only after their command handler and database rules are ready.
+
+No new index, service, scheduler or billing upgrade is needed for this release. It updates already provisioned functions/rules; normal deployment/build usage remains possible on Blaze. Until these rules/functions are deployed, the old server will still reject expired licenses. Read-only grace is not active merely because the website changed. Existing licenses automatically use `expires_at + 14 days`; there is no migration and no customer data rewrite. `active:false` remains immediate revocation.
+
+Keep automated tests local: `npm test`, `npm run test:e2e`, `npm run test:firebase`, and `npm run test:firebase:load`. The Firebase browser suite now builds an explicitly guarded emulator-only bundle so a real service worker/offline reload can be tested. It refuses live project IDs, buckets and App Check keys; that bundle goes in `dist-emulator`, never the Pages artifact.
+
+For a small manual live check after deployment, use one existing test pallet: open it and two locations online, briefly disable the device connection, queue one move, reload, reconnect, and confirm a single new history event. Do not use a customer's operational pallet, revoke a customer or expire a customer's license for testing. Grace/renewal boundary tests are already exercised locally. Run `npm run format:functions` before changing server code; CI runs `npm run format:check` to prevent dense one-line server files from returning.

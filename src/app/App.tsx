@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../data/firebase';
 import { WarehouseLoading } from '../portal/WarehouseLoading';
 import { SampleHints } from '../portal/SampleHints';
 import { LiveView } from '../data/LiveView';
@@ -39,36 +40,9 @@ import { Station } from '../features/station/Station';
 import { DataStorage } from '../features/data/DataStorage';
 import { LiveSignIn } from '../portal/LiveSignIn';
 import { SignIn } from '../portal/SignIn';
-import { SiteShell } from '../site/SiteShell';
-import { MissionPage } from '../site/pages/Mission';
+import { SitePage } from '../site/SitePage';
+import { SiteRouting } from '../site/routing';
 import './customer.css';
-import { Home } from '../site/Home';
-import { ShowcasePage } from '../site/pages/Showcase';
-import { SimplePage } from '../site/pages/Simple';
-import { ProductPage } from '../site/pages/Product';
-import { HardwarePage } from '../site/pages/Hardware';
-import { IndustriesPage } from '../site/pages/Industries';
-import { CustomersPage } from '../site/pages/Customers';
-import { PricingPage } from '../site/pages/Pricing';
-import { FounderPage } from '../site/pages/Founder';
-import { ContactPage } from '../site/pages/Contact';
-import { SecurityPage } from '../site/pages/Security';
-
-const SITE_PAGES: Record<SiteRouteName, () => React.ReactNode> = {
-  home: Home,
-  mission: MissionPage,
-  product: ProductPage,
-  showcase: ShowcasePage,
-  simple: SimplePage,
-  why: SimplePage,
-  hardware: HardwarePage,
-  industries: IndustriesPage,
-  customers: CustomersPage,
-  pricing: PricingPage,
-  founder: FounderPage,
-  contact: ContactPage,
-  security: SecurityPage,
-};
 
 const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.ReactNode> = {
   receive: Receive,
@@ -115,16 +89,14 @@ function tabFor(name: RouteName): RouteName {
 }
 
 export function App() {
-  const { route, actorId, backend, workspaceId } = useApp();
+  const app = useApp();
+  const { route, actorId, backend, workspaceId } = app;
   const [welcome, setWelcome] = useState('');
   useEffect(() => { if (backend.cloudError) setWelcome(''); }, [backend.cloudError]);
   if (isSiteRoute(route.name)) {
-    const Page = SITE_PAGES[route.name];
     return (
       <>
-        <SiteShell>
-          <Page key={route.name} />
-        </SiteShell>
+        <SiteRouting value={app}><SitePage route={route.name}/></SiteRouting>
         <Toasts />
         <div className="print-root" id="print-root" />
       </>
@@ -152,7 +124,7 @@ function Portal() {
   // Replay the offline queue as soon as the connection comes back (page 24).
   const wasOffline = useRef(offline);
   useEffect(() => {
-    if (wasOffline.current && !offline && actorId && workspaceId && backend.outbox.pending(actorId, workspaceId).some((e) => e.status === 'queued')) {
+    if (backend.mode === 'demo' && wasOffline.current && !offline && actorId && workspaceId && backend.outbox.pending(actorId, workspaceId).some((e) => e.status === 'queued')) {
       void backend.sync(actorId, workspaceId).then((s) => {
         if (!s) return;
         if (s.conflicts || s.blocked) toast(`Back online: ${s.acknowledged} saved, ${s.conflicts + s.blocked} need your decision in Sync`, 'error');
@@ -170,7 +142,7 @@ function Portal() {
   const pending = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).length + backend.pendingFor(actorId, workspaceId).length : 0;
   const needsDecision = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).filter((e) => e.status === 'conflict' || e.status === 'blocked').length : 0;
 
-  const Screen = backend.mode === 'firebase' && ['lab','sync','data','guide','about','help'].includes(route.name) ? LiveHelp : SCREENS[route.name as keyof typeof SCREENS] ?? Find;
+  const Screen = backend.mode === 'firebase' && ['lab','data','guide','about','help'].includes(route.name) ? LiveHelp : SCREENS[route.name as keyof typeof SCREENS] ?? Find;
   const removed = signedIn && !role && !['about', 'guide', 'help'].includes(route.name);
   const me = actorId ? backend.db.users[actorId] : null;
   const myWorkspaces = actorId ? backend.db.memberships.filter((m) => m.user_id === actorId && m.active) : [];
@@ -206,7 +178,7 @@ function Portal() {
                 <Icon name="locations" /> {ctx.warehouse.code}
               </span>
             )}
-            {backend.mode === 'demo' && (app.prefs.advancedTools || offline || pending > 0) ? <button
+            {(app.prefs.advancedTools || offline || pending > 0) ? <button
               className={`chip net-chip ${offline ? 'offline' : ''}`}
               onClick={() => go('sync')}
               title={offline ? `Offline. Showing what this device cached at ${fmtTime(backend.cache?.at)}` : 'Online'}
@@ -223,7 +195,7 @@ function Portal() {
           <span className="tour-chip-label">{app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}</span>
         </button>}
         {me && (
-          <button className="chip acct-chip" onClick={() => setAccount(true)} aria-label={`Account: ${role ? `${ROLE_LABEL[role]}, ` : ''}${me.name}`} data-tour="account">
+          <button className="chip acct-chip" aria-expanded={account} aria-haspopup="dialog" onClick={() => setAccount(true)} aria-label={`Account: ${role ? `${ROLE_LABEL[role]}, ` : ''}${me.name}`} data-tour="account">
             <Avatar name={me.name} />
             {/* Phones have no room for the role's name, so a short role badge stands in for the initials. */}
             {role && (
@@ -231,19 +203,19 @@ function Portal() {
                 {ROLE_SHORT[role]}
               </span>
             )}
-            <span className="acct-name">{role ? ROLE_LABEL[role] : me.name}</span>
+            <span className="acct-name"><strong>{me.name}</strong><small>{role ? ROLE_LABEL[role] : 'Account'}</small></span><Icon name="chevronDown" />
           </button>
         )}
       </header>
 
-      {offline && signedIn && backend.mode === 'demo' && (
+      {offline && signedIn && (
         <div className="notice warn" style={{ borderRadius: 0, borderLeft: 0, borderRight: 0, margin: 0 }} role="status">
           <Icon name="wifiOff" />
           <div className="n-body">
             <strong>Offline.</strong> Showing what this device last knew, cached at {fmtTime(backend.cache?.at)}. Moves and location checks will be queued; everything else waits for the connection.{' '}
-            <button className="btn ghost small" style={{ minHeight: 0, padding: '0 4px' }} onClick={() => backend.setNetwork('online')}>
+            {backend.mode === 'demo' && <button className="btn ghost small" style={{ minHeight: 0, padding: '0 4px' }} onClick={() => backend.setNetwork('online')}>
               Reconnect
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -254,7 +226,7 @@ function Portal() {
             <button className="nav-item dashboard-nav" aria-current={route.name === 'overview' ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
             {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
               <div key={g.title} className="nav-group">
-                <details open={g.title === 'Floor' || g.title === 'Warehouse' || g.title === 'Support'}>
+                <details open={g.title === 'Floor' || g.items.some(i=>i.route === route.name)}>
                 <summary>{g.title}</summary>
                 {g.items.filter(i => i.route !== 'overview').map((i) => {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
@@ -274,7 +246,7 @@ function Portal() {
         )}
         <main key={`${route.name}:${route.id ?? ''}`} className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
           {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
-          {backend.mode === 'firebase' && <PendingCloudRequests />}
+          {backend.mode === 'firebase' && <>{backend.storageOk&&backend.storageError&&<Notice tone="warn" title="Offline saving needs attention">{backend.storageError}</Notice>}<RenewalNotice/><PendingCloudRequests /></>}
           {removed ? <RemovedAccess /> : signedIn ? <LiveView><Screen key={`${route.name}:${route.id ?? ''}`} /></LiveView> : <Screen />}
         </main>
       </div>
@@ -362,8 +334,8 @@ function Portal() {
         </Sheet>
       )}
 
-      {account && backend.mode === 'firebase' && <Sheet title="Your account" onClose={()=>setAccount(false)}><p>{me?.name} · {me?.email}</p><button className="btn primary" onClick={()=>{setAccount(false);app.signOut();}}>Sign out</button></Sheet>}
-      {backend.mode === 'firebase' && offline && <Notice tone="warn">You’re offline. Reconnect before making changes.</Notice>}
+      {account && backend.mode === 'firebase' && <Sheet title="Your account" onClose={()=>setAccount(false)}><div className="stack account-menu"><div className="account-identity"><Avatar name={me?.name||'Account'}/><div><strong>{me?.name}</strong><p>{role?ROLE_LABEL[role]:'Team member'} · {companyName}</p><p>{me?.email}</p></div></div><button className="btn" onClick={()=>{setAccount(false);go('settings');}}><Icon name="settings"/>Account settings</button><button className="btn" onClick={()=>{setAccount(false);app.signOut();}}><Icon name="chevronLeft"/>Log out</button></div></Sheet>}
+
       {signedIn && backend.mode === 'demo' && <Tour />}
       {signedIn && backend.sampleMode && <SampleHints key={`${route.name}:${route.id||''}`} />}
       {signedIn && <PortalTour />}
@@ -393,7 +365,7 @@ function RemovedAccess() {
 function LiveHelp() {
   const {go,startGuide}=useApp();
   return <div className="panel stack"><h1>Setup & support</h1>
-    <p>Live records are saved to your shared warehouse. An internet connection is required.</p>
+    <p>Shared records sync across your crew. If the signal drops, cached pallet moves are saved on this device until you reconnect. Receiving, photos and dispatch need a connection.</p>
     <div className="row"><button className="btn" onClick={()=>startGuide(0)}>Take the tour</button><a className="btn" href={`${location.pathname}?demo=1#help`}>Open sample warehouse</a></div>
     <p>The tour explains your screens. Use the separate sample warehouse to practice with example records.</p>
     <p>Need help with labels, scanning or your crew?</p><button className="btn primary" onClick={()=>go('contact')}>Contact remote support</button>
@@ -401,3 +373,9 @@ function LiveHelp() {
 }
 
 function PendingCloudRequests() { const {backend,actorId,workspaceId,toast}=useApp();const [busy,setBusy]=useState(false);const requests=actorId&&workspaceId?backend.pendingFor(actorId,workspaceId):[];if(!requests.length)return null;return <Notice tone="warn" title="A save is waiting for confirmation"><p>Check its result before repeating the action.</p><button className="btn" disabled={busy} onClick={async()=>{setBusy(true);try{for(const p of requests){const r=await backend.recover(actorId!,workspaceId!,p.command.command_id);toast(r.status==='result'?(r.result.ok?'Change saved.':r.result.message):r.status==='unknown'||r.status==='offline'?r.message:'Still waiting.',r.status==='result'&&r.result.ok?'ok':'info');}}finally{setBusy(false);}}}>{busy?'Checking…':'Check saved result'}</button></Notice>; }
+
+function RenewalNotice(){
+  const {backend,role,go}=useApp();
+  if(!(backend instanceof FirebaseBackend)||!backend.readOnly)return null;
+  return <Notice tone="warn" title="Renewal due · read-only access"><p>You can find pallets, view photos and read history until {new Date(backend.graceEndsAt).toLocaleDateString()}. New changes and uploads are paused. Your records are preserved.</p><div className="row">{(role==='OWNER'||role==='SUPERVISOR')&&<button className="btn" onClick={()=>go('export')}>Export records</button>}<button className="btn" onClick={()=>go('signin')}>Renew warehouse</button></div></Notice>;
+}

@@ -1,4 +1,5 @@
 import { receivingSchema } from './receiving';
+import { STATE_LABEL } from './display';
 // Pure transition checker (blueprint pages 7, 12, 14, 15, 21).
 // Given the locked, re-read server values, decide whether a command is allowed and what it changes.
 // The engine owns persistence; this module owns the rules.
@@ -46,13 +47,7 @@ export function roleAllows(role: Role | null | undefined, kind: CommandKind): bo
   return ROLE_RANK[role] >= ROLE_RANK[MIN_ROLE[kind]];
 }
 
-export const STATE_LABEL: Record<PalletState, string> = {
-  RECEIVED: 'Received',
-  STORED: 'Stored',
-  DISPATCHED: 'Dispatched',
-  MISSING: 'Missing',
-  RETIRED: 'Retired',
-};
+export { STATE_LABEL } from './display';
 
 export const COMMAND_LABEL: Record<CommandKind, string> = {
   receive: 'Received',

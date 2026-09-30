@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:firebase": "node tests/firebase/launch.mjs",
-    "test:firebase:load": "node tests/firebase/launch.mjs --load"
+    "test:firebase:load": "node tests/firebase/launch.mjs --load",
+    "format:functions": "prettier --write firebase/functions/src",
+    "format:check": "prettier --check firebase/functions/src"
   },
   "dependencies": {
     "@zxing/library": "0.21.3",
@@ -35,6 +37,7 @@
     "esbuild": "0.28.2",
     "fake-indexeddb": "6.2.5",
     "firebase-tools": "14.17.0",
+    "prettier": "3.6.2",
     "typescript": "5.9.3",
     "vite": "8.3.0",
     "vite-plugin-singlefile": "2.3.3",

@@ -60,14 +60,15 @@ export class Outbox {
   entries: OutboxEntry[] = [];
   private listeners = new Set<() => void>();
 
-  constructor(private storage: OutboxStorage) {}
+  constructor(private storage: OutboxStorage, private strictWrites = false) {}
 
-  async init() {
+  async init(strict = false) {
     try {
       this.entries = await this.storage.load();
       // A crash mid-send leaves "sending": it goes back to queued with the same command ID.
       for (const e of this.entries) if (e.status === 'sending') e.status = 'queued';
-    } catch {
+    } catch (error) {
+      if (strict) throw error;
       this.entries = [];
     }
     this.emit();
@@ -107,8 +108,9 @@ export class Outbox {
   private async persist() {
     try {
       await this.storage.save(this.entries);
-    } catch {
-      /* status changes are recoverable: the next save retries them */
+    } catch (error) {
+      if (this.strictWrites) throw new OutboxWriteError(error instanceof Error ? error.message : 'Could not save the queue.');
+      /* Demo status changes are recoverable: the next save retries them */
     }
     this.emit();
   }
@@ -120,7 +122,7 @@ export class Outbox {
   async replay(actorId: string, workspaceId: string, send: (cmd: CommandEnvelope) => Promise<CommandResult>, batch = 10): Promise<{ sent: number; acknowledged: number; conflicts: number; blocked: number; unanswered: number }> {
     const stats = { sent: 0, acknowledged: 0, conflicts: 0, blocked: 0, unanswered: 0 };
     const stoppedPallets = new Set(this.entries.filter((e) => (e.status === 'conflict' || e.status === 'blocked') && !e.resolved_at).map((e) => e.pallet_id));
-    const queue = this.entries.filter((e) => e.actor_id === actorId && e.workspace_id === workspaceId && e.status === 'queued').slice(0, batch);
+    const queue = this.entries.filter((e) => e.actor_id === actorId && e.workspace_id === workspaceId && e.status === 'queued' && !e.resolved_at).slice(0, batch);
     for (const e of queue) {
       if (stoppedPallets.has(e.pallet_id)) continue;
       e.status = 'sending';
@@ -166,8 +168,9 @@ export class Outbox {
   async discard(commandId: string, now: string) {
     const e = this.entries.find((x) => x.command.command_id === commandId);
     if (!e) return;
+    const previous=e.resolved_at;
     e.resolved_at = now;
-    await this.persist();
+    try { await this.persist(); } catch(error) { e.resolved_at=previous;this.emit();throw error; }
   }
 
   /** Mark a conflict resolved because the user submitted a new command against the latest version. */
@@ -176,8 +179,9 @@ export class Outbox {
   }
 
   async clearAcknowledged(actorId: string, workspaceId: string) {
+    const previous=this.entries;
     this.entries = this.entries.filter((e) => !(e.actor_id === actorId && e.workspace_id === workspaceId && (e.status === 'acknowledged' || e.resolved_at)));
-    await this.persist();
+    try { await this.persist(); } catch(error) { this.entries=previous;this.emit();throw error; }
   }
 
   async clearAll() {

@@ -1,5 +1,3 @@
-import { useApp } from '../app/state';
-import { FirebaseBackend } from '../data/firebase';
 // Scan router: every way of reading a code (hardware scanner, serial scanner, camera, photo, typing) ends up here,
 // and the screen that is listening gets it. Screens register with useScanTarget; targets are tried by priority
 // (highest first), then most recently registered first, and each may pass a scan on by returning false.
@@ -142,8 +140,8 @@ export function dispatchScan(targets: readonly ScanTargetEntry[], ev: ScanEvent,
 
 const Ctx = createContext<ScanRouterApi | null>(null);
 
-export function ScanRouterProvider({ children }: { children: ReactNode }) {
-  const {backend}=useApp();const scanQueue=useRef(Promise.resolve());
+export function ScanRouterProvider({ children, prepareScan }: { children: ReactNode; prepareScan?: (text:string)=>Promise<void> }) {
+  const scanQueue=useRef(Promise.resolve());
   const [settings, setSettingsState] = useState<ScannerSettings>(loadSettings);
   const [recent, setRecent] = useState<ScanEvent[]>([]);
   const [sessionCount, setSessionCount] = useState(0);
@@ -180,13 +178,13 @@ export function ScanRouterProvider({ children }: { children: ReactNode }) {
       setSessionCount((n) => n + 1);
       return ev.handledBy;
       };
-      if(backend instanceof FirebaseBackend&&backend.activeWorkspace&&!modalOpen()){
-        scanQueue.current=scanQueue.current.then(()=>backend.preloadScan(clean)).then(()=>{deliver();}).catch(()=>beep('bad'));
+      if(prepareScan&&!modalOpen()){
+        scanQueue.current=scanQueue.current.then(()=>prepareScan(clean)).then(()=>{deliver();}).catch(()=>beep('bad'));
         return 'loading';
       }
       return deliver();
     },
-    [beep,backend],
+    [beep,prepareScan],
   );
 
   const register = useCallback((name: string, handler: ScanHandler, priority = 0, options: ScanTargetOptions = {}) => {

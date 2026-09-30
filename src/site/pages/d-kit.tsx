@@ -2,7 +2,7 @@
 // an email address you can select and copy, a "Coming" tag, and a focus-aware scroll.
 
 import { useRef } from 'react';
-import { useApp } from '../../app/state';
+import { useSite } from '../routing';
 import { copyText } from '../../device/output';
 import { Icon } from '../../ui/icons';
 import './pages-d.css';
@@ -35,7 +35,7 @@ export function scrollToId(id: string) {
 
 /** An email address as plain, selectable text with a Copy button beside it. */
 export function EmailCopy({ email, tone = 'plain' }: { email: string; tone?: 'plain' | 'boxed' }) {
-  const { toast } = useApp();
+  const { toast } = useSite();
   const ref = useRef<HTMLSpanElement>(null);
   const copy = async () => {
     if (await copyText(email)) {

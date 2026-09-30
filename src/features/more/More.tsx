@@ -41,7 +41,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
     title: 'Learn and tools',
     items: [
       { route: 'help', label: 'Help', icon: 'help', hint: 'Video, tutorials, FAQ, contact' },
-      { route: 'sync', label: 'Sync and offline', icon: 'sync', hint: 'Queue and network lab' },
+      { route: 'sync', label: 'Sync and offline', icon: 'sync', hint: 'Waiting moves and sync status' },
       { route: 'lab', label: 'Integrity lab', icon: 'lab', hint: 'Run the built-in safety tests' },
       { route: 'guide', label: 'Guide', icon: 'guide', hint: 'How it all works' },
       { route: 'settings', label: 'Settings', icon: 'settings', hint: 'Display and account' },
@@ -57,6 +57,7 @@ export function visibleNavGroups(role: Role | null, advanced: boolean, live = fa
     ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
     : ['receive', 'move', 'find', 'station', 'map', 'locations', 'labels', 'jobs', 'activity', 'scanners', 'help', 'settings']);
   if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
+  if (live) allowed.add('sync');
   if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
   return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title === 'Manage' && !manager ? 'Tools' : g.title,
     items: g.items.filter(i => allowed.has(i.route) && !(live && i.route === 'data')) })).filter(g => g.items.length);
