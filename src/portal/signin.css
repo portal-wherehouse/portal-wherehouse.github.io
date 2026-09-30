@@ -613,3 +613,8 @@
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+.auth-or{display:flex;align-items:center;gap:10px;color:var(--ink-3);margin:4px 0;font-size:14px}
+.auth-or::before,.auth-or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.auth-google{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%}
+.auth-trial{padding:16px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--accent)}
+.auth-trial h2{margin:0;font-size:20px}

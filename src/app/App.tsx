@@ -26,6 +26,7 @@ import { Lab } from '../features/lab/Lab';
 import { LabelStudio } from '../features/labels/LabelStudio';
 import { WarehouseMap } from '../features/map/WarehouseMap';
 import { More, visibleNavGroups } from '../features/more/More';
+import { useSetup, useWordSwap } from './words';
 import { Move } from '../features/move/Move';
 import { Overview } from '../features/overview/Overview';
 import { PalletRecord } from '../features/pallet/PalletRecord';
@@ -123,6 +124,8 @@ export function App() {
 
 function Portal() {
   const [folded, setFolded] = useFoldedNav();
+  const setup = useSetup();
+  useWordSwap(setup);
   const app = useApp();
   const { route, actorId, workspaceId, role, backend, go, blockedNav, toast, read, accountsOpen: account, setAccountsOpen: setAccount } = app;
   const signedIn = !!actorId;
@@ -229,7 +232,7 @@ function Portal() {
         {signedIn && (
           <nav className="sidebar" aria-label="Main">
             <button className="nav-item dashboard-nav" aria-current={route.name === 'overview' ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
-            {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
+            {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on).map((g) => (
               <div key={g.title} className="nav-group">
                 <details open={!folded.includes(g.title)}>
                 {/* Handled on click (not the async toggle event) so the choice is saved before any refresh. */}

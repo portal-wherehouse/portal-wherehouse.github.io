@@ -17,7 +17,7 @@ import { initialMove, moveReducer, type MoveState } from './machine';
 import { ResultRow } from '../find/Find';
 import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
 import { fitCheck, fmtLb, palletSize, palletWeight, suggestLocations, type FitProblem } from '../../domain/capacity';
-import { blankInfo } from '../../domain/receiving';
+import { blankInfo, productKey } from '../../domain/receiving';
 
 const INTENT_VERB = { place: 'Place', move: 'Move', verify_location: 'Confirm still here' } as const;
 
@@ -404,25 +404,42 @@ function Suggestions({ pallet, onPick, onUpdated }: { pallet: Pallet; onPick: (l
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [v, workspaceId],
   );
-  const { suggestions, needWeight } = useMemo(() => suggestLocations(pallet, locs, Object.values(backend.db.pallets), advanced), [pallet, locs, advanced, backend.db.pallets]);
+  const { suggestions: found, needWeight } = useMemo(() => suggestLocations(pallet, locs, Object.values(backend.db.pallets), advanced), [pallet, locs, advanced, backend.db.pallets]);
+  // The pallet type's home spot comes first when it can take the pallet, whatever else has room.
+  const homeId = pallet.receiving?.product_code && workspaceId ? backend.db.products[productKey(workspaceId, pallet.receiving.product_code)]?.home_location_id : null;
+  const homeLoc = homeId ? locs.find((l) => l.id === homeId && l.active && l.id !== pallet.current_location_id) : undefined;
+  const homeFits = !!homeLoc && !fitCheck(pallet, homeLoc, advanced);
+  const suggestions = homeFits ? found.filter((sg) => sg.location.id !== homeLoc!.id) : found;
+  const homeRow = homeFits && (
+    <button type="button" className="suggest-row best" onClick={() => onPick(homeLoc!)} data-testid="home-spot">
+      <Plate code={homeLoc!.code} size="sm" />
+      <span className="grow">
+        <span className="tag ok">Home spot</span> Where this type normally lives
+      </span>
+    </button>
+  );
   if (!locs.some((l) => l.capacity && l.active))
     return (
+      <div className="stack" style={{ gap: 6 }}>
+      {homeRow}
       <p className="hint" style={{ margin: 0 }}>
         Tip: give your locations a pallet capacity (<button type="button" className="link" onClick={() => go('locations')}>Locations</button>, open one, Set capacity) and Wherehouse suggests where each pallet fits.
       </p>
+      </div>
     );
   const shown = all ? suggestions : suggestions.slice(0, 3);
   return (
     <div className="stack" style={{ gap: 6 }} data-testid="move-suggestions">
       <div className="eyebrow">Suggested spots</div>
-      {suggestions.length === 0 && <p className="muted" style={{ margin: 0 }}>No location with a set capacity has room for this pallet. Scan any location, or give more locations a capacity.</p>}
+      {homeRow}
+      {suggestions.length === 0 && !homeFits && <p className="muted" style={{ margin: 0 }}>No location with a set capacity has room for this pallet. Scan any location, or give more locations a capacity.</p>}
       {shown.map((sg, i) => (
-        <button key={sg.location.id} type="button" className={`suggest-row${i === 0 ? ' best' : ''}`} onClick={() => onPick(sg.location)}>
+        <button key={sg.location.id} type="button" className={`suggest-row${i === 0 && !homeFits ? ' best' : ''}`} onClick={() => onPick(sg.location)}>
           <Plate code={sg.location.code} size="sm" />
           <span className="grow">
             {sg.left} pallet{sg.left === 1 ? '' : 's'} of space left{sg.weightLeft !== null ? ` · ${fmtLb(sg.weightLeft)} left` : ''}
             {sg.sameProduct && <span className="tag ok">Same type here</span>}
-            {i === 0 && !sg.sameProduct && <span className="tag accent">Most room</span>}
+            {i === 0 && !sg.sameProduct && !homeFits && <span className="tag accent">Most room</span>}
           </span>
         </button>
       ))}

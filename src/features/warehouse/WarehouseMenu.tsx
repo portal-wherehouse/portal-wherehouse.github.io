@@ -9,6 +9,7 @@ import { Icon } from "../../ui/icons";
 import { Field, Notice, Sheet } from "../../ui/ui";
 import { AdminSheet } from "../admin/AdminSheet";
 import { MeasurementsSetting } from "../settings/Settings";
+import { SetupSetting } from "../settings/SetupSetting";
 import type { Warehouse } from "../../domain/types";
 
 export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
@@ -392,6 +393,7 @@ function WarehouseSettings({
         Name and label code update future prints. Existing QR labels keep
         working.
       </p>
+      <SetupSetting />
       <MeasurementsSetting />
     </AdminSheet>
   );

@@ -1,3 +1,4 @@
+import { DEFAULT_SETUP } from '../domain/terms';
 // Deterministic fictional warehouses (blueprint page 29).
 // Every record is produced by running real commands through the engine, never by writing
 // snapshots directly, so the fixture obeys the same rules the app enforces.
@@ -129,6 +130,8 @@ class Driver {
   setupWorkspace(owner: User, name: string, others: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][]) {
     const { workspace } = this.engine.createWorkspace(owner, name, { code: 'WH-01', name: 'Main yard', timezone: 'America/Chicago' });
     this.ws = workspace.id;
+    // The sample is a pallet yard that has already answered "What do you store?".
+    for (const w of Object.values(this.db.warehouses)) if (w.workspace_id === this.ws) w.setup = { ...DEFAULT_SETUP, preset: 'pallets' };
     for (const [u, role] of others) this.engine.addMember(this.ws, u, role);
     return workspace;
   }

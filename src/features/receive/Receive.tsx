@@ -1,4 +1,5 @@
 import { CreateJob } from '../admin/Jobs';
+import { useJobsOn } from '../../app/words';
 import { FirebaseBackend } from '../../data/firebase';
 import { barcodeMatchKey, blankInfo, productKey, receivingSchema, type ExpectedShipment, type ProductMemory } from '../../domain/receiving';
 import { PalletFields } from './PalletFields';
@@ -21,6 +22,7 @@ import { LabelSheet } from '../labels/LabelSheet';
 
 export function Receive() {
   const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId, route, v } = useApp();
+  const jobsOn = useJobsOn();
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
   const [jobId, setJobId] = useState('');
@@ -314,7 +316,7 @@ export function Receive() {
         noValidate
       >
         <div className="stack" style={{ gap: 10 }}>
-          {!showJob && !jobId && <button type="button" className="btn" disabled={locked} onClick={() => setShowJob(true)}><Icon name="plus" />Add job (optional)</button>}
+          {jobsOn && !showJob && !jobId && <button type="button" className="btn" disabled={locked} onClick={() => setShowJob(true)}><Icon name="plus" />Add job (optional)</button>}
           <div hidden={!showJob && !jobId}>
             <Field label="Job (optional)" htmlFor="rcv-job" hint={jobErr || (job?.destination_notes ? `Ships to: ${job.destination_notes}` : 'Assign this pallet to a project or order. Leave blank for general stock.')}>
               <select id="rcv-job" className="select" value={jobId} onChange={e => setJobId(e.target.value)} disabled={locked} aria-invalid={!!jobErr}>

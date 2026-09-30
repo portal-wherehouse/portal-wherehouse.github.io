@@ -125,13 +125,15 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
   const [unit, setUnit] = useState(product?.unit ?? '');
   const [category, setCategory] = useState(product?.category ?? '');
   const [size, setSize] = useState({ length_in: product?.length_in ?? '', width_in: product?.width_in ?? '', height_in: product?.height_in ?? '', weight_lb: product?.weight_lb ?? '' });
+  const [home, setHome] = useState(product?.home_location_id ?? '');
+  const homes = Object.values(backend.db.locations).filter((l) => l.workspace_id === workspaceId && (l.active || l.id === home)).sort((a, b) => a.code.localeCompare(b.code));
   const [print, setPrint] = useState(false);
   const cmd = useCommand();
   const categories = [...new Set(Object.values(backend.db.products).map((p) => p.category ?? '').filter(Boolean))].sort();
   const save = async (andPrint: boolean) => {
     setPrint(andPrint);
     const fields = { code: code.trim(), description: description.trim(), unit: unit.trim(), category: category.trim(), length_in: size.length_in.trim(), width_in: size.width_in.trim(), height_in: size.height_in.trim(), weight_lb: size.weight_lb.trim() };
-    const r = await cmd.run('save_product', { ...fields, ...(product ? {} : { create: true }) });
+    const r = await cmd.run('save_product', { ...fields, home_location_id: home || null, ...(product ? {} : { create: true }) });
     if (r.phase === 'done') {
       const id = r.accepted?.target_id ?? '';
       onSaved(backend.db.products[id] ?? { id, workspace_id: workspaceId!, warehouse_id: '', ...fields, field_names: [], updated_at: new Date().toISOString() }, andPrint);
@@ -183,6 +185,16 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
             </datalist>
           </Field>
         </div>
+        <Field label="Home spot (optional)" htmlFor="prod-home" hint="Where this type normally lives. Move offers it first, and it stays set even when none are in stock.">
+          <select id="prod-home" className="select" value={home} onChange={(e) => setHome(e.target.value)}>
+            <option value="">No home spot</option>
+            {homes.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.code}
+              </option>
+            ))}
+          </select>
+        </Field>
         <CommandFeedback state={cmd.state} onRecover={() => void cmd.recover()} />
         <div className="row">
           <button type="button" className="btn primary big" disabled={!ready} onClick={() => void save(true)}>

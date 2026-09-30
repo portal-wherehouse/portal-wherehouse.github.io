@@ -38,12 +38,25 @@ export interface Warehouse {
   updated_at?: string;
   /** Advanced weight and dimensions logging: locations can have weight and size limits that moves must respect. */
   advanced_measurements?: boolean;
+  /** What this warehouse calls the things it tracks and how it groups work; see domain/terms.ts. */
+  setup?: WarehouseSetup;
   id: string;
   workspace_id: string;
   code: string;
   name: string;
   timezone: string;
   active: boolean;
+}
+
+export interface WarehouseSetup {
+  /** The "What do you store?" answer, or null before anyone chose. */
+  preset: string | null;
+  thing: string;
+  things: string;
+  job: string;
+  jobs: string;
+  /** Off hides jobs everywhere; records keep any job they already have. */
+  jobs_on: boolean;
 }
 
 /** How much a location holds. Spaces are floor pallet positions; stacking multiplies them. */
@@ -259,6 +272,7 @@ export const ADMIN_COMMANDS = [
   'update_issue',
   'set_location_capacity',
   'set_measurements',
+  'set_setup',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 

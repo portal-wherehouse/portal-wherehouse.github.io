@@ -1,7 +1,7 @@
 {
   "name": "Wherehouse",
   "short_name": "Wherehouse",
-  "description": "Know where every pallet is. Created by John Henry Mims.",
+  "description": "Know where everything is. Created by John Henry Mims.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -8,11 +8,11 @@ import { PRICING } from './prices';
 import './home.css';
 import './pilot.css';
 export function Home() { return <>
-<div className="home-hero-wrap"><div className="site-inner home-hero"><div className="home-hero-text"><p className="site-eyebrow">Warehouse organization, kept simple</p><h1 className="home-hello"><span className="home-hello-sub">Keep your</span><span className="home-hello-sub">warehouse moving<span className="home-dot">.</span></span></h1><p className="site-lede home-pitch">Organize each delivery by job. Give every pallet a place. Find it when your crew needs it.</p><div className="site-hero-actions"><SiteLink to="contact" className="site-btn primary">Set up your warehouse</SiteLink><SiteLink to="product" className="site-btn ghost">How it works →</SiteLink></div><p className="home-price">${PRICING.monthly}/warehouse/month. Remote setup and support included.</p><PortalCTA variant="inline" /><a className="home-sample-link" href="?demo=1#signin">Explore the sample warehouse →</a></div><HeroArt /></div></div>
+<div className="home-hero-wrap"><div className="site-inner home-hero"><div className="home-hero-text"><p className="site-eyebrow">Know where everything is</p><h1 className="home-hello"><span className="home-hello-sub">Keep your</span><span className="home-hello-sub">warehouse moving<span className="home-dot">.</span></span></h1><p className="site-lede home-pitch">Scan the thing. Scan the place. Now everyone knows where it is, who moved it and when. Pallets, boxes, parts, furniture or equipment, in a warehouse, stockroom or yard.</p><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Start your free trial</SiteLink><SiteLink to="contact" className="site-btn ghost">Book a free walkthrough</SiteLink></div><p className="home-price">Free for {PRICING.pilotDays} days, then ${PRICING.monthly}/warehouse/month. No card to start. Want help? We’ll set it up with you.</p><PortalCTA variant="inline" /><a className="home-sample-link" href="?demo=1#signin">Explore the sample warehouse →</a></div><HeroArt /></div></div>
 <Section tone="surface"><FeatureCards items={[
-{icon:'receive',title:'Receive',body:'Choose the job and print the pallet label.'},
-{icon:'move',title:'Move',body:'Scan the pallet and the rack where you put it.'},
-{icon:'find',title:'Find',body:'Search the job. See the last recorded location.'}
+{icon:'receive',title:'Add',body:'Give each thing a label, or use the barcode it already has.'},
+{icon:'move',title:'Move',body:'Scan it, then scan the shelf, rack or spot where you put it.'},
+{icon:'find',title:'Find',body:'Search a name, code or what is on it. See exactly where it is.'}
 ]} /><div className="site-hero-actions"><SiteLink to="hardware">Printing & scanning →</SiteLink><SiteLink to="simple">What we leave out →</SiteLink><SiteLink to="mission">Our mission →</SiteLink><SiteLink to="showcase">Process walkthrough →</SiteLink></div></Section>
 </>; }
 /** A printed pallet label next to a phone showing where that pallet was last confirmed. */

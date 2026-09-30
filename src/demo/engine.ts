@@ -45,7 +45,7 @@ import type {
   Warehouse,
   Workspace,
 } from '../domain/types';
-import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus } from '../domain/types';
+import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type WarehouseSetup } from '../domain/types';
 
 export const DB_SCHEMA_VERSION = 2;
 
@@ -370,6 +370,7 @@ export class Engine {
       case 'update_issue':
       case 'set_location_capacity':
       case 'set_measurements':
+      case 'set_setup':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -619,7 +620,7 @@ export class Engine {
     if (shipment) tx.put('shipments', shipment.id, {...shipment, pallet_id:pallet.id, pending_barcode:null});
     if (p.remember_product) {
       const id = productKey(cmd.workspace_id, info.product_code);
-      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', length_in:info.length_in ?? '', width_in:info.width_in ?? '', height_in:info.height_in ?? '', weight_lb:info.weight_lb ?? '', field_names:info.fields.map(f=>f.name), updated_at:now});
+      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', length_in:info.length_in ?? '', width_in:info.width_in ?? '', height_in:info.height_in ?? '', weight_lb:info.weight_lb ?? '', field_names:info.fields.map(f=>f.name), ...(this.db.products[id]?.home_location_id ? {home_location_id:this.db.products[id]!.home_location_id} : {}), updated_at:now});
     }
     tx.put('pallets', pallet.id, pallet);
     const token = this.newToken();
@@ -823,7 +824,14 @@ export class Engine {
         if (existing && (cmd.payload as { create?: boolean }).create) return reject('INVALID_INPUT', `${code} is already a saved pallet type. Open it instead.`);
         const size = Object.fromEntries((['length_in', 'width_in', 'height_in', 'weight_lb'] as const).map((k) => [k, String(p[k] ?? '').trim()]));
         if (Object.values(size).some((v) => v && !(Number(v.replace(/,/g, '')) > 0))) return reject('INVALID_INPUT', 'Size and weight must be numbers, like 48 or 1450.');
-        const product = { id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, ...size, field_names: existing?.field_names ?? [], updated_at: now };
+        // Home spot: where this type normally lives. Undefined keeps what was set; null clears it.
+        const homeIn = (cmd.payload as { home_location_id?: string | null }).home_location_id;
+        if (homeIn) {
+          const home = this.db.locations[homeIn];
+          if (!home || home.workspace_id !== ws || !home.active) return reject('NOT_FOUND', 'That home spot was not found or is turned off. Pick another.');
+        }
+        const home_location_id = homeIn === undefined ? existing?.home_location_id ?? null : homeIn || null;
+        const product = { id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, ...size, home_location_id, field_names: existing?.field_names ?? [], updated_at: now };
         tx.put('products', key, product);
         const a = audit(key, existing ? { description: existing.description, unit: existing.unit, category: existing.category ?? '' } : null, { code, description, unit, category });
         return this.accepted(cmd, now, a.id, null, key);
@@ -846,6 +854,17 @@ export class Engine {
         // No version bump: this switch must not conflict with an open warehouse details form.
         tx.put('warehouses', wh.id, { ...wh, advanced_measurements: advanced, updated_at: now });
         const a = audit(wh.id, { advanced_measurements: !!wh.advanced_measurements }, { advanced_measurements: advanced });
+        return this.accepted(cmd, now, a.id, null, wh.id);
+      }
+      case 'set_setup': {
+        const q = cmd.payload as unknown as WarehouseSetup & { advanced?: boolean };
+        const clean = (v: string) => v.trim().replace(/\s+/g, ' ');
+        const next: WarehouseSetup = { preset: q.preset ?? null, thing: clean(q.thing), things: clean(q.things), job: clean(q.job), jobs: clean(q.jobs), jobs_on: !!q.jobs_on };
+        if (![next.thing, next.things, next.job, next.jobs].every((w) => /^[\p{L}][\p{L}\p{N} '&-]*$/u.test(w))) return reject('INVALID_INPUT', 'Use letters for the words, like "Item" or "Order".');
+        const advanced = typeof q.advanced === 'boolean' ? q.advanced : !!wh.advanced_measurements;
+        // No version bump, like set_measurements: it must not conflict with an open warehouse details form.
+        tx.put('warehouses', wh.id, { ...wh, setup: next, advanced_measurements: advanced, updated_at: now });
+        const a = audit(wh.id, { setup: wh.setup ?? null, advanced_measurements: !!wh.advanced_measurements }, { setup: next, advanced_measurements: advanced });
         return this.accepted(cmd, now, a.id, null, wh.id);
       }
       case 'report_issue': {

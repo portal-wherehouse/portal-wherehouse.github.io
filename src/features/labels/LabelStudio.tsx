@@ -1,4 +1,5 @@
 import { where } from 'firebase/firestore';
+import { useJobsOn } from '../../app/words';
 import { FirebaseBackend } from '../../data/firebase';
 // Label studio: build a print run of pallet or rack labels, check calibration, and learn what a label carries (page 16).
 
@@ -14,6 +15,7 @@ type Source = 'reprint' | 'job' | 'received' | 'racks' | 'pick';
 
 export function LabelStudio() {
   const { read, backend, v } = useApp();
+  const jobsOn = useJobsOn();
   const [chosen, setSource] = useState<Source | null>(null);
   const [jobId, setJobId] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
@@ -58,7 +60,7 @@ export function LabelStudio() {
   const SOURCES: { id: Source; label: string }[] = [
     { id: 'reprint', label: `Needs reprint (${reprintCount})` },
     { id: 'received', label: `Waiting for placement (${receivedCount})` },
-    { id: 'job', label: 'Pallets for a job' },
+    ...(jobsOn ? [{ id: 'job' as Source, label: 'Pallets for a job' }] : []),
     { id: 'pick', label: 'Pick pallets' },
     { id: 'racks', label: 'Loaded rack labels' },
   ];

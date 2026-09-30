@@ -27,6 +27,7 @@ import {
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { Engine, emptyDb, type Db } from "../../../src/demo/engine";
 import { validateEnvelope } from "../../../src/domain/commands";
+import { TRIAL_DAYS } from "../../../src/domain/license";
 import type { CommandEnvelope, User } from "../../../src/domain/types";
 
 initializeApp();
@@ -125,6 +126,40 @@ export const createWarehouse = onCall(options, async (request) => {
       return { workspaceId: existing.get("owned_workspace") };
     }
     const key = String(request.data?.usageKey || "").trim();
+    // One free trial warehouse per account, no key needed. Paying later renews the same warehouse with a key.
+    if (request.data?.trial === true && !key && !sourceWs) {
+      if (existing.get("owned_workspace") || existing.get("trial_used"))
+        throw new HttpsError(
+          "already-exists",
+          "This account has already used its free trial. Enter a usage key to keep going.",
+        );
+      const db = emptyDb();
+      const { workspace } = new Engine(db).createWorkspace(user, name, {
+        code: "WH",
+        name: warehouseName,
+        timezone,
+      });
+      persist(tx, workspace.id, new Map(), db);
+      tx.create(firestore.doc(`licenses/${workspace.id}`), {
+        active: true,
+        trial: true,
+        owner_uid: user.id,
+        expires_at: Timestamp.fromMillis(Date.now() + TRIAL_DAYS * 86400000),
+        activated_at: Timestamp.now(),
+      });
+      tx.set(
+        profile,
+        {
+          ...user,
+          trial_used: true,
+          owned_workspace: workspace.id,
+          owned_workspaces: FieldValue.arrayUnion(workspace.id),
+          workspaces: FieldValue.arrayUnion(workspace.id),
+        },
+        { merge: true },
+      );
+      return { workspaceId: workspace.id, trialDays: TRIAL_DAYS };
+    }
     if (!/^WH-[a-f0-9]{48}$/.test(key))
       throw new HttpsError(
         "permission-denied",

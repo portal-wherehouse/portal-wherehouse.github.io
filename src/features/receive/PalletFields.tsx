@@ -23,6 +23,7 @@ export function PalletFields({
         These values belong to this pallet. Future deliveries can have different
         quantities, sizes or destinations.
       </p>
+      <ContentsEditor value={value} onChange={onChange} />
       <div className="grid-2">
         <Field label="Quantity (optional)" htmlFor="pallet-quantity">
           <input
@@ -183,3 +184,38 @@ export function PalletFields({
   );
 }
 export { blankInfo };
+
+/** What a container holds: one line per kind of thing. Empty means the pallet is one item on its own. */
+function ContentsEditor({ value, onChange }: { value: PalletInfo; onChange: (v: PalletInfo) => void }) {
+  const lines = value.contents ?? [];
+  const set = (contents: PalletInfo["contents"]) => onChange({ ...value, contents, contents_unknown: contents.length ? false : value.contents_unknown });
+  return (
+    <div className="field stack" style={{ gap: 6 }} data-testid="contents-editor">
+      <span className="label">What’s on it (optional)</span>
+      {lines.map((c, i) => (
+        <div className="row nowrap contents-line" key={i}>
+          <input aria-label={`Thing ${i + 1}`} className="input" value={c.name} maxLength={120} placeholder="Air fryer" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+          <input aria-label={`How many of thing ${i + 1}`} className="input qty" inputMode="numeric" value={c.qty} maxLength={20} placeholder="Qty" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
+          <input aria-label={`SKU or part number of thing ${i + 1}`} className="input sku" value={c.sku} maxLength={60} placeholder="SKU" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, sku: e.target.value } : x)))} />
+          <button type="button" className="btn ghost small" aria-label={`Remove thing ${i + 1}`} onClick={() => set(lines.filter((_, j) => j !== i))}>
+            ✕
+          </button>
+        </div>
+      ))}
+      <div className="row">
+        {lines.length < 100 && (
+          <button type="button" className="btn small" onClick={() => set([...lines, { name: "", qty: "", sku: "" }])}>
+            + Add a thing on it
+          </button>
+        )}
+        {!lines.length && (
+          <label className="toggle">
+            <input type="checkbox" checked={!!value.contents_unknown} onChange={(e) => onChange({ ...value, contents_unknown: e.target.checked })} />
+            <span>Not sure yet, list it later</span>
+          </label>
+        )}
+      </div>
+      <span className="hint">For a pallet, box or tote holding several things. Leave empty when it is one item. Moving it moves everything on it.</span>
+    </div>
+  );
+}

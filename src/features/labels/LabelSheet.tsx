@@ -26,6 +26,9 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose, closeHin
             <button aria-pressed={format === 'sheet'} onClick={() => setFormat('sheet')}>
               Letter sheet, 6 per page
             </button>
+            <button aria-pressed={format === 'avery5160'} onClick={() => setFormat('avery5160')}>
+              Small: Avery 5160, 30 per page
+            </button>
           </div>
         )}
         <LabelSet palletIds={palletIds} locationIds={locationIds} format={format} />
@@ -50,7 +53,10 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose, closeHin
         )}
       </div>
       <PrintPortal>
-        <style>{`@media print { @page { size: ${format === '4x6' ? '4in 6in' : 'letter'}; margin: ${format === '4x6' ? '0' : '.25in'}; } .label-grid { display: ${format === '4x6' ? 'block' : 'grid'} !important; ${format === 'sheet' ? 'grid-template-columns: repeat(2, 4in) !important;' : ''} } .label-rack { break-after: ${format === '4x6' ? 'page' : 'auto'}; } }`}</style>
+        <style>{format === 'avery5160'
+          ? // Avery 5160 / 8160: 3 × 10 labels of 2⅝ × 1 in, 0.5 in top margin, 3/16 in sides, ⅛ in between columns.
+            `@media print { @page { size: letter; margin: 0.5in 0.1875in; } .label-grid { display: grid !important; grid-template-columns: repeat(3, 2.625in) !important; column-gap: 0.125in !important; row-gap: 0 !important; } .label-5160 { break-inside: avoid; } }`
+          : `@media print { @page { size: ${format === '4x6' ? '4in 6in' : 'letter'}; margin: ${format === '4x6' ? '0' : '.25in'}; } .label-grid { display: ${format === '4x6' ? 'block' : 'grid'} !important; ${format === 'sheet' ? 'grid-template-columns: repeat(2, 4in) !important;' : ''} } .label-rack { break-after: ${format === '4x6' ? 'page' : 'auto'}; } }`}</style>
         <LabelSet palletIds={palletIds} locationIds={locationIds} format={format} forPrint />
       </PrintPortal>
     </Sheet>

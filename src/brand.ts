@@ -6,7 +6,7 @@ export const BRAND = {
   /** The signed-in app, as the website's buttons call it. */
   portal: 'Wherehouse Portal',
   /** One line under the name. */
-  tagline: 'Know where every pallet is.',
+  tagline: 'Know where everything is.',
   /** Where the Help page's contact form and the website's contact page send people for now. */
   supportEmail: 'johnhenry.mims@gmail.com',
 } as const;

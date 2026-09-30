@@ -261,6 +261,7 @@ export async function loadCommand(
   }
   if (k === "save_product" && typeof p.code === "string")
     await one("products", productKey(ws, p.code));
+  if (k === "save_product") await one("locations", p.home_location_id);
   if (k === "rotate_label")
     await query(
       "labels",
@@ -397,7 +398,7 @@ export function persist(
 }
 export function searchTerms(p: any): string[] {
   const text =
-    `${p.code} ${p.description} ${p.notes || ""} ${p.supplier_ref || ""} ${p.receiving?.product_code || ""} ${p.receiving?.destination || ""} ${(p.receiving?.fields || []).map((f: any) => f.name + " " + f.value).join(" ")}`.toLowerCase();
+    `${p.code} ${p.description} ${p.notes || ""} ${p.supplier_ref || ""} ${p.receiving?.product_code || ""} ${p.receiving?.destination || ""} ${(p.receiving?.fields || []).map((f: any) => f.name + " " + f.value).join(" ")} ${(p.receiving?.contents || []).map((c: any) => c.name + " " + c.sku).join(" ")}`.toLowerCase();
   const terms = new Set<string>();
   for (const word of text.match(/[\p{L}\p{N}-]+/gu) || [])
     for (let n = 2; n <= Math.min(word.length, 32); n++)

@@ -10,7 +10,8 @@ import { qrSvg } from '../../device/output';
 import { Barcode128 } from './Barcode128';
 import './barcode.css';
 
-export type LabelFormat = '4x6' | 'sheet';
+/** 4 × 6 thermal, letter sheet of 6, or Avery 5160 / 8160 (30 small labels per letter sheet, for bins and shelves). */
+export type LabelFormat = '4x6' | 'sheet' | 'avery5160';
 
 export function Qr({ payload, className }: { payload: string; className?: string }) {
   const [svg, setSvg] = useState('');
@@ -26,6 +27,17 @@ export function Qr({ payload, className }: { payload: string; className?: string
 
 export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet: Pallet; job: Job | undefined; token: string; format: LabelFormat; warehouse: string }) {
   const payload = makeLabelPayload('P', token);
+  if (format === 'avery5160') {
+    return (
+      <div className="label-card label-5160">
+        <Qr payload={payload} className="l-qr" />
+        <div className="l-side">
+          <FitCode text={pallet.code} className="l-code" maxHeight="0.36in" />
+          <div className="l-desc l-one">{palletContents(pallet)}</div>
+        </div>
+      </div>
+    );
+  }
   if (format === 'sheet') {
     return (
       <div className="label-card label-sheet">
@@ -63,6 +75,16 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
 const KIND_LINE: Record<LocationKind, string> = { RACK: 'Rack location', RECEIVING: 'Receiving area', QUARANTINE: 'Quarantine area', STAGING: 'Staging area', FLOOR: 'Floor area' };
 
 export function RackLabel({ location, token, warehouse, format = 'sheet' }: { location: Location; token: string; warehouse: string; format?: LabelFormat }) {
+  if (format === 'avery5160')
+    return (
+      <div className="label-card label-5160 label-rack-small">
+        <Qr payload={makeLabelPayload('L', token)} className="l-qr" />
+        <div className="l-side">
+          <div className="l-kind">{KIND_LINE[location.kind]}</div>
+          <FitCode text={location.code} className="l-code" maxHeight="0.42in" />
+        </div>
+      </div>
+    );
   return (
     <div className={`label-card label-rack label-rack-${format}`}>
       <Qr payload={makeLabelPayload('L', token)} className="l-qr" />

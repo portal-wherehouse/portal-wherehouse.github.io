@@ -10,6 +10,7 @@ import { Empty, Explain, Field, Notice, PageHead, Plate, fmtAgo } from '../../ui
 import { ResultRow } from '../find/Find';
 import { LabelSheet } from '../labels/LabelSheet';
 import { AdminSheet } from './AdminSheet';
+import { RackBuilder } from './RackBuilder';
 import { CapacityFields, CapacitySheet, capacityLine, capacityPayload, draftFrom } from './Capacity';
 import { uuid } from '../../domain/codes';
 
@@ -28,6 +29,7 @@ export function Locations() {
   const [kind, setKind] = useState<LocationKind | ''>('');
   const [inactive, setInactive] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [building, setBuilding] = useState(false);
   const [printAll, setPrintAll] = useState<string[] | null>(null);
   const data = useMemo(
     () => read((e, a, ws) => ({ ctx: e.context(a, ws), occ: e.occupancy(ws) })),
@@ -49,6 +51,11 @@ export function Locations() {
             <button className="btn" onClick={() => setPrintAll(list.filter((l) => l.active).map((l) => l.id))} disabled={!list.some((l) => l.active)}>
               <Icon name="print" /> Rack labels
             </button>
+            {canAdmin && (
+              <button className="btn" onClick={() => setBuilding(true)} disabled={backend.network === 'offline'}>
+                <Icon name="locations" /> Build a rack
+              </button>
+            )}
             {canAdmin && (
               <button className="btn primary" onClick={() => setCreating(true)} disabled={backend.network === 'offline'}>
                 <Icon name="plus" /> New location
@@ -110,6 +117,7 @@ export function Locations() {
         </div>
       )}
       {creating && <CreateLocation onClose={() => setCreating(false)} />}
+      {building && <RackBuilder onClose={() => setBuilding(false)} />}
       {printAll && <LabelSheet locationIds={printAll} onClose={() => setPrintAll(null)} />}
     </div>
   );

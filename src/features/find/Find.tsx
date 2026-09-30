@@ -1,6 +1,7 @@
 import { FirebaseBackend } from '../../data/firebase';
 // Find: search by job, pallet code, rack, or description; location first (blueprint page 13).
 
+import { useJobsOn } from '../../app/words';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarcodeSheet } from '../scan/BarcodeSheet';
 import { readSupplierBarcode } from '../../domain/supplierBarcode';
@@ -17,6 +18,7 @@ import { Empty, Explain, HoldBadge, Notice, PageHead, StateBadge, WhereCell, fmt
 
 export function Find() {
   const { read, route, go, backend, v, actorId, workspaceId, toast } = useApp();
+  const jobsOn = useJobsOn();
   const [scanning, setScanning] = useState(false);
   const [q, setQ] = useState(route.q ?? '');
   const [states, setStates] = useState<PalletState[]>([]);
@@ -148,10 +150,10 @@ export function Find() {
         </button>
       </div>
       <div className="filter-row" data-tour="find-filters">
-        <label className="sr-only" htmlFor="find-job">
+        <label className="sr-only" htmlFor="find-job" hidden={!jobsOn}>
           Job
         </label>
-        <select id="find-job" className="select" value={jobId} onChange={(e) => setJobId(e.target.value)}>
+        <select id="find-job" hidden={!jobsOn} className="select" value={jobId} onChange={(e) => setJobId(e.target.value)}>
           <option value="">All jobs</option>
           {ctx?.jobs.map((j) => (
             <option key={j.id} value={j.id}>
@@ -196,7 +198,7 @@ export function Find() {
 
       <Explain refs="pages 3, 13">
         <p>
-          Results rank exact codes first (a pallet, job, or rack code), then codes that start with what you typed, then descriptions. Case and extra spaces do not matter. Pages are stable, so
+          Results rank exact codes first (a pallet, job, or rack code), then codes that start with what you typed, then descriptions and what is on each pallet, then close misspellings. Case and extra spaces do not matter. Pages are stable, so
           “Show more” never repeats or skips a pallet.
         </p>
         <ul>

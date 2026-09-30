@@ -28,7 +28,7 @@ export interface RankedRow extends SearchRow {
 export const DEFAULT_PAGE = 50;
 export const MAX_PAGE = 100;
 
-/** 0 = exact code, 1 = code prefix, 2 = text match, -1 = no match. */
+/** 0 = exact code, 1 = code prefix, 2 = text match, 3 = near match (a typo), -1 = no match. */
 export function rankRow(row: SearchRow, rawQuery: string): number {
   const q = normalizeCode(rawQuery);
   if (!q) return 0;
@@ -40,10 +40,32 @@ export function rankRow(row: SearchRow, rawQuery: string): number {
   const locCode = row.location ? normalizeCode(row.location.code) : '';
   if (q === palletCode || asPallet === palletCode || q === jobCode || (locCode && q === locCode)) return 0;
   if (palletCode.startsWith(q) || jobCode.startsWith(q) || (locCode && locCode.startsWith(q))) return 1;
-  const hay = `${row.pallet.description} ${row.job?.name ?? ''} ${row.pallet.supplier_ref ?? ''} ${row.pallet.notes ?? ''} ${row.pallet.receiving?.product_code ?? ''} ${row.pallet.receiving?.destination ?? ''} ${(row.pallet.receiving?.fields??[]).map(f=>f.name+' '+f.value).join(' ')}`.toUpperCase();
+  const hay = `${row.pallet.description} ${row.job?.name ?? ''} ${row.pallet.supplier_ref ?? ''} ${row.pallet.notes ?? ''} ${row.pallet.receiving?.product_code ?? ''} ${row.pallet.receiving?.destination ?? ''} ${(row.pallet.receiving?.fields??[]).map(f=>f.name+' '+f.value).join(' ')} ${(row.pallet.receiving?.contents??[]).map(c=>c.name+' '+c.sku).join(' ')}`.toUpperCase();
   const words = q.split(' ').filter(Boolean);
   if (words.every((w) => hay.includes(w))) return 2;
+  // Near misses: every word the person typed is one slip (two for long words) from a word on the record.
+  const tokens = hay.split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 2);
+  if (words.every((w) => w.length >= 4 && tokens.some((t) => nearWord(w, t, w.length >= 7 ? 2 : 1)))) return 3;
   return -1;
+}
+
+/** Whether a is within max edits of b, or of the start of b ("DEWALT" typed as "DWALT", "IMPCT" for "IMPACT"). */
+export function nearWord(a: string, b: string, max: number): boolean {
+  if (Math.abs(a.length - b.length) > max && b.length < a.length) return false;
+  const target = b.length > a.length + max ? b.slice(0, a.length + max) : b;
+  let prev = Array.from({ length: target.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= target.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === target[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return false;
+    prev = cur;
+  }
+  // Allow b to run on past a: the best score over every prefix of target.
+  return Math.min(...prev.slice(Math.max(0, a.length - max))) <= max;
 }
 
 function sortKey(r: RankedRow): string {

@@ -2,6 +2,7 @@
 // Each pallet is still its own command with its own version check, so one refusal never blocks the rest,
 // and the result says exactly which pallets changed and why any did not.
 
+import { useJobsOn } from '../../app/words';
 import { useState, type ReactNode } from 'react';
 import { useApp } from '../../app/state';
 import { uuid } from '../../domain/codes';
@@ -135,6 +136,7 @@ const ACTIONS: { kind: BulkKind; label: string; icon: IconName; needs: CommandKi
 /** The bar that appears at the top of the list while selecting. Actions stay dim until a pallet is ticked. */
 export function BulkBar({ bulk, visibleIds }: { bulk: Bulk; visibleIds: string[] }) {
   const { role, backend } = useApp();
+  const jobsOn = useJobsOn();
   const [open, setOpen] = useState<BulkKind | null>(null);
   if (!bulk.selecting) return null;
   const n = bulk.selected.length;
@@ -156,7 +158,7 @@ export function BulkBar({ bulk, visibleIds }: { bulk: Bulk; visibleIds: string[]
         </button>
       </div>
       <div className="bulk-actions">
-        {ACTIONS.filter((a) => (a.needs ? roleAllows(role, a.needs) : role !== 'VIEWER')).map((a) => (
+        {ACTIONS.filter((a) => (a.needs ? roleAllows(role, a.needs) : role !== 'VIEWER') && (jobsOn || a.kind !== 'job')).map((a) => (
           <button key={a.kind} className={`btn small${a.danger ? ' danger-outline' : ''}`} disabled={!n || (offline && a.kind !== 'labels')} onClick={() => setOpen(a.kind)}>
             <Icon name={a.icon} /> {a.label}
           </button>

@@ -4,6 +4,7 @@ import type { Role } from '../../domain/types';
 import { useApp, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
+import { useJobsOn } from '../../app/words';
 
 export const NAV_GROUPS: { title: string; items: { route: RouteName; label: string; icon: IconName; hint: string }[] }[] = [
   {
@@ -53,13 +54,14 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
 ];
 
 /** Navigation is task-oriented; permission checks still happen in the command engine. */
-export function visibleNavGroups(role: Role | null, advanced: boolean, live = false) {
+export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true) {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(role === 'VIEWER'
     ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
     : ['receive', 'incoming', 'products', 'move', 'find', 'station', 'map', 'locations', 'labels', 'jobs', 'activity', 'scanners', 'help', 'settings']);
   if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
   if (live) allowed.add('sync');
+  if (!jobsOn) allowed.delete('jobs');
   if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
   return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title === 'Manage' && !manager ? 'Tools' : g.title,
     items: g.items.filter(i => allowed.has(i.route) && !(live && i.route === 'data')) })).filter(g => g.items.length);
@@ -70,10 +72,11 @@ const PHONE_TABS: RouteName[] = ['overview', 'receive', 'move', 'find'];
 
 export function More() {
   const { go, role, prefs, backend } = useApp();
+  const jobsOn = useJobsOn();
   return (
     <div className="stack">
       <PageHead title="More" />
-      {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase').map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
+      {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
         .filter((g) => g.items.length > 0)
         .map((g) => (
         <div key={g.title} className="stack" style={{ gap: 8 }}>

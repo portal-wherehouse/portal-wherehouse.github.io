@@ -35,6 +35,17 @@ export const receivingSchema = z.object({
       "Use distinct field names.",
     )
     .default([]),
+  /** What a container (pallet, box, tote) holds. Empty means it is one item on its own. */
+  contents: z
+    .preprocess(
+      // Blank lines left in the form are dropped rather than refused.
+      (v) => (Array.isArray(v) ? v.filter((c) => c && typeof c === "object" && ["name", "qty", "sku"].some((k) => String((c as Record<string, unknown>)[k] ?? "").trim())) : v),
+      z.array(z.object({ name: short(120).min(1, "Name each thing on it."), qty: short(20).default(""), sku: short(60).default("") }))
+    .max(100, "List up to 100 lines; group the rest."),
+    )
+    .default([]),
+  /** Received before anyone knew what was on it; shows up until contents are added. */
+  contents_unknown: z.boolean().default(false),
 });
 export type PalletInfo = z.infer<typeof receivingSchema>;
 export const blankInfo = (): PalletInfo => ({
@@ -49,6 +60,8 @@ export const blankInfo = (): PalletInfo => ({
   height_in: "",
   remind_on: "",
   fields: [],
+  contents: [],
+  contents_unknown: false,
 });
 export interface ProductMemory {
   id: string;
@@ -64,6 +77,8 @@ export interface ProductMemory {
   width_in?: string;
   height_in?: string;
   weight_lb?: string;
+  /** Where this type normally lives. Kept when none are in stock, and offered first on Move. */
+  home_location_id?: string | null;
   field_names: string[];
   updated_at: string;
 }

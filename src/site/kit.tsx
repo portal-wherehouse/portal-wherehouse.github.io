@@ -110,11 +110,11 @@ export function CtaBand({ title = BRAND.tagline, body = 'Remote setup, training 
           <h2 className="site-h2">{title}</h2>
           <p className="site-lede">{body}</p>
           <div className="site-hero-actions">
-            <button className="site-btn primary" onClick={() => go('contact')}>
-              Get started
+            <button className="site-btn primary" onClick={() => go('start')}>
+              Start your free trial
             </button>
-            <button className="site-btn ghost" onClick={() => go('pricing')}>
-              See pricing
+            <button className="site-btn ghost" onClick={() => go('contact')}>
+              Book a free walkthrough
             </button>
           </div>
         </div>

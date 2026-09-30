@@ -7,6 +7,8 @@ import type { PalletState } from '../../domain/types';
 import { useApp, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { ROLE_LABEL, fmtTime } from '../../ui/ui';
+import { useSetup } from '../../app/words';
+import { GettingStarted } from '../setup/GettingStarted';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -20,6 +22,8 @@ const ACTIONS: { route: RouteName; title: string; hint: string; icon: IconName; 
 ];
 export function Overview() {
   const {read,go,backend,v,role} = useApp();
+  const setup=useSetup();
+  const [crewFull,setCrewFull]=useState(()=>{try{return localStorage.getItem('pl.crewFull')==='1';}catch{return false;}});
   const [minute,setMinute]=useState(0);
   useEffect(()=>{const timer=setInterval(()=>{setMinute(n=>n+1);if(backend instanceof FirebaseBackend && document.visibilityState==='visible')void backend.refreshSummary().catch(()=>{});},60000);return()=>clearInterval(timer);},[backend]);
   const data=useMemo(()=>read((e,a,ws)=>{
@@ -38,7 +42,8 @@ export function Overview() {
   const total=Object.values(counts).reduce((sum,n)=>sum+n,0);
   const name=data.ctx.user?.name || 'there';
   const manager=role==='OWNER'||role==='SUPERVISOR';
-  const actions=ACTIONS.filter(a=>role!=='VIEWER'||!a.write);
+  const actions=ACTIONS.filter(a=>(role!=='VIEWER'||!a.write)&&(setup.jobs_on||a.route!=='jobs'));
+  if(role==='OPERATOR'&&!crewFull)return <CrewHome name={name} onFull={()=>{setCrewFull(true);try{localStorage.setItem('pl.crewFull','1');}catch{/* this visit only */}}}/>;
   const metrics=[
     {label:'Pallets on hand',value:counts.STORED+counts.RECEIVED,detail:'Stored + waiting to be stored',route:'find'},
     {label:'Waiting to be stored',value:counts.RECEIVED,detail:'Ready for a rack or area',route:'reconcile'},
@@ -50,6 +55,8 @@ export function Overview() {
       <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><h2 className="warehouse-greeting">Welcome, {name}.</h2><p className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</p></div>
       <button className="btn" onClick={()=>go('activity')}><Icon name="activity"/>View activity</button>
     </header>
+    {manager&&<GettingStarted total={total} moved={data.activity.some(e=>e.type==='move'||e.type==='place')}/>}
+    {role==='OPERATOR'&&<button className="btn small" style={{alignSelf:'flex-start'}} onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}
     <section aria-label="Warehouse analytics" className="warehouse-metrics" data-tour="overview-summary">
       {metrics.map(m=><button className="warehouse-metric" key={m.label} onClick={()=>go(role==='VIEWER'?'find':m.route)}><span>{m.label}</span><strong>{summary?m.value.toLocaleString():'Unavailable'}</strong><small>{summary?m.detail:'Counts are unavailable. Try Refresh.'}</small></button>)}
     </section>
@@ -174,6 +181,33 @@ function ActivityChart({ events }: { events: string[] }) {
           {buckets[hover].full}: {buckets[hover].n} {buckets[hover].n === 1 ? 'change' : 'changes'}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Crew see three big jobs to do: find something, move something, add something. Everything else is a tap away. */
+function CrewHome({ name, onFull }: { name: string; onFull: () => void }) {
+  const { go } = useApp();
+  const tiles: { route: RouteName; title: string; hint: string; icon: IconName }[] = [
+    { route: 'find', title: 'Find', hint: 'Where is it?', icon: 'find' },
+    { route: 'move', title: 'Move', hint: 'Scan it, then scan where it goes', icon: 'move' },
+    { route: 'receive', title: 'Add', hint: 'Something new came in', icon: 'receive' },
+  ];
+  return (
+    <div className="stack crew-home" data-testid="crew-home">
+      <h1 style={{ margin: 0 }}>Hi, {name}.</h1>
+      <div className="crew-tiles" data-tour="overview-summary">
+        {tiles.map((t) => (
+          <button key={t.route} className="crew-tile" onClick={() => go(t.route)} aria-label={t.title}>
+            <Icon name={t.icon} width={40} height={40} />
+            <strong>{t.title}</strong>
+            <small>{t.hint}</small>
+          </button>
+        ))}
+      </div>
+      <button className="btn ghost" style={{ alignSelf: 'flex-start' }} onClick={onFull}>
+        Show the full dashboard
+      </button>
     </div>
   );
 }

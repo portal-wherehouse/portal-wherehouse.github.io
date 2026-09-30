@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { useJobsOn } from '../../app/words';
 import { PhotoImage } from '../../data/LiveView';
 // Pallet details (blueprint page 13): identity, photo, job, location, state, hold,
 // permitted contextual actions, lineage, and the full history.
@@ -42,6 +43,7 @@ const PRIMARY: PalletCommandKind[] = ['place', 'move', 'verify_location', 'dispa
 
 export function PalletRecord() {
   const { route, read, role, go, backend, toast, workspaceId, v, prefs } = useApp();
+  const jobsOn = useJobsOn();
   const id = route.id ?? '';
   const detail = read((e, a, ws) => e.pallet(a, ws, id));
   const events = read((e, a, ws) => e.history(a, ws, id)) ?? [];
@@ -76,7 +78,7 @@ export function PalletRecord() {
     );
   }
   const p = detail.pallet;
-  const actions = availableActions(p, role);
+  const actions = availableActions(p, role).filter((a) => jobsOn || a !== 'reassign_job');
   const primary = actions.filter((a) => PRIMARY.includes(a));
   const secondary = actions.filter((a) => !PRIMARY.includes(a) && a !== 'add_photo' && a !== 'remove_photo');
   const offline = backend.network === 'offline';
@@ -187,8 +189,8 @@ export function PalletRecord() {
             <Icon name="box" width={16} height={16} /> Details
           </div>
           <dl className="kv">
-            <dt>Job</dt>
-            <dd>
+            <dt hidden={!jobsOn && !detail.job}>Job</dt>
+            <dd hidden={!jobsOn && !detail.job}>
               <button disabled={!detail.job} className="btn ghost small" style={{ padding: 0, minHeight: 0 }} onClick={() => detail.job && go({ name: 'job', id: detail.job.id })}>
                 <span className="jcode">{detail.job?.code ?? 'No job assigned'}</span>&nbsp;{detail.job?.name}
               </button>
@@ -214,6 +216,8 @@ export function PalletRecord() {
               {p.receiving.destination && <><dt>Going to</dt><dd>{p.receiving.destination}</dd></>}
               {p.receiving.remind_on && <><dt>Still-here reminder</dt><dd>{p.receiving.remind_on} · Dashboard alert while received, stored or missing</dd></>}
               {p.receiving.fields.map(f=><Fragment key={f.name}><dt>{f.name}</dt><dd>{f.value || '—'}</dd></Fragment>)}
+              {!!p.receiving.contents?.length && <><dt>On it</dt><dd data-testid="record-contents"><ul className="contents-list">{p.receiving.contents.map((c,i)=><li key={i}>{c.qty && <strong>{c.qty} × </strong>}{c.name}{c.sku && <span className="muted"> · {c.sku}</span>}</li>)}</ul></dd></>}
+              {p.receiving.contents_unknown && !p.receiving.contents?.length && <><dt>On it</dt><dd><span className="tag">Not listed yet</span></dd></>}
             </>}
             <dt>Received</dt>
             <dd title={p.received_at}>{fmtFull(p.received_at)}</dd>

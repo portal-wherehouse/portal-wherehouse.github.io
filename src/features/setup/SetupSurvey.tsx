@@ -1,0 +1,354 @@
+// The setup survey: one question per screen with animated transitions, a short "curating" pause, then a
+// recommended starting setup. On the website it leads into the free trial; in the portal it applies the words.
+
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useApp } from '../../app/state';
+import { useSite } from '../../site/routing';
+import { uuid } from '../../domain/codes';
+import { BLANK_ANSWERS, PRINTERS, recommend, saveSurvey, type Recommendation, type SurveyAnswers } from '../../domain/survey';
+import { PRESETS } from '../../domain/terms';
+import { BRAND } from '../../brand';
+import { Icon, type IconName } from '../../ui/icons';
+import './survey.css';
+
+type Opt = { id: string; title: string; sub?: string; icon?: IconName };
+type Step = { id: keyof SurveyAnswers; q: string; hint?: string; kind: 'one' | 'many' | 'text'; options?: Opt[]; placeholder?: string; show?: (a: SurveyAnswers) => boolean };
+
+const STORE_ICON: Record<string, IconName> = { pallets: 'pallet', items: 'box', shelves: 'grid', long: 'layers', equipment: 'hardhat', custom: 'sparkle' };
+
+const STEPS: Step[] = [
+  { id: 'store', q: 'What do you keep track of?', hint: 'Pick the closest. You can change it later.', kind: 'one', options: PRESETS.map((p) => ({ id: p.id, title: p.title, sub: p.examples, icon: STORE_ICON[p.id] })) },
+  { id: 'word', q: 'What do you call one of them?', hint: 'The app will use your word everywhere.', kind: 'text', placeholder: 'Unit, tote, crate, kit…', show: (a) => a.store === 'custom' },
+  { id: 'count', q: 'About how many do you have on hand?', kind: 'one', options: [{ id: 'under100', title: 'Under 100' }, { id: 'to1000', title: '100 to 1,000' }, { id: 'to10000', title: '1,000 to 10,000' }, { id: 'over10000', title: 'More than 10,000' }] },
+  {
+    id: 'places',
+    q: 'Where do you keep them?',
+    hint: 'Pick all that fit.',
+    kind: 'many',
+    options: [
+      { id: 'racks', title: 'Pallet racks', icon: 'layers' },
+      { id: 'shelves', title: 'Shelves and bins', icon: 'grid' },
+      { id: 'floor', title: 'Floor space', icon: 'map' },
+      { id: 'yard', title: 'Outside yard', icon: 'truck' },
+      { id: 'long', title: 'Long-goods racks', icon: 'list' },
+    ],
+  },
+  { id: 'people', q: 'How many people will scan things?', kind: 'one', options: [{ id: 'solo', title: 'Just me', icon: 'user' }, { id: 'small', title: '2 to 5', icon: 'people' }, { id: 'medium', title: '6 to 20', icon: 'people' }, { id: 'large', title: 'More than 20', icon: 'building' }] },
+  {
+    id: 'group',
+    q: 'Do you set things aside for someone?',
+    hint: 'Like a customer’s order, a project or an event.',
+    kind: 'one',
+    options: [
+      { id: 'none', title: 'No', sub: 'Keep it simple' },
+      { id: 'customer', title: 'For customers' },
+      { id: 'order', title: 'For orders' },
+      { id: 'project', title: 'For projects or jobs' },
+      { id: 'event', title: 'For events' },
+      { id: 'other', title: 'Something else' },
+    ],
+  },
+  { id: 'groupWord', q: 'What do you call one of those?', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.group === 'other' },
+  { id: 'hasPrinter', q: 'Do you already have a printer for labels?', hint: 'Any printer counts, even an office one.', kind: 'one', options: [{ id: 'yes', title: 'Yes', icon: 'print' }, { id: 'no', title: 'No, not yet', icon: 'x' }] },
+  { id: 'printer', q: 'Which printer is it?', hint: 'We’ll tell you if it works.', kind: 'one', options: PRINTERS.map((p) => ({ id: p.id, title: p.title, sub: p.examples })), show: (a) => a.hasPrinter === 'yes' },
+  { id: 'scanner', q: 'How will you scan?', kind: 'one', options: [{ id: 'phone', title: 'Phone camera', icon: 'phone' }, { id: 'scanner', title: 'A handheld scanner', icon: 'scanner' }, { id: 'unsure', title: 'Not sure yet', icon: 'question' }] },
+  { id: 'limits', q: 'Do you need to watch weight or space limits?', hint: 'Turns on weight and size tracking for racks.', kind: 'one', options: [{ id: 'no', title: 'No' }, { id: 'yes', title: 'Yes' }] },
+];
+
+const CURATE = ['Choosing your words', 'Checking your printer', 'Planning your spots', 'Picking your labels', 'Writing your next steps'];
+const VERDICT: Record<string, { label: string; tone: string; icon: IconName }> = {
+  works: { label: 'Works', tone: 'ok', icon: 'checkCircle' },
+  maybe: { label: 'Check the model', tone: 'warn', icon: 'alertCircle' },
+  no: { label: 'Not a fit', tone: 'bad', icon: 'x' },
+  none: { label: 'Recommendation', tone: 'info', icon: 'print' },
+};
+
+export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'portal'; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
+  const [a, setA] = useState<SurveyAnswers>(BLANK_ANSWERS);
+  const [i, setI] = useState(-1); // -1 intro, STEPS.length curating/results
+  const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
+  const [phase, setPhase] = useState<'ask' | 'curate' | 'result'>('ask');
+  const timer = useRef<number | undefined>(undefined);
+  const steps = STEPS.filter((s) => !s.show || s.show(a));
+  const step = i >= 0 ? steps[i] : null;
+  const rec = useMemo(() => recommend(a), [a]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const next = (answers = a) => {
+    window.clearTimeout(timer.current);
+    setDir('fwd');
+    const list = STEPS.filter((s) => !s.show || s.show(answers));
+    if (i + 1 < list.length) return setI(i + 1);
+    setPhase('curate');
+    timer.current = window.setTimeout(() => setPhase('result'), matchMedia('(prefers-reduced-motion: reduce)').matches ? 300 : 2600);
+  };
+  const back = () => {
+    window.clearTimeout(timer.current);
+    setDir('back');
+    if (phase !== 'ask') return setPhase('ask');
+    setI(Math.max(-1, i - 1));
+  };
+  const pick = (s: Step, id: string) => {
+    if (s.kind === 'many') {
+      const cur = a.places as string[];
+      return setA({ ...a, places: (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]) as SurveyAnswers['places'] });
+    }
+    const answers = { ...a, [s.id]: id } as SurveyAnswers;
+    setA(answers);
+    // The printer answer shows its verdict first; everything else moves on by itself.
+    if (s.id !== 'printer') timer.current = window.setTimeout(() => next(answers), 320);
+  };
+  const answered = (s: Step) => (s.kind === 'many' ? a.places.length > 0 : s.kind === 'text' ? String(a[s.id]).trim().length > 0 : a[s.id] !== null);
+  const progress = phase === 'ask' ? Math.max(0, i) / steps.length : 1;
+
+  return (
+    <div className={`survey survey-${mode}`} role="dialog" aria-modal="true" aria-label="Setup survey" data-keep-words data-testid="setup-survey">
+      <div className="survey-bg" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+      <header className="survey-top">
+        <strong className="survey-brand">{BRAND.name}</strong>
+        <div className="survey-bar" aria-hidden="true">
+          <i style={{ transform: `scaleX(${progress})` }} />
+        </div>
+        <button type="button" className="survey-close" aria-label="Close the survey" onClick={onClose}>
+          <Icon name="x" />
+        </button>
+      </header>
+      <main className="survey-stage">
+        {phase === 'curate' ? (
+          <Curating />
+        ) : phase === 'result' ? (
+          <Results rec={rec} mode={mode} onBack={back} onClose={onClose} onApplied={onApplied} answers={a} />
+        ) : !step ? (
+          <Card k="intro" dir={dir}>
+            <p className="survey-eyebrow">Setup · about a minute</p>
+            <h1 className="survey-q">Let’s build your warehouse.</h1>
+            <p className="survey-hint">Answer a few quick questions. We’ll recommend the words, labels, printer and layout that fit how you work.</p>
+            <button type="button" className="survey-go" onClick={() => next()} autoFocus>
+              Start <Icon name="arrowRight" />
+            </button>
+          </Card>
+        ) : (
+          <Card k={step.id} dir={dir}>
+            <p className="survey-eyebrow">
+              Question {i + 1} of {steps.length}
+            </p>
+            <h1 className="survey-q">{step.q}</h1>
+            {step.hint && <p className="survey-hint">{step.hint}</p>}
+            {step.kind === 'text' ? (
+              <form
+                className="survey-text"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (answered(step)) next();
+                }}
+              >
+                <input className="input big" autoFocus maxLength={24} placeholder={step.placeholder} value={String(a[step.id])} onChange={(e) => setA({ ...a, [step.id]: e.target.value })} />
+              </form>
+            ) : (
+              <div className={`survey-opts${(step.options?.length ?? 0) > 4 ? ' many' : ''}`} role={step.kind === 'many' ? 'group' : 'radiogroup'} aria-label={step.q}>
+                {step.options!.map((o, n) => {
+                  const on = step.kind === 'many' ? (a.places as string[]).includes(o.id) : a[step.id] === o.id;
+                  return (
+                    <button key={o.id} type="button" role={step.kind === 'many' ? 'checkbox' : 'radio'} aria-checked={on} className={`survey-opt${on ? ' on' : ''}`} style={{ ['--n' as string]: n }} onClick={() => pick(step, o.id)}>
+                      {o.icon && <Icon name={o.icon} />}
+                      <span>
+                        <strong>{o.title}</strong>
+                        {o.sub && <small>{o.sub}</small>}
+                      </span>
+                      {on && <Icon name="check" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {step.id === 'printer' && a.printer && <PrinterVerdict id={a.printer} />}
+            <div className="survey-nav">
+              <button type="button" className="survey-back" onClick={back}>
+                <Icon name="chevronLeft" /> Back
+              </button>
+              {(step.kind !== 'one' || step.id === 'printer') && (
+                <button type="button" className="survey-go" disabled={!answered(step)} onClick={() => next()}>
+                  Continue <Icon name="arrowRight" />
+                </button>
+              )}
+            </div>
+          </Card>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function Card({ k, dir, children }: { k: string; dir: string; children: ReactNode }) {
+  return (
+    <section key={k} className={`survey-card enter-${dir}`}>
+      {children}
+    </section>
+  );
+}
+
+function PrinterVerdict({ id }: { id: string }) {
+  const p = PRINTERS.find((x) => x.id === id)!;
+  const v = VERDICT[p.verdict];
+  return (
+    <div key={id} className={`survey-verdict tone-${v.tone}`} role="status" data-testid="printer-verdict">
+      <Icon name={v.icon} />
+      <div>
+        <strong>{v.label}</strong>
+        <p>{p.body}</p>
+      </div>
+    </div>
+  );
+}
+
+function Curating() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setN((x) => Math.min(CURATE.length, x + 1)), 480);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <section className="survey-card survey-curate enter-fwd" role="status" aria-live="polite">
+      <div className="survey-orb" aria-hidden="true" />
+      <h1 className="survey-q">Curating your warehouse…</h1>
+      <ul>
+        {CURATE.map((c, k) => (
+          <li key={c} className={k < n ? 'done' : k === n ? 'now' : ''}>
+            <Icon name={k < n ? 'checkCircle' : 'clock'} /> {c}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Results({ rec, mode, answers, onBack, onClose, onApplied }: { rec: Recommendation; mode: 'site' | 'portal'; answers: SurveyAnswers; onBack: () => void; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
+  const v = VERDICT[rec.printer.verdict];
+  const s = rec.setup;
+  return (
+    <section className="survey-card survey-results enter-fwd" data-testid="survey-results">
+      <p className="survey-eyebrow">Your recommendation</p>
+      <h1 className="survey-q">Here’s your starting setup.</h1>
+      <div className="survey-grid">
+        <Tile n={0} icon="text" title="Your words">
+          <p>
+            The app will say <b>{s.thing}</b> and <b>{s.things}</b>.
+          </p>
+          <p>{s.jobs_on ? `${s.things} can be set aside for ${s.jobs.toLowerCase()}.` : 'Grouping is off, so there’s less on screen.'}</p>
+        </Tile>
+        <Tile n={1} icon={v.icon} title="Printer" tone={v.tone}>
+          <p>
+            <b>{rec.printer.verdict === 'none' ? rec.printer.title : `${rec.printer.title}: ${v.label.toLowerCase()}`}</b>
+          </p>
+          <p>{rec.printer.body}</p>
+        </Tile>
+        <Tile n={2} icon="labels" title="Labels">
+          <ul>{rec.labels.map((l) => <li key={l}>{l}</li>)}</ul>
+        </Tile>
+        <Tile n={3} icon="scanner" title={rec.scanner.title}>
+          <p>{rec.scanner.body}</p>
+        </Tile>
+        <Tile n={4} icon="locations" title="Your spots">
+          <ul>{rec.spots.map((l) => <li key={l}>{l}</li>)}</ul>
+        </Tile>
+        <Tile n={5} icon="checklist" title="Next steps">
+          <ol>{rec.steps.map((l) => <li key={l}>{l}</li>)}</ol>
+        </Tile>
+      </div>
+      <div className="survey-disclaimer" style={{ ['--n' as string]: 6 }}>
+        <Icon name="info" />
+        <p>
+          <b>This is a starting point, not a finished setup.</b> You still need to create your own zones and spots, print and hang labels, load what you have and add your crew. The setup checklist walks you through it, and you can change any of this later in Warehouse settings.
+        </p>
+      </div>
+      {mode === 'site' ? <SiteActions answers={answers} onBack={onBack} /> : <PortalActions rec={rec} onBack={onBack} onClose={onClose} onApplied={onApplied} />}
+    </section>
+  );
+}
+
+function SiteActions({ answers, onBack }: { answers: SurveyAnswers; onBack: () => void }) {
+  const { go } = useSite();
+  return (
+    <div className="survey-nav">
+      <button type="button" className="survey-back" onClick={onBack}>
+        <Icon name="chevronLeft" /> Change answers
+      </button>
+      <div className="survey-ctas">
+        <button type="button" className="survey-ghost" onClick={() => go('contact')}>
+          Book a walkthrough
+        </button>
+        <button
+          type="button"
+          className="survey-go"
+          onClick={() => {
+            saveSurvey(answers);
+            go('signin');
+          }}
+        >
+          Start your free trial <Icon name="arrowRight" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PortalActions({ rec, onBack, onClose, onApplied }: { rec: Recommendation; onBack: () => void; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
+  const { send } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const apply = async () => {
+    setBusy(true);
+    setError('');
+    const r = await applyRecommendation(send, rec);
+    setBusy(false);
+    if (r) return setError(r);
+    saveSurvey(null);
+    onApplied?.(rec);
+    onClose();
+  };
+  return (
+    <>
+      {error && (
+        <p className="survey-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="survey-nav">
+        <button type="button" className="survey-back" onClick={onBack}>
+          <Icon name="chevronLeft" /> Change answers
+        </button>
+        <button type="button" className="survey-go" disabled={busy} onClick={() => void apply()}>
+          {busy ? 'Saving…' : 'Use this setup'} <Icon name="check" />
+        </button>
+      </div>
+    </>
+  );
+}
+
+function Tile({ n, icon, title, tone = 'info', children }: { n: number; icon: IconName; title: string; tone?: string; children: ReactNode }) {
+  return (
+    <article className={`survey-tile tone-${tone}`} style={{ ['--n' as string]: n }}>
+      <h2>
+        <Icon name={icon} /> {title}
+      </h2>
+      {children}
+    </article>
+  );
+}
+
+type SendFn = ReturnType<typeof useApp>['send'];
+/** Save the recommended words (and weight tracking) to the warehouse. Returns an error message, or '' when saved. */
+export async function applyRecommendation(send: SendFn, rec: Recommendation): Promise<string> {
+  const o = await send('set_setup', { ...rec.setup, ...(rec.advanced ? { advanced: true } : {}) }, null, { commandId: uuid() });
+  if (o.status === 'result' && o.result.ok) return '';
+  return o.status === 'result' && !o.result.ok ? o.result.message : o.status === 'offline' ? o.message : 'No answer from the server. Try again.';
+}
