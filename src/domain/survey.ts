@@ -316,10 +316,19 @@ export type Profile = (typeof PROFILES)[ProfileId];
 export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
 export const profileOf = (a: Pick<SurveyAnswers, 'profile'>): Profile => PROFILES[a.profile ?? 'custom'];
 
+/** Profile groups that already cover a common one, so "Show more" doesn't offer "Small parts" next to "Small parts and hardware". */
+const COVERS: Record<string, string> = {
+  full: 'pallets', mixed: 'pallets', bagged: 'pallets', cases: 'boxes', boxed: 'boxes', fixtures: 'boxes',
+  oversize: 'large', sofas: 'large', motors: 'large', machines: 'large',
+  smallparts: 'small', hardware: 'small', parts: 'small',
+  exhaust: 'longitems', lumber: 'longitems', pipe: 'longitems', longstock: 'longitems',
+  apparel: 'hanging', fluids: 'liquids',
+};
+
 /** The profile's own groups first; the common ones it doesn't already cover sit behind "Show more". */
 export function groupsFor(profile: ProfileId | null): { main: ProductGroup[]; more: ProductGroup[] } {
   const main = [...PROFILES[profile ?? 'custom'].groups];
-  const ids = new Set(main.map((x) => x.id));
+  const ids = new Set(main.flatMap((x) => [x.id, COVERS[x.id] ?? x.id]));
   return { main, more: profile === 'custom' || !profile ? [] : COMMON.filter((x) => !ids.has(x.id)) };
 }
 export function groupById(id: string, profile: ProfileId | null): ProductGroup | undefined {
@@ -369,6 +378,12 @@ const MIN_PER = { zone: 15, spot: 1, label: 0.75, imported: 0.2 };
 const SMALL_SPOT_PLACES: Place[] = ['shelves', 'cabinets', 'wall', 'tires', 'hanging', 'carts'];
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
 
+/** Zone letter number n: A to Z (skipping I, O and Q, which read like 1 and 0), then AA, AB… so no two zones share one. */
+export function zoneLetter(n: number): string {
+  const L = LETTERS.length;
+  return n < L ? LETTERS[n] : LETTERS[Math.floor(n / L) - 1] + LETTERS[n % L];
+}
+
 export function defaultLayout(x: ProductGroup, qty: Tier = 1): GroupLayout {
   return { place: x.places[0], areas: qty >= 2 ? 2 : 1, qty, kept: x.kept };
 }
@@ -406,9 +421,7 @@ export function planZones(a: SurveyAnswers): ZonePlan[] {
     const labeled = Math.ceil(units / per);
     const areas = Math.max(1, Math.min(20, Math.round(l.areas)));
     const spots = Math.max(areas, Math.ceil(labeled * GROWTH));
-    const letters: string[] = [];
-    for (let k = 0; k < areas && next < LETTERS.length; k++) letters.push(LETTERS[next++]);
-    if (!letters.length) letters.push(LETTERS[LETTERS.length - 1]);
+    const letters = Array.from({ length: areas }, () => zoneLetter(next++));
     out.push({ letters, group: x.name, place: l.place, units, labeled, spots, kind: PLACES[l.place].kind, smallSpotLabels: SMALL_SPOT_PLACES.includes(l.place), smallUnitLabels: x.size === 'small', note: x.note });
   }
   return out;

@@ -63,3 +63,20 @@ describe('setup survey', () => {
     expect(r.steps.join(' ')).toMatch(/crew/);
   });
 });
+
+describe('zone letters', () => {
+  it('never repeats a letter, even past Z', async () => {
+    const { zoneLetter } = await import('../../src/domain/survey');
+    const all = Array.from({ length: 60 }, (_, n) => zoneLetter(n));
+    expect(new Set(all).size).toBe(60);
+    expect(all[22]).toBe('Z');
+    expect(all[23]).toBe('AA');
+    expect(all.some((l) => /[IOQ]/.test(l))).toBe(false);
+  });
+  it('does not offer "Small parts" to a business that already has "Small parts and hardware"', async () => {
+    const { groupsFor } = await import('../../src/domain/survey');
+    const more = groupsFor('auto').more.map((x) => x.id);
+    expect(more).not.toContain('small');
+    expect(more).not.toContain('liquids');
+  });
+});

@@ -7,7 +7,7 @@ import { useApp } from '../../app/state';
 import { useSetup } from '../../app/words';
 import { hashString, normalizeCode, uuid } from '../../domain/codes';
 import { SetupSurvey } from '../setup/SetupSurvey';
-import { loadSavedSurvey, recommend, saveSurvey, surveyZones } from '../../domain/survey';
+import { loadSavedSurvey, recommend, saveSurvey, surveyZones, zoneLetter } from '../../domain/survey';
 import { PRESETS, pluralize, type SetupPreset } from '../../domain/terms';
 import type { LocationKind, Onboarding, OnboardingZone, Warehouse } from '../../domain/types';
 import { CLOUD_ADDON, money } from '../../domain/plans';
@@ -47,7 +47,6 @@ function useOpenStep() {
 }
 
 const BLANK: Onboarding = { state: 'pending', done: [], zones: [], leave: null, files: null, barcodes: null };
-const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
 const KIND_LABEL: Partial<Record<LocationKind, string>> = { RACK: 'Racks or shelves', FLOOR: 'Floor, lanes or yard', STAGING: 'Staging area', RECEIVING: 'Receiving area' };
 
 /** Zones the survey implies: two areas of tires become zones A and B, and so on. */
@@ -313,7 +312,9 @@ function ZonesStep({ ob, busy, save }: StepProps) {
   const [zones, setZones] = useState<OnboardingZone[]>(() => (ob.zones.length ? ob.zones : zonesFromSurvey().length ? zonesFromSurvey() : [{ letter: 'A', name: 'Main racks', kind: 'RACK' }]));
   const fromSurvey = !ob.zones.length && zonesFromSurvey().length > 0;
   const set = (i: number, z: Partial<OnboardingZone>) => setZones(zones.map((x, k) => (k === i ? { ...x, ...z } : x)));
-  const nextLetter = () => LETTERS.split('').find((l) => !zones.some((z) => z.letter === l)) ?? 'Z';
+  const nextLetter = () => {
+    for (let n = 0; ; n++) if (!zones.some((z) => z.letter === zoneLetter(n))) return zoneLetter(n);
+  };
   const dupes = new Set(zones.map((z) => z.letter)).size !== zones.length;
   return (
     <>
@@ -345,7 +346,7 @@ function ZonesStep({ ob, busy, save }: StepProps) {
             </button>
           </div>
         ))}
-        <button type="button" className="btn" disabled={zones.length >= 26} onClick={() => setZones([...zones, { letter: nextLetter(), name: '', kind: 'RACK' }])}>
+        <button type="button" className="btn" onClick={() => setZones([...zones, { letter: nextLetter(), name: '', kind: 'RACK' }])}>
           <Icon name="plus" /> Add a zone
         </button>
       </div>
