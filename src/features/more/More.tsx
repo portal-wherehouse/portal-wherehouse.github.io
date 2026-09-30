@@ -5,6 +5,7 @@ import { useApp, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
 import { useJobsOn } from '../../app/words';
+import { useChecklistStatus } from '../setup/SetupChecklist';
 
 export const NAV_GROUPS: { title: string; items: { route: RouteName; label: string; icon: IconName; hint: string }[] }[] = [
   {
@@ -73,9 +74,21 @@ const PHONE_TABS: RouteName[] = ['overview', 'receive', 'move', 'find'];
 export function More() {
   const { go, role, prefs, backend } = useApp();
   const jobsOn = useJobsOn();
+  const checklist = useChecklistStatus();
   return (
     <div className="stack">
       <PageHead title="More" />
+      {checklist.show && (
+        <div className="more-menu">
+          <button className="checklist-more" onClick={() => go('checklist')} data-tour="more-checklist">
+            <Icon name="checklist" />
+            Setup checklist
+            <small>
+              {checklist.done} of {checklist.total} done
+            </small>
+          </button>
+        </div>
+      )}
       {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
         .filter((g) => g.items.length > 0)
         .map((g) => (

@@ -356,20 +356,6 @@
 .survey-warn { display: flex; gap: 8px; align-items: flex-start; padding: 12px; border-radius: 12px; background: color-mix(in srgb, #9a6400 12%, transparent); color: var(--sv-ink) !important; }
 .survey-warn svg { flex: none; color: #9a6400; margin-top: 2px; }
 a.survey-ghost, a.survey-go { text-decoration: none; }
-/* Setup checklist on the dashboard. */
-.getting-started { display: grid; gap: 12px; }
-.gs-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-.gs-head h2 { margin: 0; }
-.gs-bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
-.gs-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 0.5s; }
-.gs-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.gs-step { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
-.gs-step.done { opacity: 0.65; }
-.gs-step.done .gs-dot { background: var(--ok); color: #fff; border-color: var(--ok); }
-.gs-step.next { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-.gs-dot { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
-.gs-step > span { flex: 1; display: grid; gap: 2px; }
-.gs-step small { color: var(--ink-3); }
 .survey-more { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 16px; border-radius: 999px; border: 1.5px dashed var(--sv-line); background: transparent; color: var(--sv-accent); font: inherit; font-weight: 700; cursor: pointer; }
 .survey-more:hover { border-color: var(--sv-accent); }
 /* Business-tailored survey: layout rows, live tally, numbers and zone plan. */

@@ -8,7 +8,6 @@ import { useApp, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
-import { GettingStarted } from '../setup/GettingStarted';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -55,7 +54,6 @@ export function Overview() {
       <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><h2 className="warehouse-greeting">Welcome, {name}.</h2><p className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</p></div>
       <button className="btn" onClick={()=>go('activity')}><Icon name="activity"/>View activity</button>
     </header>
-    {manager&&<GettingStarted total={total} moved={data.activity.some(e=>e.type==='move'||e.type==='place')}/>}
     {role==='OPERATOR'&&<button className="btn small" style={{alignSelf:'flex-start'}} onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}
     <section aria-label="Warehouse analytics" className="warehouse-metrics" data-tour="overview-summary">
       {metrics.map(m=><button className="warehouse-metric" key={m.label} onClick={()=>go(role==='VIEWER'?'find':m.route)}><span>{m.label}</span><strong>{summary?m.value.toLocaleString():'Unavailable'}</strong><small>{summary?m.detail:'Counts are unavailable. Try Refresh.'}</small></button>)}

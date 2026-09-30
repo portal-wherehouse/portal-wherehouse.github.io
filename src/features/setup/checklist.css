@@ -1,0 +1,37 @@
+/* The setup checklist page, its sidebar item and the "Oops" modal. Every svg and bubble is sized here, since
+   Icon has no size of its own and a flex item would otherwise stretch. */
+.checklist-page { display: grid; gap: 14px; }
+.checklist-page svg, .ck-confirm svg, .setup-oops svg, .ck-skip svg { width: 18px; height: 18px; flex: none; }
+.ck-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.ck-head h1 { margin: 0; font-size: clamp(22px, 3.4vw, 30px); letter-spacing: -0.02em; }
+.ck-head .eyebrow { margin: 0 0 4px; }
+.ck-note { margin: 0; color: var(--ink-2); }
+.ck-bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.ck-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 0.5s; }
+.ck-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.ck-step { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.ck-step.done { opacity: 0.65; }
+.ck-step.next { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.ck-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 700; font-size: 14px; line-height: 1; }
+.ck-dot svg { width: 16px; height: 16px; }
+.ck-step.done .ck-dot { background: var(--ok); color: #fff; border-color: var(--ok); }
+.ck-text { display: grid; gap: 2px; }
+.ck-text small { color: var(--ink-3); }
+@media (max-width: 520px) { .ck-step { grid-template-columns: 30px minmax(0, 1fr); align-items: start; } .ck-step > .btn { grid-column: 2; justify-self: start; } }
+.ck-skip { flex: none; }
+.ck-confirm p, .setup-oops p { margin: 0; }
+.sheet:has(.setup-oops), .sheet:has(.ck-confirm) { max-width: 440px; }
+
+/* The sidebar item. */
+.nav-item.checklist-nav { font-weight: 700; }
+.nav-item.checklist-nav .count { color: var(--accent); }
+.nav-item.checklist-nav.quiet .count { color: var(--ink-3); }
+.sidebar .checklist-nav + .dashboard-nav, .sidebar .setup-nav + .dashboard-nav { margin-top: 4px; }
+.more-menu button.checklist-more { border-color: var(--accent); }
+
+/* Everything else waits for the checklist: greyed out, and a tap explains why. */
+.nav-item.locked, .bottom-nav button.locked { opacity: 0.4; cursor: not-allowed; }
+.nav-item.locked:hover { background: none; }
+.setup-oops .oops-head { display: flex; align-items: center; gap: 12px; }
+.setup-oops .oops-bubble { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+.setup-oops .oops-bubble svg { width: 22px; height: 22px; }

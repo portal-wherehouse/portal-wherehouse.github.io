@@ -872,7 +872,9 @@ export class Engine {
         const q = cmd.payload as unknown as Onboarding;
         const letters = q.zones.map((z) => z.letter);
         if (new Set(letters).size !== letters.length) return reject('INVALID_INPUT', 'Give each zone its own letter.');
-        const next: Onboarding = { state: q.state, done: [...new Set(q.done)], zones: q.zones.map((z) => ({ letter: z.letter, name: z.name.trim(), kind: z.kind })), leave: q.leave, files: q.files, barcodes: q.barcodes };
+        // Once skipped or finished, a late progress save from another screen never locks the app again.
+        const state = q.state === 'pending' && wh.onboarding && wh.onboarding.state !== 'pending' ? wh.onboarding.state : q.state;
+        const next: Onboarding = { state, done: [...new Set(q.done)], zones: q.zones.map((z) => ({ letter: z.letter, name: z.name.trim(), kind: z.kind })), leave: q.leave, files: q.files, barcodes: q.barcodes };
         // No version bump, like set_setup: progress must not conflict with an open warehouse details form.
         tx.put('warehouses', wh.id, { ...wh, onboarding: next, updated_at: now });
         const a = audit(wh.id, { onboarding: wh.onboarding ?? null }, { onboarding: next });

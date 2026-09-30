@@ -101,7 +101,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     advanced: z.boolean().optional(),
   }),
   set_onboarding: z.object({
-    state: z.enum(['pending', 'done']),
+    state: z.enum(['pending', 'skipped', 'done']),
     done: z.array(z.string().max(24)).max(20),
     zones: z
       .array(

@@ -1,4 +1,4 @@
-// "Set up your warehouse": the wizard a new self-serve warehouse must finish before the app unlocks.
+// "Set up your warehouse": the wizard a new self-serve warehouse must finish or skip before the app unlocks.
 // Words, zones, spots, barcodes, what happens when things leave, records, labels, crew. It starts from the
 // plan survey's answers when this browser has them, and saves progress to the warehouse after every step.
 
@@ -12,6 +12,7 @@ import type { LocationKind, Onboarding, OnboardingZone, Warehouse } from '../../
 import { CLOUD_ADDON, money } from '../../domain/plans';
 import { Icon, type IconName } from '../../ui/icons';
 import { Notice, Spinner } from '../../ui/ui';
+import { SkipChecklist } from '../setup/SkipChecklist';
 import { buildCodes } from '../admin/RackBuilder';
 import { LabelSheet } from '../labels/LabelSheet';
 import './onboarding.css';
@@ -60,23 +61,17 @@ export function useOnboarding(): { wh: Warehouse | null; ob: Onboarding | null }
   return { wh, ob: wh?.onboarding ?? null };
 }
 
-/** The sidebar group that stands in for the menu while setup is unfinished. */
-export function SetupNav() {
+/** The wizard's steps, listed under "Setup checklist" in the sidebar while the checklist is open. */
+export function SetupNav({ here }: { here: boolean }) {
   const { ob } = useOnboarding();
-  const { go, route } = useApp();
+  const { go } = useApp();
   const open = useOpenStep();
-  if (!ob || ob.state !== 'pending') return null;
+  if (!ob || ob.state === 'done') return null;
   const done = new Set(ob.done);
   return (
-    <div className="nav-group setup-nav" data-testid="setup-nav">
-      <div className="setup-nav-title">
-        Set up your warehouse
-        <small>
-          {ob.done.filter((d) => WIZARD_STEPS.some((s) => s.id === d)).length} of {WIZARD_STEPS.length} done
-        </small>
-      </div>
+    <div className="setup-nav" data-testid="setup-nav">
       {WIZARD_STEPS.map((s, n) => (
-        <button key={s.id} className={`nav-item${done.has(s.id) ? ' done' : ''}`} aria-current={route.name === 'overview' && open === s.id ? 'step' : undefined} onClick={() => (showStep(s.id), go('overview'))}>
+        <button key={s.id} className={`nav-item${done.has(s.id) ? ' done' : ''}`} aria-current={here && open === s.id ? 'step' : undefined} onClick={() => (showStep(s.id), go('checklist'))}>
           <span className="setup-nav-dot">{done.has(s.id) ? <Icon name="check" /> : n + 1}</span>
           {s.title}
         </button>
@@ -97,7 +92,7 @@ export function SetupPending() {
 }
 
 export function SetupWizard() {
-  const { send, backend } = useApp();
+  const { send, backend, go } = useApp();
   const { wh, ob: saved } = useOnboarding();
   const ob = saved ?? BLANK;
   const open = useOpenStep();
@@ -142,9 +137,18 @@ export function SetupWizard() {
         <div className="wizard-bar" aria-hidden="true">
           <i style={{ transform: `scaleX(${ob.done.filter((d) => WIZARD_STEPS.some((s) => s.id === d)).length / WIZARD_STEPS.length})` }} />
         </div>
-        <p className="wizard-lock">
-          <Icon name="lock" /> The rest of the app unlocks when these steps are done.
-        </p>
+        <div className="wizard-lock-row">
+          {ob.state === 'pending' ? (
+            <p className="wizard-lock">
+              <Icon name="lock" /> The rest of the app unlocks when these steps are done, or when you skip them.
+            </p>
+          ) : (
+            <p className="wizard-lock">
+              <Icon name="unlock" /> {ob.state === 'skipped' ? 'You skipped the checklist, so the app is open. Pick up any step whenever you like.' : 'Every step is done.'}
+            </p>
+          )}
+          {ob.state === 'pending' && <SkipChecklist busy={busy} onSkip={() => void save({ state: 'skipped' }).then((ok) => ok && go('overview'))} />}
+        </div>
       </header>
       {error && <Notice tone="error">{error}</Notice>}
       {backend.network === 'offline' && <Notice tone="warn">Setup needs a connection. Reconnect to keep going.</Notice>}
@@ -175,7 +179,7 @@ export function SetupWizard() {
                 disabled={busy}
                 onClick={() => {
                   setFinishing(true);
-                  void save({ state: 'done' }).then((ok) => ok && saveSurvey(null));
+                  void save({ state: 'done' }).then((ok) => ok && (saveSurvey(null), go('overview')));
                 }}
               >
                 {busy ? <Spinner /> : <Icon name="rocket" />} Open my warehouse
@@ -184,7 +188,7 @@ export function SetupWizard() {
           ) : (
             <div className="stack">
               <h1>A few steps left</h1>
-              <p>Finish every step in the list to unlock the app.</p>
+              <p>{ob.state === 'pending' ? 'Finish every step in the list to unlock the app, or skip the checklist for now.' : 'Finish every step in the list to tick off setup.'}</p>
               <button className="btn primary" onClick={() => showStep(WIZARD_STEPS.find((s) => !ob.done.includes(s.id))!.id)}>
                 Go to the next step
               </button>

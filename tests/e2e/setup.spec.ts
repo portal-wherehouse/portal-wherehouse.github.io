@@ -142,3 +142,19 @@ test('the plan survey recommends a plan, checks the zip for a tech visit and off
   await expect(plan.getByTestId('way-tech')).toContainText('isn’t available in 90210');
   await expect(plan.getByTestId('way-tech').getByRole('link', { name: /Contact us/ })).toHaveAttribute('href', /^mailto:/);
 });
+
+test('the setup checklist has its own page, not a card on the dashboard', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await signInAs(page, 'supervisor');
+  await page.goto('/?demo=1#overview');
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByTestId('getting-started')).toHaveCount(0);
+  // The sample warehouse is already set up, so the sidebar has no checklist to come back to.
+  await expect(page.locator('.sidebar').getByTestId('checklist-nav')).toHaveCount(0);
+  await page.goto('/?demo=1#checklist');
+  const list = page.getByTestId('getting-started');
+  await expect(list).toContainText('Your warehouse is set up');
+  await expect(list.locator('[data-done="true"]')).toHaveCount(6);
+  const dot = await list.locator('.ck-dot').first().boundingBox();
+  expect(Math.round(dot!.width)).toBe(Math.round(dot!.height));
+});

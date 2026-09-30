@@ -40,7 +40,7 @@ export interface Warehouse {
   advanced_measurements?: boolean;
   /** What this warehouse calls the things it tracks and how it groups work; see domain/terms.ts. */
   setup?: WarehouseSetup;
-  /** A new self-serve warehouse is locked to the setup wizard until this is done; see features/onboarding. */
+  /** A new self-serve warehouse is locked to the setup checklist until it is done or skipped; see features/onboarding. */
   onboarding?: Onboarding;
   id: string;
   workspace_id: string;
@@ -57,7 +57,8 @@ export interface OnboardingZone {
 }
 
 export interface Onboarding {
-  state: 'pending' | 'done';
+  /** 'pending' locks the app to the checklist; 'skipped' unlocks it with steps still open; 'done' when finished. */
+  state: 'pending' | 'skipped' | 'done';
   /** Wizard steps finished, by id. */
   done: string[];
   zones: OnboardingZone[];

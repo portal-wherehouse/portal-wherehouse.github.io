@@ -19,6 +19,8 @@ export type RouteName =
   | SiteRouteName
   /** The portal's front door: where "Open portal" lands before the app itself. */
   | 'signin'
+  /** The setup checklist: its own page at the top of the sidebar until setup is finished. */
+  | 'checklist'
   | 'receive'
   | 'move'
   | 'find'
@@ -186,6 +188,7 @@ export function useApp(): AppState {
 const ROUTE_TOKENS: RouteName[] = [
   ...SITE_ROUTES.filter((r) => r !== 'home'),
   'signin',
+  'checklist',
   'receive',
   'move',
   'find',
@@ -251,7 +254,7 @@ const sameRoute = (a: Route, b: Route) => a.name === b.name && (a.id ?? '') === 
 const sameStack = (a: Route[], b: Route[]) => a.length === b.length && a.every((r, i) => sameRoute(r, b[i]));
 
 /** Screens that start a fresh trail instead of stacking on the one before. */
-const PRIMARY: RouteName[] = ['receive', 'move', 'find', 'overview', 'more', 'signin', 'station'];
+const PRIMARY: RouteName[] = ['checklist', 'receive', 'move', 'find', 'overview', 'more', 'signin', 'station'];
 
 function stackAfter(s: Route[], next: Route): Route[] {
   const top = s[s.length - 1];
