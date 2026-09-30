@@ -248,7 +248,7 @@ export function Field({ label, hint, children, count, max, htmlFor }: { label: R
 
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
-export function Sheet({ title, onClose, children, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Sheet({ title, onClose, children, wide, closeHint }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; closeHint?: ReactNode }) {
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
   // Callers pass a new onClose on every render. Reading it through a ref lets the effect below run only
@@ -285,6 +285,7 @@ export function Sheet({ title, onClose, children, wide }: { title: ReactNode; on
       <div className={`sheet ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
         <div className="sheet-head">
           <h2 id={id}>{title}</h2>
+          {closeHint && <span className="sheet-close-hint">{closeHint}</span>}
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <Icon name="x" />
           </button>

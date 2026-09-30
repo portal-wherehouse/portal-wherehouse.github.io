@@ -36,7 +36,7 @@ export async function testOfflineWarehouse(page, db, uid, ws) {
   // A full offline reload must retain the account-scoped queue and cached records.
   await page.reload();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>window.__wherehouseBackend.outbox.entries[0].command.command_id),queued.command.command_id);
-  assert.equal(await page.evaluate(()=>window.__wherehouseBackend.db.pallets[Object.keys(window.__wherehouseBackend.db.pallets)[0]].current_location_id),fixture.a);
+  assert.equal(await page.evaluate((id)=>window.__wherehouseBackend.db.pallets[id]?.current_location_id,fixture.id),fixture.a);
   // Original request IDs are retained when reconnecting, so exactly one history row is added.
   await page.context().setOffline(false);
   await expect.poll(()=>page.evaluate(()=>window.__wherehouseBackend.outbox.entries[0]?.status),{timeout:20000}).toBe('acknowledged');

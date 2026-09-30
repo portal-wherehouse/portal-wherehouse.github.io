@@ -1053,6 +1053,15 @@ export class FirebaseBackend extends Backend {
       }
     }
   }
+  /** Everything a label preview draws: the pallets or locations, their jobs, and their active labels. */
+  async loadForLabels(palletIds: string[], locationIds: string[]) {
+    await Promise.all([
+      ...palletIds.map((id) => this.one("pallets", id)),
+      ...locationIds.map((id) => this.one("locations", id)),
+    ]);
+    await this.hydrate(palletIds.map((id) => this.db.pallets[id]).filter(Boolean));
+    await this.loadLabels([...palletIds, ...locationIds]);
+  }
   async loadLabels(ids: string[]) {
     for (let i = 0; i < ids.length; i += 25) {
       const s = await this.docs(

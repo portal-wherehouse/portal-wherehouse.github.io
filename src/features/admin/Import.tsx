@@ -327,7 +327,7 @@ export function Import() {
           ))}
         </div>
       )}
-      {labels && <LabelSheet palletIds={labels} onClose={() => setLabels(null)} />}
+      {labels && <LabelSheet palletIds={labels} onClose={() => setLabels(null)} closeHint={<><strong>Optional.</strong> Close with the X if the incoming pallets are already labeled.</>} />}
     </div>
   );
 }

@@ -9,13 +9,13 @@ import { Icon } from '../../ui/icons';
 import { Notice, Sheet } from '../../ui/ui';
 import { Calibration, PalletLabel, RackLabel, type LabelFormat } from './LabelCard';
 
-export function LabelSheet({ palletIds = [], locationIds = [], onClose }: { palletIds?: string[]; locationIds?: string[]; onClose: () => void }) {
+export function LabelSheet({ palletIds = [], locationIds = [], onClose, closeHint }: { palletIds?: string[]; locationIds?: string[]; onClose: () => void; closeHint?: React.ReactNode }) {
   const {backend}=useApp();const [error,setError]=useState('');const [ready,setReady]=useState(backend.mode!=='firebase');
   const idsKey=[...palletIds,...locationIds].join(',');
-  useEffect(()=>{let active=true;if(backend instanceof FirebaseBackend){setReady(false);void backend.loadLabels([...palletIds,...locationIds]).then(()=>{if(active)setReady(true);}).catch(()=>{if(active)setError('Labels could not load. Close and reopen this preview to retry.');});}return()=>{active=false;};},[backend,idsKey]);
+  useEffect(()=>{let active=true;if(backend instanceof FirebaseBackend){setReady(false);void backend.loadForLabels(palletIds,locationIds).then(()=>{if(active)setReady(true);}).catch(()=>{if(active)setError('Labels could not load. Close and reopen this preview to retry.');});}return()=>{active=false;};},[backend,idsKey]);
   const [format, setFormat] = useState<LabelFormat>('4x6');
   return (
-    <Sheet title={`Print ${palletIds.length + locationIds.length === 1 ? 'label' : `${palletIds.length + locationIds.length} labels`}`} onClose={onClose} wide>
+    <Sheet title={`Print ${palletIds.length + locationIds.length === 1 ? 'label' : `${palletIds.length + locationIds.length} labels`}`} onClose={onClose} wide closeHint={closeHint}>
       <div className="stack">
         {error&&<p role="alert">{error}</p>}
         {(
@@ -68,6 +68,7 @@ export function LabelSet({ palletIds, locationIds, format, forPrint }: { palletI
     };
   });
   if (!data) return null;
+  if (!forPrint && !data.pallets.length && !data.locs.length) return <Notice tone="info" icon="print">Loading labels…</Notice>;
   return (
     <div className="label-grid" style={forPrint ? { gap: 0 } : undefined}>
       {data.pallets.map(({ p, job, token }) => (
