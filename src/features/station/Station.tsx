@@ -355,7 +355,7 @@ export function Station() {
             </li>
             <li>Command barcodes (print them from Scanners) do the same as the buttons: Confirm, Cancel, Finish, and one for each mode.</li>
             <li>Every save carries the version you scanned. If someone else changed a pallet first, you see a conflict and the newer record. Nothing is overwritten.</li>
-            <li>Viewers can look things up. Operators can move, put away, confirm counts and mark a pallet missing with a reason. Recording a missing one as found needs a supervisor or owner.</li>
+            <li>Viewers can look up pallets. Operators can move, put away, confirm counts and mark a pallet missing with a reason. Recording a missing one as found needs a supervisor or owner.</li>
             <li>Offline, moves and location checks are saved on this device and are not confirmed until the server accepts them. Placing a new pallet waits for the connection.</li>
           </ul>
         </Explain>
@@ -363,7 +363,7 @@ export function Station() {
 
       {viewer && role && (
         <Notice tone="info" icon="lock" title={`Look up only for ${ROLE_LABEL[role]} accounts`}>
-          Move, Put-away and Count change records, so they need Operator access or higher. You can scan anything to see where it is. Ask an owner or supervisor if you need more access.
+          Move, Put-away and Count change records, so they need Operator access or higher. You can scan any pallet to see where it is. Ask an owner or supervisor if you need more access.
         </Notice>
       )}
 

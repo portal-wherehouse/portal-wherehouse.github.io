@@ -40,7 +40,7 @@ export const receivingSchema = z.object({
     .preprocess(
       // Blank lines left in the form are dropped rather than refused.
       (v) => (Array.isArray(v) ? v.filter((c) => c && typeof c === "object" && ["name", "qty", "sku"].some((k) => String((c as Record<string, unknown>)[k] ?? "").trim())) : v),
-      z.array(z.object({ name: short(120).min(1, "Name each thing on it."), qty: short(20).default(""), sku: short(60).default("") }))
+      z.array(z.object({ name: short(120).min(1, "Name each item on it."), qty: short(20).default(""), sku: short(60).default("") }))
     .max(100, "List up to 100 lines; group the rest."),
     )
     .default([]),

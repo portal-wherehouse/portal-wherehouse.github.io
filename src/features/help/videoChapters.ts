@@ -93,7 +93,7 @@ const CHAPTERS: VideoChapter[] = [
   },
   {
     id: 'find',
-    title: 'Finding anything with search and filters',
+    title: 'Finding pallets with search and filters',
     icon: 'find',
     seconds: 70,
     shows: 'We search the ways people really ask: a job code (J-214), a pallet code, a rack (A-03-02), and a few words like “door hardware”. We narrow results with the state and On hold filters, the job and location lists, and the quick views, and point out that every result leads with where the pallet was last confirmed. Keyboard users see the / shortcut.',
@@ -270,7 +270,7 @@ export const VIDEO_ABOUT = {
   outcomes: [
     'Receive a delivery against the right job and print its label',
     'Move and put away pallets with the phone camera or a USB or Bluetooth scanner',
-    'Find anything by job, pallet code, rack or a few words of description',
+    'Find any pallet by job, pallet code, rack or a few words of description',
     'Keep records honest with holds, missing reports, counts and corrections',
     'Set up racks, jobs, labels and people, and bring in your spreadsheets',
     'Know exactly what happens when the signal drops, and what to do when two people change the same pallet',

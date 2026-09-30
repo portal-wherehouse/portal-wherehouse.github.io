@@ -46,7 +46,7 @@ const MODE_NEEDS: Record<StationMode, CommandKind[]> = {
 export function modeAccess(role: Role | null | undefined, mode: StationMode): { ok: true } | { ok: false; reason: string } {
   if (!role) return { ok: false, reason: 'Choose an account first.' };
   if (MODE_NEEDS[mode].every((k) => roleAllows(role, k))) return { ok: true };
-  return { ok: false, reason: `${MODE_LABEL[mode]} changes records, so it needs Operator access or higher. Viewers can look things up but not change anything.` };
+  return { ok: false, reason: `${MODE_LABEL[mode]} changes records, so it needs Operator access or higher. Viewers can look up pallets but not change anything.` };
 }
 
 /** Marking a pallet missing follows the same rule as the pallet record: operators and up, always with a reason. */

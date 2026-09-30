@@ -14,7 +14,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
       { route: 'receive', label: 'Receive', icon: 'receive', hint: 'Record a delivery' },
       { route: 'incoming', label: 'Incoming', icon: 'import', hint: 'Expected deliveries from imports' },
       { route: 'move', label: 'Move', icon: 'move', hint: 'Scan pallet, then rack' },
-      { route: 'find', label: 'Find', icon: 'find', hint: 'Search anything' },
+      { route: 'find', label: 'Find', icon: 'find', hint: 'Search inventory' },
       { route: 'station', label: 'Scan station', icon: 'target', hint: 'Hands-free scanning' },
     ],
   },

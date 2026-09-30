@@ -54,7 +54,7 @@ export type Verdict = 'works' | 'maybe' | 'no' | 'none';
 
 // Label widths checked against the makers' specs: our labels need a 4-inch-wide printer or a letter page.
 export const PRINTERS: { id: PrinterModel; title: string; examples: string; verdict: Verdict; body: string; wide?: boolean }[] = [
-  { id: 'thermal4', title: '4-inch thermal label printer', examples: 'Zebra ZD421, ZD621, GK420d, Rollo, MUNBYN, iDPRT', verdict: 'works', wide: true, body: 'Works. Print 4×6 labels straight from the browser on a computer. This is the fastest way to label a lot of things.' },
+  { id: 'thermal4', title: '4-inch thermal label printer', examples: 'Zebra ZD421, ZD621, GK420d, Rollo, MUNBYN, iDPRT', verdict: 'works', wide: true, body: 'Works. Print 4×6 labels straight from the browser on a computer. This is the fastest way to label a lot of items.' },
   { id: 'office', title: 'Regular office printer', examples: 'Any inkjet or laser that prints letter paper', verdict: 'works', body: 'Works. Print full-page labels on plain paper, or Avery 5160 sticker sheets (30 per page) for shelves and bins.' },
   { id: 'dymoXL', title: 'DYMO LabelWriter 4XL or 5XL', examples: 'The wide DYMO models', verdict: 'works', wide: true, body: 'Works. The 4XL and 5XL take 4×6 labels.' },
   { id: 'brotherWide', title: 'Brother QL-1100 or QL-1110NWB', examples: 'The wide Brother QL models', verdict: 'works', wide: true, body: 'Works. These take labels up to about 4 inches wide, so 4×6 labels fit.' },
@@ -300,14 +300,14 @@ export const PROFILES = {
     noun: 'inventory',
     groupsQ: 'What kinds of inventory do you keep?',
     groups: COMMON,
-    limits: { weight: 'Weight limits on shelves or racks', count: 'Only so many fit in a spot', stack: 'How high things can stack' },
+    limits: { weight: 'Weight limits on shelves or racks', count: 'Only so many fit in a spot', stack: 'How high items can stack' },
     holds: [
       ['customer', 'Customers', 'Paid for and waiting for pickup'],
       ['order', 'Orders', 'Picked and waiting to go out'],
       ['project', 'Jobs or projects', 'Set aside for a job'],
       ['event', 'Events', 'Packed for a date'],
     ],
-    holdExample: 'a customer buys something and picks it up next week. You tag it with their name so nobody sells it again or moves it by mistake.',
+    holdExample: 'a customer buys an item and picks it up next week. You tag it with their name so nobody sells it again or moves it by mistake.',
   },
 } as const satisfies Record<string, { title: string; sub: string; preset: SetupPreset; thing?: string; noun: string; groupsQ: string; groups: readonly ProductGroup[]; limits: Record<Exclude<Limit, 'none'>, string>; holds: readonly (readonly [Exclude<Hold, 'none' | 'other'>, string, string])[]; holdExample: string }>;
 
@@ -526,7 +526,7 @@ export function recommend(a: SurveyAnswers): Recommendation {
   if (a.limits.includes('weight')) rules.push(`Weight tracking is on. Set a weight limit on each ${zones.some((z) => z.place === 'long') ? 'rack arm or level' : 'rack level or shelf'}, and Move warns before one is overloaded.`);
   if (a.limits.includes('count')) rules.push(`Set how many fit in each spot. Move then suggests a spot with room.`);
   if (a.limits.includes('stack')) rules.push('Set a stacking height on floor spots, so a lane holds positions × stack height.');
-  if (zones.some((z) => z.labeled < z.units)) rules.push(`Shared bins and ${preset === 'pallets' ? 'mixed pallets' : 'boxes'}: label the container once and list what’s inside. Search finds anything in it.`);
+  if (zones.some((z) => z.labeled < z.units)) rules.push(`Shared bins and ${preset === 'pallets' ? 'mixed pallets' : 'boxes'}: label the container once and list what’s inside. Search finds every item in it.`);
   for (const note of new Set(zones.map((z) => z.note).filter(Boolean))) rules.push(note!);
 
   const steps = [

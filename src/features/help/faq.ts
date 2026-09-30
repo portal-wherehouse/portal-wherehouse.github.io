@@ -88,7 +88,7 @@ export const FAQ: FaqCategory[] = [
       {
         id: 'order',
         q: 'Why do I scan the pallet before the rack?',
-        a: ['A fixed order means a scan can never be mistaken for the wrong kind of thing. The first scan locks in the pallet and the second must be a rack or location label. If you scan a rack first, the app asks you to scan the pallet.'],
+        a: ['A fixed order means a scan can never be mistaken for the wrong kind of label. The first scan locks in the pallet and the second must be a rack or location label. If you scan a rack first, the app asks you to scan the pallet.'],
       },
       {
         id: 'torn',

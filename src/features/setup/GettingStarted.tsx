@@ -66,7 +66,7 @@ export function useChecklistSteps(): { steps: ChecklistStep[]; skipped: boolean;
     { id: 'labels', title: 'Print and hang spot labels', hint: 'One QR label on every spot.', done: flag(labelsKey) || total > 0, action: 'Print labels', run: () => (setFlag(labelsKey), go('labels' as RouteName)) },
     { id: 'items', title: `Add your first ${things}`, hint: 'Receive one, or import a spreadsheet.', done: total > 0, action: 'Receive', run: () => go('receive') },
     { id: 'crew', title: 'Add your crew', hint: 'They sign in with the email you add.', done: facts.crew > 1, action: 'Add people', run: () => go('people') },
-    { id: 'move', title: 'Try a move', hint: 'Scan something, then scan the spot you put it in.', done: facts.moved, action: 'Move', run: () => go('move') },
+    { id: 'move', title: 'Try a move', hint: 'Scan a pallet, then scan the spot you put it in.', done: facts.moved, action: 'Move', run: () => go('move') },
   ];
   return { steps, skipped: flag(skipKey), skip: () => (setFlag(skipKey), bump((n) => n + 1)) };
 }

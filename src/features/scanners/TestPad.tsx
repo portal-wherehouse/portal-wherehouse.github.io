@@ -151,7 +151,7 @@ export function TestPad() {
             Test pad
           </div>
           <h2 id="scn-pad-title" className="scn-pad-title">
-            Scan anything
+            Scan any barcode
           </h2>
           <p className="muted scn-pad-sub">
             {active

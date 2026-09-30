@@ -189,7 +189,7 @@ function CrewHome({ name, onFull }: { name: string; onFull: () => void }) {
   const tiles: { route: RouteName; title: string; hint: string; icon: IconName }[] = [
     { route: 'find', title: 'Find', hint: 'Where is it?', icon: 'find' },
     { route: 'move', title: 'Move', hint: 'Scan it, then scan where it goes', icon: 'move' },
-    { route: 'receive', title: 'Add', hint: 'Something new came in', icon: 'receive' },
+    { route: 'receive', title: 'Add', hint: 'A new delivery came in', icon: 'receive' },
   ];
   return (
     <div className="stack crew-home" data-testid="crew-home">

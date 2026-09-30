@@ -1011,7 +1011,7 @@ export function TourMock() {
           <div className="cm-tip-top">
             <Icon name="tour" /> Take the tour
           </div>
-          <strong>One box finds anything</strong>
+          <strong>One box finds every pallet</strong>
           <p>Type a job, a pallet code, a rack or a few words. Results show where each pallet was last confirmed.</p>
           <div className="cm-row2">
             <FakeBtn>Back</FakeBtn>
@@ -1039,7 +1039,7 @@ export function HelpMock() {
         <span className="cm-video-tag">Video coming soon</span>
       </div>
       <ul className="cm-chapters">
-        {['Receive a delivery', 'Two-scan moves', 'Find anything', 'Set up a scanner'].map((c, i) => (
+        {['Receive a delivery', 'Two-scan moves', 'Find any pallet', 'Set up a scanner'].map((c, i) => (
           <li key={c}>
             <span className="cm-v">{String(i + 1).padStart(2, '0')}</span> {c}
           </li>

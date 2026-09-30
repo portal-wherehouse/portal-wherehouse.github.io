@@ -11,13 +11,13 @@ import './pages-c.css';
 export function HardwarePage() { return <>
 <PageHero eyebrow="Printing & scanning" title="Start with a printer and a phone." lede="Pallets, boxes, bins, parts or equipment: you don’t need special equipment to label any of it." />
 <Section><FeatureCards items={[
-{icon:'print',title:'Labels for anything',body:'Print a QR label for each thing you track, or use the barcode it already has. An ordinary office printer works; a 4-inch thermal label printer is faster.'},
+{icon:'print',title:'Labels for every item',body:'Print a QR label for each item you track, or use the barcode it already has. An ordinary office printer works; a 4-inch thermal label printer is faster.'},
 {icon:'camera',title:'Scan with a phone',body:'A phone camera reads the labels, with no app to install. A 2D USB or Bluetooth scanner is optional for faster scanning.'},
-{icon:'locations',title:'A label on every spot',body:'Label each place things can go: a rack level, shelf, bin, floor lane or yard row. Use the names your crew already knows.'}
+{icon:'locations',title:'A label on every spot',body:'Label each place items can go: a rack level, shelf, bin, floor lane or yard row. Use the names your crew already knows.'}
 ]} /></Section>
 <Section tone="surface" title="Will my printer work?" lede="Our labels need a regular letter page or a label printer that takes 4-inch-wide labels. Widths checked against each maker’s specs."><div className="printer-check">{PRINTERS.map(p=><div key={p.id} className={`printer-row ${p.verdict}`}><span className="printer-verdict">{p.verdict==='works'?'Works':p.verdict==='no'?'Too narrow':'Check with us'}</span><span><strong>{p.title}</strong><small>{p.examples}</small></span></div>)}</div><p>Need a printer, labels or a scanner? We can include them with setup.</p><SiteLink to="start" className="site-link">Check your printer in the setup survey →</SiteLink></Section>
 <Section title="Make the labels survive the work." lede="Stick them to a clean, dry surface. Keep the code flat and clear. For outdoor storage or rough handling, use a protective pouch or labels rated for those conditions."><p>Print at actual size, with browser headers and footers off. Confirm the paper size in the print dialog. Reprint a damaged label from its record.</p></Section>
-<Section id="setup" tone="surface" title="Three scanner settings."><p>Keyboard (HID) mode. QR and Code 128 enabled. Enter after each scan.</p><p>Open Move, scan the thing, then scan the spot where you put it. Check the saved confirmation before moving on.</p></Section>
+<Section id="setup" tone="surface" title="Three scanner settings."><p>Keyboard (HID) mode. QR and Code 128 enabled. Enter after each scan.</p><p>Open Move, scan the item, then scan the spot where you put it. Check the saved confirmation before moving on.</p></Section>
 <Section id="try" title="Try your scanner"><details><summary>Open scanner test</summary><ScannerTest /></details></Section>
 <Section narrow><SiteLink to="contact" className="site-btn primary">Get remote setup help</SiteLink><p>Printer, label and scanner setup are included in remote support.</p></Section>
 </>; }

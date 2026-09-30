@@ -13,7 +13,7 @@ const FIT_PCT = { great: 100, good: 80, partial: 55 } as const;
 const ROWS = [0, 1].map((row) => BUSINESSES.filter((_, i) => i % 2 === row));
 /** "All" starts with a few from each kind, so the list isn't a wall of tiles; one tap shows the rest. */
 const PREVIEW = CATEGORIES.flatMap((c) => BUSINESSES.filter((b) => b.cat === c.id).slice(0, 3));
-const QUICK = ['Do you have physical things that get moved around?', 'Are they kept in more than one spot, room or shelf?', 'Do several people need to find them?'];
+const QUICK = ['Do you have physical items that get moved around?', 'Are they kept in more than one spot, room or shelf?', 'Do several people need to find them?'];
 
 export function FitPage() {
   const { go } = useSite();
@@ -273,7 +273,7 @@ function Unknown({ text, onPlan }: { text: string; onPlan: () => void }) {
                 ? 'Probably a good fit. Take the survey and we’ll recommend a setup.'
                 : score === 1
                   ? 'Maybe. Tell us more and we’ll give you an honest answer.'
-                  : 'Probably not a fit. Wherehouse is for finding physical things that move around.'}
+                  : 'Probably not a fit. Wherehouse is for finding physical items that move around.'}
           </p>
           <div className="fit-actions">
             {score >= 2 && (

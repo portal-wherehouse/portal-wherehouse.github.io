@@ -115,7 +115,7 @@ function StatusStrip() {
         label="Last scan"
         icon="history"
         value={last ? <span className="scn-stat-code">{last.text}</span> : 'None yet'}
-        note={last ? `${SOURCE_LABEL[last.source]}, ${fmtAgo(new Date(last.at).toISOString())}` : 'Scan something to see it here'}
+        note={last ? `${SOURCE_LABEL[last.source]}, ${fmtAgo(new Date(last.at).toISOString())}` : 'Scan a barcode to see it here'}
       />
       <Tile label="Scans this session" icon="stack" value={<span className="num">{sessionCount}</span>} note="Since this tab opened the portal" />
       <Tile

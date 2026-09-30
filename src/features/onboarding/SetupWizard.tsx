@@ -23,7 +23,7 @@ export const WIZARD_STEPS: { id: string; title: string; icon: IconName; optional
   { id: 'zones', title: 'Storage zones', icon: 'map' },
   { id: 'spots', title: 'Spots in each zone', icon: 'locations' },
   { id: 'barcodes', title: 'Barcodes', icon: 'barcode' },
-  { id: 'leave', title: 'When things leave', icon: 'truck' },
+  { id: 'leave', title: 'When pallets leave', icon: 'truck' },
   { id: 'files', title: 'Records and files', icon: 'cloud' },
   { id: 'labels', title: 'Print spot labels', icon: 'print' },
   { id: 'crew', title: 'Add your crew', icon: 'people', optional: true },
@@ -394,7 +394,7 @@ function SpotsStep({ ob, busy, save, wh }: StepProps) {
     );
   return (
     <>
-      <StepHead icon="locations" title="Build the spots in each zone" why="A spot is one exact place something can sit: a shelf, a rack level or a floor lane. Each spot gets its own QR label, and scanning it tells the app where a thing is." />
+      <StepHead icon="locations" title="Build the spots in each zone" why="A spot is one exact place a pallet can sit: a shelf, a rack level or a floor lane. Each spot gets its own QR label, and scanning it tells the app where a pallet is." />
       <RackPicture />
       <div className="zone-builds">
         {ob.zones.map((z) => (
@@ -511,11 +511,11 @@ function BarcodesStep({ ob, busy, save }: StepProps) {
   const [pick, setPick] = useState(ob.barcodes);
   return (
     <>
-      <StepHead icon="barcode" title="Do your things already have barcodes?" why="If they do, the app can use them. If not, it prints its own QR labels. You can load barcodes and item types now or as things come in." />
+      <StepHead icon="barcode" title="Do your pallets already have barcodes?" why="If they do, the app can use them. If not, it prints its own QR labels. You can load barcodes and item types now or as new stock comes in." />
       <div className="wizard-choices" role="radiogroup">
         <Choice on={pick === 'import'} icon="upload" title="Yes, and I have a list" sub="Import a supplier or inventory spreadsheet with barcodes." onClick={() => setPick('import')} />
         <Choice on={pick === 'scan'} icon="scanner" title="Yes, we’ll scan them as they arrive" sub="Each barcode is learned the first time you receive it." onClick={() => setPick('scan')} />
-        <Choice on={pick === 'print'} icon="print" title="No, we’ll print our own labels" sub="Every thing gets a Wherehouse QR label when it’s received." onClick={() => setPick('print')} />
+        <Choice on={pick === 'print'} icon="print" title="No, we’ll print our own labels" sub="Every pallet gets a Wherehouse QR label when it’s received." onClick={() => setPick('print')} />
       </div>
       {pick === 'import' && (
         <div className="wizard-tip">
@@ -533,7 +533,7 @@ function BarcodesStep({ ob, busy, save }: StepProps) {
         <Icon name="settings" />
         <div>
           <strong>Item types (optional)</strong>
-          <p>Give each kind of thing its barcode, size, weight and a home spot, so Move suggests where it goes.</p>
+          <p>Give each product its barcode, size, weight and a home spot, so Move suggests where it goes.</p>
           <button className="btn small" onClick={() => go('products')}>
             Set up item types
           </button>
@@ -549,7 +549,7 @@ function LeaveStep({ ob, busy, save }: StepProps) {
   const thing = useSetup().thing;
   return (
     <>
-      <StepHead icon="truck" title="When something leaves, what happens to its record?" why="Things get sold, shipped, used up or thrown out. Pick how you want to handle it; you can do either one any time." />
+      <StepHead icon="truck" title="When a pallet leaves, what happens to its record?" why="Inventory gets sold, shipped, used up or thrown out. Pick how you want to handle it; you can do either one any time." />
       <div className="wizard-choices" role="radiogroup">
         <Choice on={pick === 'dispatch'} icon="truck" title="Mark it sent out and keep its history" sub="Recommended. You can still look up where it went and who sent it." onClick={() => setPick('dispatch')} testid="leave-dispatch" />
         <Choice on={pick === 'retire'} icon="archive" title="Take it off the list" sub="Retire the record. It stays in the history, but not in your counts or searches." onClick={() => setPick('retire')} />
@@ -598,7 +598,7 @@ function LabelsStep({ busy, save, wh }: StepProps) {
   if (printing) return <LabelSheet locationIds={ids} onClose={() => (setPrinting(false), setPrinted(true))} />;
   return (
     <>
-      <StepHead icon="print" title="Print and hang your spot labels" why="Every spot needs its label before anyone can scan things into it. Small Avery 5160 sheets work well for shelves; 4×6 labels suit pallet racks." />
+      <StepHead icon="print" title="Print and hang your spot labels" why="Every spot needs its label before anyone can scan pallets into it. Small Avery 5160 sheets work well for shelves; 4×6 labels suit pallet racks." />
       <RackPicture />
       <div className="row">
         <button className="btn primary big" disabled={!ids.length} onClick={() => setPrinting(true)}>

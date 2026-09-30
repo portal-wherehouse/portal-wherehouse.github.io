@@ -105,7 +105,7 @@ export function Guide() {
           />
           <Flow
             icon="find"
-            title="Finding something"
+            title="Finding a pallet"
             steps={['Open Find and type a job, pallet code, rack or words from the description.', 'Results lead with where the pallet is.', 'Open one to see its history, photos and actions.']}
             onTry={() => go('find')}
           />
@@ -326,7 +326,7 @@ const GLOSSARY: [string, string][] = [
 ];
 
 const FAQ: [string, string][] = [
-  ['Why do I have to scan the pallet before the rack?', 'A fixed order means a scan can never be misread as the wrong kind of thing. If you scan a rack first, the app tells you to scan the pallet instead.'],
+  ['Why do I have to scan the pallet before the rack?', 'A fixed order means a scan can never be misread as the wrong kind of label. If you scan a rack first, the app tells you to scan the pallet instead.'],
   ['The label is torn. What now?', 'Type the big printed code (for example P-000042, or just 42) on Move or Find. Then print a new label from the pallet record.'],
   ['Why does it say “last confirmed” instead of just the rack?', 'Because racks are only as good as the last scan. Showing when someone last confirmed it tells you how much to trust it.'],
   ['What happens if I lose signal in the middle of a move?', 'If the answer does not come back, the app says the result is unknown and offers “Check result”. That asks the server for its receipt using the same request ID, so it can never create a second move.'],

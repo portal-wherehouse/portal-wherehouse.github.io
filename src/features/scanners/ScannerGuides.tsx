@@ -143,7 +143,7 @@ export function Troubleshooting() {
             <li>To send scans to the portal instead, click an empty part of the page first, so no box has the cursor.</li>
           </ul>
         </Acc>
-        <Acc icon="alertCircle" title="The portal says “not recognized”" sub="The scanner read something we do not know.">
+        <Acc icon="alertCircle" title="The portal says “not recognized”" sub="The scanner read a code we do not know.">
           <ul>
             <li>Product barcodes and supplier labels are not {BRAND.name} codes. Scan the {BRAND.name} label on the pallet or rack.</li>
             <li>Labels only work in the company that printed them. A replaced label’s QR code stops working. Use the new label, or scan the old label’s barcode or type its printed code.</li>

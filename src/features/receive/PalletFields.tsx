@@ -194,10 +194,10 @@ function ContentsEditor({ value, onChange }: { value: PalletInfo; onChange: (v: 
       <span className="label">What’s on it (optional)</span>
       {lines.map((c, i) => (
         <div className="row nowrap contents-line" key={i}>
-          <input aria-label={`Thing ${i + 1}`} className="input" value={c.name} maxLength={120} placeholder="Air fryer" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-          <input aria-label={`How many of thing ${i + 1}`} className="input qty" inputMode="numeric" value={c.qty} maxLength={20} placeholder="Qty" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
-          <input aria-label={`SKU or part number of thing ${i + 1}`} className="input sku" value={c.sku} maxLength={60} placeholder="SKU" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, sku: e.target.value } : x)))} />
-          <button type="button" className="btn ghost small" aria-label={`Remove thing ${i + 1}`} onClick={() => set(lines.filter((_, j) => j !== i))}>
+          <input aria-label={`Item ${i + 1}`} className="input" value={c.name} maxLength={120} placeholder="Air fryer" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+          <input aria-label={`How many of item ${i + 1}`} className="input qty" inputMode="numeric" value={c.qty} maxLength={20} placeholder="Qty" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
+          <input aria-label={`SKU or part number of item ${i + 1}`} className="input sku" value={c.sku} maxLength={60} placeholder="SKU" onChange={(e) => set(lines.map((x, j) => (j === i ? { ...x, sku: e.target.value } : x)))} />
+          <button type="button" className="btn ghost small" aria-label={`Remove item ${i + 1}`} onClick={() => set(lines.filter((_, j) => j !== i))}>
             ✕
           </button>
         </div>
@@ -205,7 +205,7 @@ function ContentsEditor({ value, onChange }: { value: PalletInfo; onChange: (v: 
       <div className="row">
         {lines.length < 100 && (
           <button type="button" className="btn small" onClick={() => set([...lines, { name: "", qty: "", sku: "" }])}>
-            + Add a thing on it
+            + Add an item on it
           </button>
         )}
         {!lines.length && (
@@ -215,7 +215,7 @@ function ContentsEditor({ value, onChange }: { value: PalletInfo; onChange: (v: 
           </label>
         )}
       </div>
-      <span className="hint">For a pallet, box or tote holding several things. Leave empty when it is one item. Moving it moves everything on it.</span>
+      <span className="hint">For a pallet, box or tote holding several items. Leave empty when it is one item. Moving it moves everything on it.</span>
     </div>
   );
 }

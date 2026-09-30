@@ -173,7 +173,7 @@ export function TestLabels({ s, onTapped }: { s: StationState; onTapped?: (e: Mo
         <TrayGroup title="Racks and areas" items={groups.racks} cols="narrow" onTap={tap} />
         <TrayGroup title={groups.title} items={groups.pallets} onTap={tap} />
         <TrayGroup title="Command barcodes" items={groups.commands} cols="single" onTap={tap} />
-        <TrayGroup title="Something unknown" items={groups.other} onTap={tap} />
+        <TrayGroup title="Unknown codes" items={groups.other} onTap={tap} />
       </div>
     </details>
   );

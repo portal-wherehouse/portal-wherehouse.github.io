@@ -44,7 +44,7 @@ export function Products() {
     <div className="stack">
       <PageHead eyebrow="Warehouse" title="Pallet types" sub="Every saved pallet and its barcode. Print a sticker any time." />
       <Explain title="How pallet types work">
-        <p>A pallet type is something you get again and again, like "Tire crate from Acme Supply" or "Birch wood, 1 face cord". It has one barcode. Every pallet of that type carries the same sticker, so scanning it on Receive fills in the name, size and details.</p>
+        <p>A pallet type is a product you get again and again, like "Tire crate from Acme Supply" or "Birch wood, 1 face cord". It has one barcode. Every pallet of that type carries the same sticker, so scanning it on Receive fills in the name, size and details.</p>
         <p>Each pallet you receive still gets its own record and its own Wherehouse label, so three birch pallets are three pallets, even when they sit in the same spot.</p>
         <p>Pallet coming from somewhere that doesn't label it? Tap New pallet type, generate a barcode, and print its sticker.</p>
       </Explain>
