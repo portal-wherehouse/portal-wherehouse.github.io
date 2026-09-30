@@ -53,6 +53,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     children: z.array(z.object({ description: text(400), job_id: id.or(z.literal('')) })).max(40),
     reason,
   }),
+  update_warehouse: z.object({ name: text(100), code: text(20), timezone: text(100), address: text(250), phone: text(40), contact_email: z.union([z.literal(''), z.string().email().max(120)]), receiving_notes: text(500) }),
   create_job: z.object({ code: text(40), name: text(200), destination_notes: text(1000).optional() }),
   close_job: z.object({ job_id: id, reason }),
   reopen_job: z.object({ job_id: id, reason }),

@@ -1,3 +1,4 @@
+import { WarehouseMenu } from '../features/warehouse/WarehouseMenu';
 import { FirebaseBackend } from '../data/firebase';
 import { WarehouseLoading } from '../portal/WarehouseLoading';
 import { SampleHints } from '../portal/SampleHints';
@@ -168,15 +169,13 @@ function Portal() {
         <button className="brand" onClick={() => go('overview')} aria-label={`${BRAND.portal} home`}>
           <BrandMark className="brand-mark" />
           <span className="brand-name">{BRAND.name}</span>
-          <span className="brand-sub">{companyName || 'Warehouse'}</span>
+
         </button>
         <span className="spacer" />
         {signedIn && ctx && (
           <>
             {ctx.warehouse && (
-              <span className="chip static wh-chip" title={`${ctx.workspace.name} · ${ctx.warehouse.name}`}>
-                <Icon name="locations" /> {ctx.warehouse.code}
-              </span>
+              <WarehouseMenu key={workspaceId} warehouse={ctx.warehouse} />
             )}
             {(app.prefs.advancedTools || offline || pending > 0) ? <button
               className={`chip net-chip ${offline ? 'offline' : ''}`}
@@ -187,7 +186,7 @@ function Portal() {
               {offline ? <Icon name="wifiOff" /> : <span className="dot" />}
               <span className="net-label">{offline ? 'Offline' : 'Online'}</span>
               {pending > 0 && <span className="tag warn" style={{ marginLeft: 2 }}>{pending}</span>}
-            </button> : <span className="chip static live-status-chip" title="Records are saved to your warehouse account">{backend.mode === 'firebase' ? 'Shared warehouse' : 'Local demo'}</span>}
+            </button> : null}
           </>
         )}
         {backend.mode === 'demo' && !backend.sampleMode && <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>

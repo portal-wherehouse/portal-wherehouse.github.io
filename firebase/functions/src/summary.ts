@@ -28,6 +28,7 @@ export async function warehouseSummary(request: any) {
     cached.exists &&
     cached.get("value")?.receiving_version === 1 &&
     cached.get("value")?.optional_jobs_version === 1 &&
+    cached.get("value")?.warehouse_settings_version === 1 &&
     Date.now() - cached.get("at") < 60000
   )
     return cached.get("value");
@@ -106,6 +107,7 @@ export async function warehouseSummary(request: any) {
     stale,
     receiving_version: 1,
     optional_jobs_version: 1,
+    warehouse_settings_version: 1,
     reminders,
     reminder_count,
     at: new Date().toISOString(),

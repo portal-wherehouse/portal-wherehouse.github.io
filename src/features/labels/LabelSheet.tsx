@@ -62,7 +62,7 @@ export function LabelSet({ palletIds, locationIds, format, forPrint }: { palletI
   const data = read((e, _a, ws) => {
     const wh = e.activeWarehouse(ws);
     return {
-      wh: wh?.code ?? 'WH',
+      wh: wh ? `${wh.code} · ${wh.name}` : 'WH',
       pallets: palletIds.map((id) => e.db.pallets[id]).filter((p) => p && p.workspace_id === ws).map((p) => ({ p, job: e.db.jobs[p.job_id], token: e.activeLabel(p.id)?.token ?? '' })),
       locs: locationIds.map((id) => e.db.locations[id]).filter((l) => l && l.workspace_id === ws).map((l) => ({ l, token: e.activeLabel(l.id)?.token ?? '' })),
     };

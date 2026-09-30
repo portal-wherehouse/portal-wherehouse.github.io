@@ -505,7 +505,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
       workspace_id: resolvedWs ?? '',
       kind,
       payload,
-      ...(pallet ? { pallet_id: pallet.id, expected_version: opts.expectedVersion ?? pallet.version } : {}),
+      ...(pallet ? { pallet_id: pallet.id, expected_version: opts.expectedVersion ?? pallet.version } : opts.expectedVersion !== undefined ? { expected_version: opts.expectedVersion } : {}),
     }),
     [resolvedWs],
   );

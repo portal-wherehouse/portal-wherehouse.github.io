@@ -292,3 +292,23 @@ For a small manual live check after deployment, use one existing test pallet: op
 Receive now starts with **Add job (optional)**. Choosing it opens the existing job picker; owners and managers can create a job in a popup without leaving their receipt. Employees can choose an existing job or skip it. Unassigned pallets are stored with an empty `job_id`, not a fabricated project, and remain usable in search, labels, moves, dispatch, returns and splits. Existing job assignments and history are unchanged.
 
 Deploy `functions:wherehouse:command` first, then `functions:wherehouse:getWarehouseSummary` using the two-step deployment above. The summary advertises `optional_jobs_version: 1` only after the handler supports unassigned pallets. Until then, the client explains that a server update is required rather than claiming an unassigned receipt was saved. No new rules, indexes or migration are required for this addition.
+
+
+### Warehouse menu and details
+
+The top-right warehouse button opens Settings, other authorized warehouses (when there are any), and Add warehouse. The basic plan shows the upgrade message for adding/switching. Current-warehouse settings stay available to owners/managers. Updates validate inputs and the current record version on the server and append an audit event. Name, label code, address, time zone, phone, contact email and receiving instructions are editable. Existing QR identities do not change.
+
+All existing licenses default to the basic behavior. Only the service owner can provision `licenses/{workspaceId}.features.multiWarehouse: true`; client writes to licenses remain denied. `features.maxWarehouses` sets an additional linked-warehouse allowance (default 5 when enabled, server maximum 50). No entitlement or price is changed by deploying this code. Each extra warehouse still requires a separately issued account-bound usage key. The server checks the current warehouse owner, active license, feature entitlement and allowance before consuming that key. Retries recover the same additional warehouse. Switching still requires membership and a valid target warehouse license; the dropdown never grants access to another customer's records.
+
+To activate optional receiving jobs, warehouse settings and the additional-warehouse gate on the existing project, run in authenticated Cloud Shell:
+
+```bash
+cd ~/wherehouse &&
+git pull --ff-only &&
+npm ci &&
+npm --prefix firebase/functions ci &&
+npx firebase deploy --only functions:wherehouse:command,functions:wherehouse:createWarehouse --project wherehouseportal &&
+npx firebase deploy --only functions:wherehouse:getWarehouseSummary --project wherehouseportal
+```
+
+The final function advertises the new UI capabilities only after the command handler is deployed. No new service, index or data migration is required. This does not replace the earlier rules deployment for renewal grace. Normal live Blaze deployment/build usage can apply; automated checks remain emulator-only.

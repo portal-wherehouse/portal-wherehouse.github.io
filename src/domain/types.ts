@@ -30,6 +30,12 @@ export interface Membership {
 }
 
 export interface Warehouse {
+  address?: string;
+  phone?: string;
+  contact_email?: string;
+  receiving_notes?: string;
+  version?: number;
+  updated_at?: string;
   id: string;
   workspace_id: string;
   code: string;
@@ -190,6 +196,7 @@ export const PALLET_COMMANDS = [
 export type PalletCommandKind = (typeof PALLET_COMMANDS)[number];
 
 export const ADMIN_COMMANDS = [
+  'update_warehouse',
   'create_job',
   'close_job',
   'reopen_job',

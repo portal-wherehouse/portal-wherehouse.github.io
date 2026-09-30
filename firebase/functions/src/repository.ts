@@ -197,6 +197,10 @@ export async function loadCommand(
   };
   const p: any = cmd.payload,
     k = cmd.kind;
+  if (k === "update_warehouse") {
+    const workspace = await tx.get(root);
+    if (workspace.exists) db.workspaces[ws] = workspace.data() as any;
+  }
   // A warehouse has one active facility. It is a bounded lookup even for migrated data.
   await query(
     "warehouses",

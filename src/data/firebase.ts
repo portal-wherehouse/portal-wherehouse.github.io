@@ -92,6 +92,7 @@ export class FirebaseBackend extends Backend {
   };
   workspaceIds: string[] = [];
   invitations: { email: string; name: string; role: string }[] = [];
+  multiWarehouse = false;
   licenseBlocked = false;
   readOnly = false;
   graceEndsAt = 0;
@@ -306,6 +307,7 @@ export class FirebaseBackend extends Backend {
     this.cache = null;
     this.verifiedAt = 0;
     this.readOnly = false;
+    this.multiWarehouse = false;
     if (this.cacheTimer) clearTimeout(this.cacheTimer);
     this.cacheTimer = null;
     if (this.expiryTimer) clearTimeout(this.expiryTimer);
@@ -391,6 +393,7 @@ export class FirebaseBackend extends Backend {
           return false;
         }
         this.readOnly = access === "read-only";
+        this.multiWarehouse = data?.features?.multiWarehouse === true;
         this.licenseExpiresAt = expiresAt;
         this.graceEndsAt = expiresAt + RENEWAL_GRACE_MS;
         const remaining =
@@ -472,6 +475,31 @@ export class FirebaseBackend extends Backend {
         ),
       );
       if (gen !== this.generation) return;
+      // Two metadata documents, not a subscription to operational collections.
+      const facility = this.engine.activeWarehouse(ws);
+      if (facility)
+        for (const [table, ref] of [
+          ["workspaces", doc(this.firestore, "workspaces", ws)],
+          ["warehouses", doc(this.col("warehouses"), facility.id)],
+        ] as const)
+          this.unsubscribe.push(
+            onSnapshot(
+              ref,
+              (snap) => {
+                this.metrics.reads++;
+                if (gen !== this.generation || !snap.exists()) return;
+                this.ingest(table, [snap.data()]);
+                this.bump(false);
+              },
+              () => {
+                if (gen === this.generation) {
+                  this.cloudError =
+                    "Could not refresh warehouse details. Reconnect and try again.";
+                  this.bump(false);
+                }
+              },
+            ),
+          );
       this.verifiedAt = Date.now();
       this.loading = false;
       this.cloudError = "";
@@ -695,6 +723,43 @@ export class FirebaseBackend extends Backend {
   }
   directoryMore() {
     return ["jobs", "locations"].filter((t) => this.pageMore("directory:" + t));
+  }
+  async warehouseNames(
+    offset = 0,
+  ): Promise<{ id: string; name: string; available: boolean }[]> {
+    if (this.network === "offline" || !this.firestore)
+      throw Error("Reconnect to list your warehouses.");
+    const uid = this.authUid;
+    const rows = await Promise.all(
+      this.workspaceIds
+        .filter((id) => id !== this.activeWorkspace)
+        .slice(offset, offset + 20)
+        .map(async (id) => {
+          try {
+            const snap = await getDoc(doc(this.firestore!, "workspaces", id));
+            this.metrics.reads++;
+            return {
+              id,
+              name: snap.get("name") || "Warehouse",
+              available: snap.exists(),
+            };
+          } catch {
+            return { id, name: "Warehouse unavailable", available: false };
+          }
+        }),
+    );
+    if (uid !== this.authUid)
+      throw Error("Account changed. Open the menu again.");
+    return rows;
+  }
+  async switchWarehouse(id: string) {
+    if (!this.multiWarehouse)
+      throw Error(
+        "Your current plan does not include this feature. Please contact us to upgrade.",
+      );
+    if (!this.workspaceIds.includes(id))
+      throw Error("You do not have access to this warehouse.");
+    await this.chooseWorkspace(id);
   }
   async receivingLookup(
     code: string,
@@ -1309,6 +1374,19 @@ export class FirebaseBackend extends Backend {
           response.data.current_state;
       if (response.data.ok) {
         const id = response.data.target_id;
+        if (
+          cmd.kind === "update_warehouse" &&
+          id &&
+          this.activeWorkspace === cmd.workspace_id
+        ) {
+          await this.one("warehouses", id, true);
+          const root = await getDoc(
+            doc(this.firestore!, "workspaces", cmd.workspace_id),
+          );
+          this.metrics.reads++;
+          if (this.activeWorkspace === cmd.workspace_id && root.exists())
+            this.ingest("workspaces", [root.data()]);
+        }
         if (["create_job", "close_job", "reopen_job"].includes(cmd.kind) && id)
           await this.one("jobs", id, true);
         if (

@@ -92,7 +92,35 @@ export const createWarehouse = onCall(options, async (request) => {
   const profile = firestore.doc(`users/${user.id}`);
   return firestore.runTransaction(async (tx) => {
     const existing = await tx.get(profile);
-    if (existing.get("owned_workspace") && !request.data?.usageKey) {
+    const sourceWs = request.data?.sourceWorkspaceId;
+    let sourceFeatures: Record<string, unknown> | undefined;
+    if (sourceWs !== undefined) {
+      if (typeof sourceWs !== "string" || !/^[\w-]{1,128}$/.test(sourceWs))
+        throw new HttpsError(
+          "invalid-argument",
+          "Choose the current warehouse.",
+        );
+      const sourceMember = await tx.get(
+        firestore.doc(`workspaces/${sourceWs}/members/${user.id}`),
+      );
+      if (!sourceMember.get("active") || sourceMember.get("role") !== "OWNER")
+        throw new HttpsError(
+          "permission-denied",
+          "Only the warehouse owner can add a warehouse.",
+        );
+      const sourceLicense = await requireLicense(tx, sourceWs);
+      if (sourceLicense.features?.multiWarehouse !== true)
+        throw new HttpsError(
+          "permission-denied",
+          "Your current plan does not include this feature. Please contact us to upgrade.",
+        );
+      sourceFeatures = sourceLicense.features;
+    }
+    if (
+      !sourceWs &&
+      existing.get("owned_workspace") &&
+      !request.data?.usageKey
+    ) {
       await requireLicense(tx, existing.get("owned_workspace"));
       return { workspaceId: existing.get("owned_workspace") };
     }
@@ -105,6 +133,34 @@ export const createWarehouse = onCall(options, async (request) => {
     const keyRef = firestore.doc(`activationKeys/${keyHash(key)}`);
     const issued = await tx.get(keyRef);
     const activation = issued.data();
+    // An additional warehouse uses its own account-bound key. A lost reply can recover the same warehouse.
+    if (
+      sourceWs &&
+      activation?.redeemed_by === user.id &&
+      activation?.source_workspace === sourceWs &&
+      activation?.workspace_id
+    ) {
+      const targetMember = await tx.get(
+        firestore.doc(
+          `workspaces/${activation.workspace_id}/members/${user.id}`,
+        ),
+      );
+      if (targetMember.get("active") && targetMember.get("role") === "OWNER") {
+        await requireLicense(tx, activation.workspace_id);
+        return { workspaceId: activation.workspace_id };
+      }
+    }
+    if (sourceWs) {
+      const limit = Math.min(
+        50,
+        Math.max(2, Number(sourceFeatures?.maxWarehouses) || 5),
+      );
+      if ((existing.get("workspaces") || []).length >= limit)
+        throw new HttpsError(
+          "resource-exhausted",
+          "Your warehouse allowance is full. Contact us to upgrade. Existing warehouses are unchanged.",
+        );
+    }
     if (
       !activation ||
       activation.email !== user.email.toLowerCase() ||
@@ -116,8 +172,13 @@ export const createWarehouse = onCall(options, async (request) => {
         "permission-denied",
         "This key is invalid, expired, or belongs to another account.",
       );
-    if (existing.get("owned_workspace")) {
-      const ws = existing.get("owned_workspace");
+    if (!sourceWs && existing.get("owned_workspace")) {
+      const ws = request.data?.workspaceId || existing.get("owned_workspace");
+      if (typeof ws !== "string" || !/^[\w-]{1,128}$/.test(ws))
+        throw new HttpsError(
+          "invalid-argument",
+          "Choose the warehouse to renew.",
+        );
       const membership = await tx.get(
         firestore.doc(`workspaces/${ws}/members/${user.id}`),
       );
@@ -162,17 +223,20 @@ export const createWarehouse = onCall(options, async (request) => {
       expires_at: Timestamp.fromMillis(Date.now() + activation.days * 86400000),
       activated_at: Timestamp.now(),
       ...(activation.limits ? { limits: activation.limits } : {}),
+      ...(sourceFeatures ? { features: sourceFeatures } : {}),
     });
     tx.update(keyRef, {
       redeemed_by: user.id,
       workspace_id: workspace.id,
+      ...(sourceWs ? { source_workspace: sourceWs } : {}),
       redeemed_at: Timestamp.now(),
     });
     tx.set(
       profile,
       {
         ...user,
-        owned_workspace: workspace.id,
+        owned_workspace: existing.get("owned_workspace") || workspace.id,
+        owned_workspaces: FieldValue.arrayUnion(workspace.id),
         workspaces: FieldValue.arrayUnion(workspace.id),
       },
       { merge: true },

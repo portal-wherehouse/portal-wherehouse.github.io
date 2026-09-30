@@ -348,6 +348,7 @@ export class Engine {
     switch (cmd.kind) {
       case 'receive':
         return this.receive(tx, actorId, cmd, now, reject);
+      case 'update_warehouse':
       case 'create_job':
       case 'close_job':
       case 'reopen_job':
@@ -626,6 +627,19 @@ export class Engine {
     const versionOk = (v: number) => cmd.expected_version === undefined || cmd.expected_version === v;
 
     switch (cmd.kind) {
+      case 'update_warehouse': {
+        if (cmd.expected_version !== (wh.version ?? 1)) return reject('VERSION_CONFLICT', 'Warehouse details changed. Reopen settings to load the latest version.');
+        const name = (p.name ?? '').trim(), code = normalizeCode(p.code ?? ''), timezone = (p.timezone ?? '').trim();
+        if (name.length < 2 || name.length > 100 || !code || code.length > 20) return reject('INVALID_INPUT', 'Enter a warehouse name and a short label code.');
+        try { new Intl.DateTimeFormat('en', {timeZone:timezone}); } catch { return reject('INVALID_INPUT', 'Enter a valid time zone, such as America/New_York.'); }
+        const workspace = this.db.workspaces[ws];
+        if (!workspace) return reject('NOT_FOUND', 'Warehouse account not found.');
+        const next = {...wh, name, code, timezone, address:(p.address ?? '').trim(), phone:(p.phone ?? '').trim(), contact_email:(p.contact_email ?? '').trim(), receiving_notes:(p.receiving_notes ?? '').trim(), version:(wh.version ?? 1)+1, updated_at:now};
+        tx.put('warehouses', wh.id, next);
+        tx.put('workspaces', ws, {...workspace, name});
+        const a = audit(wh.id, {...wh}, {...next});
+        return this.accepted(cmd, now, a.id, null, wh.id);
+      }
       case 'create_job': {
         const code = normalizeCode(p.code ?? '');
         const name = (p.name ?? '').trim();
