@@ -1,0 +1,1090 @@
+/* Home page "See it work" (SeeItWork.tsx). The scene and the phone are each drawn in their own
+   container units, so they scale as one piece. Resting styles are the final state of every
+   animation; the keyframes only describe where an element comes from. */
+
+.si {
+  display: grid;
+  gap: 20px;
+  grid-template-areas: 'stage' 'steps';
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 960px) {
+  .si {
+    grid-template-areas: 'steps stage';
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: 40px;
+    align-items: center;
+  }
+}
+
+/* ---------------------------------------------------------------- steps */
+
+.si-steps {
+  grid-area: steps;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.si-steps button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 4px 14px;
+  width: 100%;
+  padding: 16px 16px 18px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.si-steps button:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.si-steps button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.si-steps li.on button {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+.si-n {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  font: 600 14px/1 var(--font-mono);
+  color: var(--ink-3);
+  background: var(--ground);
+}
+.si-steps li.on .si-n {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+}
+.si-steps li.done .si-n {
+  border-color: color-mix(in srgb, var(--ok) 60%, transparent);
+  color: var(--ok);
+}
+.si-step-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 6px;
+}
+.si-step-text strong {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.si-step-text > span {
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+@media (max-width: 959px) {
+  /* On phones only the current step shows its sentence, so the stage stays near the text. */
+  .si-steps li:not(.on) .si-step-text > span {
+    display: none;
+  }
+  .si-steps button {
+    padding: 12px 14px 14px;
+    align-items: center;
+  }
+  .si-step-text {
+    padding-top: 0;
+  }
+}
+.si-progress {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.si-progress i {
+  display: block;
+  height: 100%;
+  background: var(--hazard);
+  transform-origin: left;
+  animation: si-fill linear both;
+}
+@keyframes si-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ---------------------------------------------------------------- stage */
+
+.si-stage {
+  grid-area: stage;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%),
+    var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+@media (min-width: 560px) {
+  .si-stage {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    padding: 22px;
+    border-radius: 26px;
+  }
+}
+.si-scene {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 100 / 94;
+  border-radius: 16px;
+  background:
+    linear-gradient(to bottom, transparent 0 86.5%, color-mix(in srgb, var(--ink) 5%, transparent) 86.5%),
+    var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.si-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 81cqw;
+  height: 0.5cqw;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+/* Rack: blue uprights, two hazard beams, crates and spot labels. */
+.si-rack {
+  position: absolute;
+  inset: 0;
+}
+.si-up {
+  position: absolute;
+  top: 6cqw;
+  height: 75cqw;
+  width: 3cqw;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 2.2cqw, color-mix(in srgb, var(--ground) 65%, transparent) 2.2cqw 3cqw) center / 0.9cqw 100% no-repeat,
+    var(--accent);
+  border-radius: 0.4cqw 0.4cqw 0 0;
+}
+.si-up.l {
+  left: 6cqw;
+}
+.si-up.r {
+  left: 66cqw;
+}
+.si-beam {
+  position: absolute;
+  left: 5cqw;
+  width: 65cqw;
+  height: 2.6cqw;
+  border-radius: 0.4cqw;
+  background: var(--hazard);
+  box-shadow: 0 0.6cqw 0 color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.si-beam.top {
+  top: 34cqw;
+}
+.si-beam.low {
+  top: 62cqw;
+}
+.si-crate {
+  position: absolute;
+  border-radius: 0.8cqw;
+  background:
+    linear-gradient(to right, transparent 45%, color-mix(in srgb, #7a5520 18%, transparent) 45% 55%, transparent 55%) top / 100% 30% no-repeat,
+    color-mix(in srgb, #caa46a 72%, var(--surface));
+  border: 0.3cqw solid color-mix(in srgb, #7a5520 35%, transparent);
+}
+.si-crate.tall {
+  background: color-mix(in srgb, #caa46a 58%, var(--surface));
+}
+.si-crate.tote {
+  background: color-mix(in srgb, var(--slate) 38%, var(--surface));
+  border-color: color-mix(in srgb, var(--slate) 55%, transparent);
+  border-radius: 0.6cqw 0.6cqw 1.2cqw 1.2cqw;
+}
+.si-plate {
+  position: absolute;
+  width: 13cqw;
+  padding: 0.5cqw 0 0.6cqw;
+  border: 0.45cqw solid var(--plate-ink);
+  border-radius: 0.7cqw;
+  background: var(--plate);
+  color: var(--plate-ink);
+  font: 700 3.6cqw/1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+/* The cart the box waits on. */
+.si-cart {
+  position: absolute;
+  left: 70cqw;
+  top: 77.4cqw;
+  width: 23cqw;
+  height: 5cqw;
+}
+.si-cart-deck {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1.8cqw;
+  border-radius: 0.5cqw;
+  background: var(--ink-3);
+}
+.si-cart::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 1.6cqw;
+  width: 1.2cqw;
+  height: 13cqw;
+  border-radius: 0.6cqw;
+  background: var(--ink-3);
+}
+.si-cart i {
+  position: absolute;
+  top: 1.4cqw;
+  width: 3.2cqw;
+  height: 3.2cqw;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 0.8cqw solid var(--ink-3);
+}
+.si-cart i:nth-of-type(1) {
+  left: 2cqw;
+}
+.si-cart i:nth-of-type(2) {
+  right: 3cqw;
+}
+
+/* The box being moved. On the cart for step 1, on shelf B-03 after. */
+.si-box {
+  position: absolute;
+  z-index: 1;
+  left: 73cqw;
+  top: 62.4cqw;
+  width: 17cqw;
+  height: 15cqw;
+  border-radius: 0.8cqw;
+  background: color-mix(in srgb, #d5ad6f 85%, var(--surface));
+  border: 0.3cqw solid color-mix(in srgb, #7a5520 45%, transparent);
+  box-shadow: 0 1cqw 2cqw color-mix(in srgb, var(--ink) 18%, transparent);
+  transition: transform 1s cubic-bezier(0.6, 0, 0.25, 1) 0.2s;
+}
+.si[data-step='1'] .si-box,
+.si[data-step='2'] .si-box {
+  transform: translate(-25cqw, -15.4cqw);
+}
+.si-box.arrive {
+  animation: si-arrive 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes si-arrive {
+  from {
+    opacity: 0;
+    transform: translateX(14cqw);
+  }
+}
+.si-box-tape {
+  position: absolute;
+  left: 44%;
+  width: 12%;
+  top: 0;
+  height: 32%;
+  background: color-mix(in srgb, #7a5520 22%, transparent);
+}
+.si-box-label {
+  position: absolute;
+  left: 2.3cqw;
+  top: 5.6cqw;
+  width: 11.8cqw;
+  padding: 0.8cqw 0.9cqw 0.9cqw;
+  border-radius: 0.5cqw;
+  background: var(--plate);
+  color: var(--plate-ink);
+}
+.si-box-label b {
+  display: block;
+  font: 700 2.5cqw/1 var(--font-display);
+  letter-spacing: 0.02em;
+}
+.si-box-bars {
+  display: block;
+  height: 2.6cqw;
+  margin-top: 0.7cqw;
+  background: repeating-linear-gradient(90deg, var(--plate-ink) 0 0.25cqw, transparent 0.25cqw 0.5cqw, var(--plate-ink) 0.5cqw 0.9cqw, transparent 0.9cqw 1.1cqw, var(--plate-ink) 1.1cqw 1.2cqw, transparent 1.2cqw 1.6cqw);
+}
+
+/* Scanner reticle: four corners, a sweeping line and a check when the scan lands. */
+.si-reticle {
+  position: absolute;
+  z-index: 2;
+  left: 73.6cqw;
+  top: 66.4cqw;
+  width: 15.8cqw;
+  height: 10.6cqw;
+  animation: si-lock 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s both;
+}
+.si[data-step='1'] .si-reticle {
+  left: 46.9cqw;
+  top: 63.8cqw;
+  width: 16.2cqw;
+  height: 8.4cqw;
+  animation-delay: 1.3s;
+}
+.si[data-step='2'] .si-reticle {
+  display: none;
+}
+@keyframes si-lock {
+  from {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+.si-reticle i {
+  position: absolute;
+  width: 3cqw;
+  height: 3cqw;
+  border: 0 solid var(--hazard);
+  filter: drop-shadow(0 0 0.3cqw color-mix(in srgb, var(--ink) 40%, transparent));
+}
+.si-reticle .tl {
+  left: 0;
+  top: 0;
+  border-width: 0.7cqw 0 0 0.7cqw;
+  border-top-left-radius: 0.8cqw;
+}
+.si-reticle .tr {
+  right: 0;
+  top: 0;
+  border-width: 0.7cqw 0.7cqw 0 0;
+  border-top-right-radius: 0.8cqw;
+}
+.si-reticle .bl {
+  left: 0;
+  bottom: 0;
+  border-width: 0 0 0.7cqw 0.7cqw;
+  border-bottom-left-radius: 0.8cqw;
+}
+.si-reticle .br {
+  right: 0;
+  bottom: 0;
+  border-width: 0 0.7cqw 0.7cqw 0;
+  border-bottom-right-radius: 0.8cqw;
+}
+.si-beam-line {
+  position: absolute;
+  left: 1cqw;
+  right: 1cqw;
+  top: 50%;
+  height: 0.5cqw;
+  border-radius: 1cqw;
+  background: #ff4d3d;
+  box-shadow: 0 0 1.4cqw 0.3cqw rgba(255, 77, 61, 0.55);
+  opacity: 0;
+  animation: si-sweep 0.5s ease-in-out 0.45s 2 alternate;
+}
+.si[data-step='1'] .si-beam-line {
+  animation-delay: 1.75s;
+}
+@keyframes si-sweep {
+  from {
+    opacity: 1;
+    top: 8%;
+  }
+  to {
+    opacity: 1;
+    top: 88%;
+  }
+}
+.si-hit {
+  position: absolute;
+  right: -2.4cqw;
+  top: -2.4cqw;
+  display: grid;
+  place-items: center;
+  width: 5.2cqw;
+  height: 5.2cqw;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+  box-shadow: 0 0 0 0.7cqw color-mix(in srgb, var(--ok) 25%, transparent);
+  animation: si-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) 1.45s both;
+}
+.si[data-step='1'] .si-hit {
+  animation-delay: 2.75s;
+}
+.si-hit svg {
+  width: 3.2cqw;
+  height: 3.2cqw;
+  stroke-width: 3;
+}
+@keyframes si-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+/* Step 3: the spot lights up for whoever searched. */
+.si-found {
+  position: absolute;
+  z-index: 2;
+  left: 46.4cqw;
+  top: 44.6cqw;
+  width: 19.4cqw;
+  height: 29cqw;
+  border-radius: 1.6cqw;
+  border: 0.6cqw solid var(--ok);
+  box-shadow:
+    0 0 0 1.2cqw color-mix(in srgb, var(--ok) 18%, transparent),
+    0 0 4cqw color-mix(in srgb, var(--ok) 35%, transparent);
+  animation:
+    si-found-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 1.7s both,
+    si-glow 1.6s ease-in-out 2.2s infinite;
+}
+.si[data-step='0'] .si-found,
+.si[data-step='1'] .si-found {
+  display: none;
+}
+@keyframes si-found-in {
+  from {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+@keyframes si-glow {
+  50% {
+    box-shadow:
+      0 0 0 2cqw color-mix(in srgb, var(--ok) 8%, transparent),
+      0 0 6cqw color-mix(in srgb, var(--ok) 25%, transparent);
+  }
+}
+.si-found-chip {
+  position: absolute;
+  left: calc(100% + 2.4cqw);
+  top: 5cqw;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9cqw;
+  padding: 1.2cqw 2.2cqw 1.2cqw 1.6cqw;
+  border-radius: 99px;
+  background: #14171a;
+  color: #f4f5f1;
+  font: 700 3.3cqw/1 var(--font-display);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  box-shadow: 0 1cqw 3cqw rgba(20, 23, 26, 0.3);
+}
+.si-found-chip::after {
+  content: '';
+  position: absolute;
+  left: -1.2cqw;
+  top: 50%;
+  margin-top: -1.2cqw;
+  border: 1.2cqw solid transparent;
+  border-right-color: #14171a;
+  border-left: 0;
+}
+.si-found-chip svg {
+  width: 3.4cqw;
+  height: 3.4cqw;
+  color: var(--hazard);
+}
+
+/* ---------------------------------------------------------------- phone */
+
+.si-phone {
+  position: relative;
+  z-index: 3;
+  container-type: inline-size;
+  margin-left: -8%;
+}
+.si-phone-frame {
+  aspect-ratio: 10 / 19.5;
+  padding: 3.4cqw;
+  border-radius: 15cqw;
+  background: #14171a;
+  box-shadow:
+    0 0 0 0.9cqw #3a4248,
+    0 6cqw 14cqw rgba(20, 23, 26, 0.35);
+}
+.si-phone-screen {
+  position: relative;
+  height: 100%;
+  border-radius: 12cqw;
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  font-size: 5.6cqw;
+  line-height: 1.3;
+}
+.si-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5cqw 8cqw 1cqw;
+  font: 700 4.6cqw/1 var(--font-body);
+}
+.si-island {
+  width: 26cqw;
+  height: 7cqw;
+  border-radius: 99px;
+  background: #14171a;
+}
+.si-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.8cqw;
+}
+.si-bars i {
+  display: block;
+  width: 1.4cqw;
+  background: var(--ink);
+  border-radius: 0.4cqw;
+}
+.si-bars i:nth-child(1) {
+  height: 2cqw;
+}
+.si-bars i:nth-child(2) {
+  height: 3.2cqw;
+}
+.si-bars i:nth-child(3) {
+  height: 4.4cqw;
+}
+.si-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4cqw;
+  padding: 3cqw 6cqw 6cqw;
+  min-height: 0;
+  animation: si-screen-in 0.35s ease-out both;
+}
+@keyframes si-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(2cqw);
+  }
+}
+.si-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+}
+.si-title {
+  font: 700 11cqw/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+.si-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.6cqw;
+  padding: 1cqw 2.6cqw 1cqw 1cqw;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font: 650 4.4cqw/1 var(--font-body);
+  color: var(--ink-2);
+}
+.si-who i {
+  display: grid;
+  place-items: center;
+  width: 6cqw;
+  height: 6cqw;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 700 3.6cqw/1 var(--font-body);
+  font-style: normal;
+}
+.si-who.sam i {
+  background: var(--hazard);
+  color: #14171a;
+}
+.si-code {
+  font: 700 7.6cqw/1 var(--font-display);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.si-desc {
+  font-size: 5cqw;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.si-card {
+  padding: 4.4cqw;
+  border-radius: 4cqw;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.si-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+}
+.si-card .si-desc {
+  margin-top: 1.4cqw;
+}
+.si-tag {
+  padding: 1.2cqw 2.4cqw;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 700 3.8cqw/1 var(--font-body);
+}
+.si-tag.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.si-hint {
+  margin-top: 3cqw;
+  padding-top: 3cqw;
+  border-top: 1px dashed var(--line);
+  font-size: 4.4cqw;
+  font-weight: 600;
+  color: var(--accent);
+  animation: si-fade 0.4s ease-out 2.3s both;
+}
+.si-mini {
+  display: flex;
+  align-items: baseline;
+  gap: 2.4cqw;
+  padding: 3.2cqw 4cqw;
+  box-shadow: none;
+}
+.si-mini .si-code {
+  font-size: 6cqw;
+}
+.si-mini .si-desc {
+  margin: 0;
+  font-size: 4.2cqw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.si-a-item {
+  animation: si-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) 1.65s both;
+}
+@keyframes si-rise {
+  from {
+    opacity: 0;
+    transform: translateY(5cqw) scale(0.97);
+  }
+}
+@keyframes si-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Camera viewfinder on the phone. */
+.si-viewfinder {
+  position: relative;
+  flex: none;
+  height: 38cqw;
+  border-radius: 5cqw;
+  background:
+    radial-gradient(circle at 50% 45%, #3b4249, #1c2126 70%);
+  overflow: hidden;
+}
+.si-viewfinder i {
+  position: absolute;
+  width: 8cqw;
+  height: 8cqw;
+  border: 0 solid #f4f5f1;
+}
+.si-viewfinder .tl {
+  left: 16%;
+  top: 18%;
+  border-width: 1.2cqw 0 0 1.2cqw;
+  border-top-left-radius: 2cqw;
+}
+.si-viewfinder .tr {
+  right: 16%;
+  top: 18%;
+  border-width: 1.2cqw 1.2cqw 0 0;
+  border-top-right-radius: 2cqw;
+}
+.si-viewfinder .bl {
+  left: 16%;
+  bottom: 18%;
+  border-width: 0 0 1.2cqw 1.2cqw;
+  border-bottom-left-radius: 2cqw;
+}
+.si-viewfinder .br {
+  right: 16%;
+  bottom: 18%;
+  border-width: 0 1.2cqw 1.2cqw 0;
+  border-bottom-right-radius: 2cqw;
+}
+.si-vf-line {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  top: 50%;
+  height: 0.9cqw;
+  border-radius: 1cqw;
+  background: #ff4d3d;
+  box-shadow: 0 0 3cqw 0.6cqw rgba(255, 77, 61, 0.5);
+  opacity: 0;
+  animation: si-sweep-vf 0.5s ease-in-out 0.45s 2 alternate;
+}
+.si[data-step='1'] .si-vf-line {
+  animation-delay: 1.75s;
+}
+@keyframes si-sweep-vf {
+  from {
+    opacity: 1;
+    top: 24%;
+  }
+  to {
+    opacity: 1;
+    top: 74%;
+  }
+}
+.si-vf-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 5cqw;
+  text-align: center;
+  font: 650 4.2cqw/1 var(--font-body);
+  color: #c3c9cf;
+  opacity: 0;
+  animation: si-hold 1.45s linear both;
+}
+.si[data-step='1'] .si-vf-text {
+  animation-duration: 2.75s;
+}
+@keyframes si-hold {
+  from,
+  96% {
+    opacity: 1;
+  }
+}
+.si-vf-got {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 1.6cqw;
+  padding: 2.2cqw 3.6cqw 2.2cqw 2.6cqw;
+  border-radius: 99px;
+  background: var(--ok);
+  color: #fff;
+  font: 700 6cqw/1 var(--font-display);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  animation: si-pop-c 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) 1.45s both;
+}
+.si[data-step='1'] .si-vf-got {
+  animation-delay: 2.75s;
+}
+@keyframes si-pop-c {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+}
+.si-vf-got svg {
+  width: 5cqw;
+  height: 5cqw;
+  stroke-width: 3;
+}
+
+/* Step 2 on the phone: from, to, confirm, saved. */
+.si-moveto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqw;
+  padding: 3.4cqw;
+  border-radius: 4cqw;
+  border: 1px dashed var(--line);
+  animation: si-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) 2.95s both;
+}
+.si-moveto svg {
+  width: 6cqw;
+  height: 6cqw;
+  color: var(--ink-3);
+}
+.si-spot {
+  display: inline-block;
+  padding: 0.8cqw 2.4cqw 1cqw;
+  border: 0.9cqw solid var(--plate-ink);
+  border-radius: 1.6cqw;
+  background: var(--plate);
+  color: var(--plate-ink);
+  font: 700 7cqw/1 var(--font-display);
+  letter-spacing: 0.04em;
+}
+.si-confirm {
+  position: relative;
+  margin-top: auto;
+  height: 13cqw;
+  animation: si-fade 0.35s ease-out 3.15s both;
+}
+.si-btn,
+.si-saved {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  border-radius: 99px;
+  font: 700 5.2cqw/1 var(--font-body);
+}
+.si-btn {
+  background: var(--ink);
+  color: var(--ground);
+  opacity: 0;
+  animation: si-press 0.5s ease-in-out 3.35s both;
+}
+@keyframes si-press {
+  from {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.si-saved {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  animation: si-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) 3.75s both;
+}
+.si-saved svg {
+  width: 5.4cqw;
+  height: 5.4cqw;
+  stroke-width: 3;
+}
+
+/* Step 3 on the phone: search, result, history. */
+.si-search {
+  display: flex;
+  align-items: center;
+  gap: 2.4cqw;
+  height: 14cqw;
+  padding: 0 4cqw;
+  border-radius: 3.4cqw;
+  background: var(--surface);
+  border: 0.7cqw solid var(--accent);
+  font: 650 5.6cqw/1 var(--font-body);
+}
+.si-search svg {
+  width: 5.6cqw;
+  height: 5.6cqw;
+  flex: none;
+  color: var(--ink-3);
+}
+.si-typed {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  width: 6ch;
+  animation: si-type 1s steps(6, end) 0.35s both;
+}
+@keyframes si-type {
+  from {
+    width: 0;
+  }
+}
+.si-caret {
+  width: 0.6cqw;
+  height: 6.4cqw;
+  margin-left: -1.4cqw;
+  background: var(--accent);
+  animation: si-blink 1s steps(2, start) infinite;
+}
+@keyframes si-blink {
+  to {
+    visibility: hidden;
+  }
+}
+.si-a-result {
+  animation: si-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 1.6s both;
+}
+.si-where {
+  display: flex;
+  align-items: center;
+  gap: 3cqw;
+  margin-top: 3.4cqw;
+  padding-top: 3.4cqw;
+  border-top: 1px dashed var(--line);
+  font-size: 4.2cqw;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+.si-where b {
+  color: var(--ink);
+}
+.si-where .si-spot {
+  flex: none;
+}
+.si-history {
+  display: grid;
+  gap: 2.4cqw;
+  padding: 0 2cqw;
+  font-size: 4.3cqw;
+  color: var(--ink-2);
+  animation: si-fade 0.5s ease-out 2.3s both;
+}
+.si-row {
+  display: flex;
+  align-items: center;
+  gap: 2.6cqw;
+}
+.si-row i {
+  flex: none;
+  width: 3.4cqw;
+  height: 3.4cqw;
+  border-radius: 50%;
+  border: 0.8cqw solid var(--ink-3);
+}
+.si-row i.on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.si-row:first-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+@container (max-width: 180px) {
+  .si-history {
+    display: none;
+  }
+}
+
+.si-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 3cqw 3cqw 6cqw;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.si-tabs span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2cqw;
+  font: 600 3.8cqw/1 var(--font-body);
+  color: var(--ink-3);
+}
+.si-tabs svg {
+  width: 7cqw;
+  height: 7cqw;
+}
+.si-tabs span.on {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+/* ---------------------------------------------------------------- pause, paused, reduced motion */
+
+.si-pause {
+  position: absolute;
+  z-index: 4;
+  left: 22px;
+  top: 22px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+@media (max-width: 559px) {
+  .si-pause {
+    left: 18px;
+    top: 18px;
+    width: 32px;
+    height: 32px;
+  }
+}
+.si-pause:hover {
+  border-color: var(--ink-3);
+}
+.si-pause:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.si-pause svg {
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+}
+.si-pause-bars {
+  width: 10px;
+  height: 12px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.si.is-paused *,
+.si.is-paused *::before,
+.si.is-paused *::after {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .si *,
+  .si *::before,
+  .si *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .si-vf-text,
+  .si-beam-line,
+  .si-vf-line {
+    opacity: 0;
+  }
+  .si-caret {
+    display: none;
+  }
+}

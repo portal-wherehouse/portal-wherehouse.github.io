@@ -1,7 +1,7 @@
 // Building blocks shared by every website page, so the pages read as one site.
 
 import type { ReactNode } from 'react';
-import { BRAND } from '../brand';
+import { BRAND, CREATOR } from '../brand';
 import type { SiteRouteName } from '../app/state';
 import { useSite } from './routing';
 import { Icon, type IconName } from '../ui/icons';
@@ -88,6 +88,32 @@ export function FeatureCards({ items, columns = 3 }: { items: { icon: IconName; 
       ))}
     </div>
   );
+}
+
+/**
+ * The founder's initials in a badge. Stands in for a photo until there is one: to use a photo,
+ * render <img className="site-mono-photo" src=... alt={CREATOR.name} /> where this is used.
+ */
+export function Monogram() {
+  return (
+    <span className="site-mono" aria-hidden="true">
+      {initials(CREATOR.name)}
+    </span>
+  );
+}
+
+/** "John Henry" from "John Henry Mims": he goes by both first names. */
+export function firstName(full: string) {
+  return full.split(' ').slice(0, -1).join(' ') || full;
+}
+
+/** "JH" from "John Henry Mims". */
+export function initials(full: string) {
+  return full
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('');
 }
 
 /** Marks content that is a stand-in until the real thing exists (pricing, customer stories, photos). */

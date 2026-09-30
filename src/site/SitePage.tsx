@@ -14,8 +14,12 @@ const HardwarePage = lazy(() =>
 import { IndustriesPage } from "./pages/Industries";
 import { CustomersPage } from "./pages/Customers";
 import { PricingPage } from "./pages/Pricing";
-import { FitPage } from "./fit/FitPage";
-import { FounderPage } from "./pages/Founder";
+const FitPage = lazy(() =>
+  import("./fit/FitPage").then((m) => ({ default: m.FitPage })),
+);
+const FounderPage = lazy(() =>
+  import("./pages/Founder").then((m) => ({ default: m.FounderPage })),
+);
 import { ContactPage } from "./pages/Contact";
 import { SecurityPage } from "./pages/Security";
 import { firebaseConfig, sampleMode } from "../data/firebaseConfig";

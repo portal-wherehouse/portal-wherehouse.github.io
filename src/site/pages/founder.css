@@ -1,0 +1,507 @@
+/* About page (Founder.tsx). Prefix ab-. */
+
+/* ---------------------------------------------------------------- portrait placeholder */
+
+.ab-portrait {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+@media (max-width: 959px) {
+  .ab-portrait {
+    max-width: 280px;
+  }
+}
+@media (min-width: 960px) {
+  .ab-portrait {
+    justify-self: end;
+    margin: 0;
+  }
+}
+.ab-portrait-box {
+  container-type: inline-size;
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  border-radius: 24px;
+  background:
+    linear-gradient(rgba(20, 23, 26, 0.07) 1px, transparent 1px) 0 0 / 8cqw 8cqw,
+    linear-gradient(90deg, rgba(20, 23, 26, 0.07) 1px, transparent 1px) 0 0 / 8cqw 8cqw,
+    radial-gradient(circle at 30% 20%, #ffd54a, #f2b705 60%, #e0a800);
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 23, 26, 0.12),
+    var(--shadow-lift);
+  overflow: hidden;
+  animation: ab-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s both;
+}
+.ab-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 24px;
+  box-shadow: var(--shadow-lift);
+}
+@keyframes ab-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) rotate(-1.5deg);
+  }
+}
+.ab-portrait-rings {
+  position: absolute;
+  width: 88cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 23, 26, 0.18);
+  box-shadow:
+    0 0 0 9cqw rgba(20, 23, 26, 0.04),
+    0 0 0 18cqw rgba(20, 23, 26, 0.03);
+}
+.ab-portrait-rings::before {
+  content: '';
+  position: absolute;
+  inset: 13cqw;
+  border-radius: 50%;
+  border: 1px dashed rgba(20, 23, 26, 0.25);
+}
+.ab-portrait-initials {
+  position: relative;
+  color: #14171a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 40cqw;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  margin-top: -4cqw;
+}
+.ab-portrait-tag {
+  position: absolute;
+  top: 5cqw;
+  left: 5cqw;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 7px 8px;
+  border-radius: 999px;
+  background: #14171a;
+  color: #f4f5f1;
+  font: 600 12px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.ab-portrait-tag svg {
+  width: 14px;
+  height: 14px;
+  color: #f2b705;
+}
+.ab-portrait-coords {
+  position: absolute;
+  bottom: 15cqw;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font: 600 3.6cqw/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  color: rgba(20, 23, 26, 0.7);
+}
+.ab-portrait-stripes {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 8cqw;
+  background: repeating-linear-gradient(-45deg, #14171a 0 14px, #f2b705 14px 28px);
+}
+.ab-portrait figcaption {
+  display: grid;
+  gap: 2px;
+  margin-top: 14px;
+  text-align: center;
+}
+@media (min-width: 960px) {
+  .ab-portrait figcaption {
+    text-align: left;
+  }
+}
+.ab-portrait figcaption strong {
+  font-size: 16px;
+  font-weight: 650;
+}
+.ab-portrait figcaption span {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- facts */
+
+.ab-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 12px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .ab-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1040px) {
+  .ab-facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.ab-facts > div {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 2px 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 640px) {
+  .ab-facts > div:nth-child(odd) {
+    border-right: 1px solid var(--line);
+  }
+  .ab-facts > div:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+@media (min-width: 1040px) {
+  .ab-facts > div {
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+  }
+  .ab-facts > div:last-child {
+    border-right: 0;
+  }
+}
+@media (max-width: 639px) {
+  .ab-facts > div:last-child {
+    border-bottom: 0;
+  }
+}
+.ab-facts svg {
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  color: var(--accent);
+}
+.ab-facts dt {
+  font: 600 12px/1.3 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ab-facts dd {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ---------------------------------------------------------------- story */
+
+.ab-story p {
+  margin: 0 0 16px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  max-width: 64ch;
+}
+.ab-story .ab-lead {
+  padding-left: 18px;
+  border-left: 4px solid var(--hazard);
+  font-size: clamp(19px, 2.4vw, 23px);
+  line-height: 1.45;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- Charleston */
+
+.ab-local {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .ab-local {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 48px;
+  }
+}
+.ab-local-text p {
+  margin: 0 0 14px;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+.ab-local-text p:first-child {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ab-towns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.ab-towns li {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ground);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ab-local-text .ab-small {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.ab-map {
+  margin: 0;
+  min-width: 0;
+}
+.ab-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 20px 20px,
+    var(--ground);
+}
+.ab-map figcaption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--ink-3);
+  text-align: right;
+}
+.ab-sea {
+  fill: color-mix(in srgb, var(--accent) 16%, var(--ground));
+}
+.ab-coast {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 45%, transparent);
+  stroke-width: 1.5;
+}
+.ab-sea-label {
+  fill: color-mix(in srgb, var(--accent) 70%, var(--ink-3));
+  font: italic 500 11px/1 var(--font-body);
+  letter-spacing: 0.08em;
+}
+.ab-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 5;
+}
+.ab-ring.faint {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ab-ring:not(.faint) {
+    animation: ab-dash 30s linear infinite;
+  }
+  .ab-home-ping {
+    animation: ab-ping 2.6s ease-out infinite;
+  }
+}
+@keyframes ab-dash {
+  to {
+    stroke-dashoffset: -200;
+  }
+}
+@keyframes ab-ping {
+  from {
+    opacity: 0.6;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+.ab-ring-label {
+  fill: var(--ink);
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+  text-transform: uppercase;
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 4px;
+}
+.ab-town {
+  fill: var(--ground);
+  stroke: var(--ink-2);
+  stroke-width: 1.6;
+}
+.ab-town-label {
+  fill: var(--ink-2);
+  font: 600 11px/1 var(--font-body);
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.ab-home path {
+  fill: var(--hazard);
+  stroke: #14171a;
+  stroke-width: 1.6;
+}
+.ab-home circle:not(.ab-home-ping) {
+  fill: #14171a;
+}
+.ab-home-ping {
+  fill: color-mix(in srgb, var(--hazard) 50%, transparent);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ab-home-label {
+  fill: var(--ink);
+  font: 700 13px/1 var(--font-body);
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+/* ---------------------------------------------------------------- working together */
+
+.ab-cards {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 860px) {
+  .ab-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.ab-cards li {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.ab-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--hazard);
+  color: #14171a;
+}
+.ab-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.ab-cards h3 {
+  margin: 16px 0 6px;
+  font-size: 18px;
+  font-weight: 650;
+}
+.ab-cards p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+/* ---------------------------------------------------------------- contact (ink band) */
+
+.ab-contact {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .ab-contact {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+    gap: 56px;
+  }
+}
+.ab-contact .site-lede {
+  color: #d4d9dd;
+}
+.ab-contact-links {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.ab-contact-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #333c43;
+  border-radius: 14px;
+  background: #1d2226;
+  color: #f4f5f1;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.ab-contact-row:hover {
+  border-color: #f2b705;
+}
+.ab-contact-row:focus-visible {
+  outline: 3px solid #f2b705;
+  outline-offset: 2px;
+}
+.ab-contact-row svg {
+  width: 22px;
+  height: 22px;
+  color: #f2b705;
+}
+.ab-contact-row .ab-go {
+  width: 18px;
+  height: 18px;
+  color: #9aa2a9;
+}
+.ab-contact-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  font: 600 15px/1.3 var(--font-body);
+  overflow-wrap: anywhere;
+}
+.ab-contact-row small {
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9aa2a9;
+}
+.ab-contact-more {
+  justify-self: start;
+  margin-top: 6px;
+  color: #f2b705;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-portrait-box {
+    animation: none;
+  }
+}
