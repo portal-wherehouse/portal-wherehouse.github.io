@@ -9,6 +9,10 @@ import { BUSINESSES, CATEGORIES, FIT_LABEL, matchBusiness, type Business, type C
 import './fit.css';
 
 const FIT_PCT = { great: 100, good: 80, partial: 55 } as const;
+/** The two marquee rows: every other business, so each appears once across both rows. */
+const ROWS = [0, 1].map((row) => BUSINESSES.filter((_, i) => i % 2 === row));
+/** "All" starts with a few from each kind, so the list isn't a wall of tiles; one tap shows the rest. */
+const PREVIEW = CATEGORIES.flatMap((c) => BUSINESSES.filter((b) => b.cat === c.id).slice(0, 3));
 const QUICK = ['Do you have physical things that get moved around?', 'Are they kept in more than one spot, room or shelf?', 'Do several people need to find them?'];
 
 export function FitPage() {
@@ -17,14 +21,17 @@ export function FitPage() {
   const [cat, setCat] = useState<Category | 'all'>('all');
   const [picked, setPicked] = useState<Business | null>(null);
   const [asked, setAsked] = useState('');
+  const [all, setAll] = useState(false);
   const detail = useRef<HTMLDivElement>(null);
-  const typed = useTypewriter(BUSINESSES.map((b) => b.name.toLowerCase()));
+  // Shuffled once per visit and kept stable, so the typewriter never restarts mid-word.
+  const [words] = useState(() => shuffle(BUSINESSES.map((b) => b.say)));
+  const typed = useTypewriter(words);
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (q.length < 2) return [];
-    return BUSINESSES.filter((b) => b.name.toLowerCase().includes(q) || b.also.some((a) => a.includes(q))).slice(0, 5);
+    return BUSINESSES.filter((b) => b.name.toLowerCase().includes(q) || b.say.toLowerCase().includes(q) || b.also.some((a) => a.includes(q))).slice(0, 5);
   }, [query]);
-  const shown = BUSINESSES.filter((b) => cat === 'all' || b.cat === cat);
+  const shown = cat !== 'all' ? BUSINESSES.filter((b) => b.cat === cat) : all ? BUSINESSES : PREVIEW;
 
   const choose = (b: Business | null, text = '') => {
     setPicked(b);
@@ -49,12 +56,13 @@ export function FitPage() {
           <p className="site-eyebrow">Who it’s for</p>
           <h1 className="fit-title">
             Does {BRAND.name} work for
-            <br />
-            <span className="fit-typed" aria-hidden="true">
-              {typed}
-              <i />
+            <span className="fit-typed-line">
+              <span className="fit-typed" aria-hidden="true" data-testid="fit-typed">
+                {typed}
+                <i />
+              </span>
+              <span className="sr-only">your business</span>?
             </span>
-            <span className="sr-only">your business</span>?
           </h1>
           <form
             className="fit-search"
@@ -85,14 +93,17 @@ export function FitPage() {
             <Icon name="sparkle" /> Rule of thumb: if you can put a label on it, and a label where it goes, {BRAND.name} can track it.
           </p>
         </div>
-        <div className="fit-marquee" aria-hidden="true">
-          {[0, 1].map((row) => (
-            <div key={row} className={`fit-marquee-row${row ? ' reverse' : ''}`}>
-              {[...BUSINESSES, ...BUSINESSES].filter((_, i) => i % 2 === row).map((b, i) => (
-                <span key={`${b.id}-${i}`} className="fit-chip">
-                  <Icon name={b.icon} /> {b.name}
-                </span>
-              ))}
+        <div className="fit-marquee" role="group" aria-label="Businesses people ask about">
+          {ROWS.map((items, row) => (
+            <div key={row} className={`fit-marquee-row${row ? ' reverse' : ''}`} style={{ ['--dur' as string]: `${items.length * 3}s` }}>
+              {/* The second copy makes the loop seamless; it is hidden from screen readers and the tab order. */}
+              {[0, 1].map((copy) =>
+                items.map((b) => (
+                  <button key={`${copy}-${b.id}`} type="button" className="fit-chip" onClick={() => choose(b)} {...(copy ? { tabIndex: -1, 'aria-hidden': true } : {})}>
+                    <Icon name={b.icon} /> {b.name}
+                  </button>
+                )),
+              )}
             </div>
           ))}
         </div>
@@ -116,15 +127,19 @@ export function FitPage() {
         </div>
         <div className="fit-grid" key={cat}>
           {shown.map((b, n) => (
-            <button key={b.id} className={`fit-tile fit-${b.fit}${picked?.id === b.id ? ' on' : ''}`} style={{ ['--n' as string]: n }} onClick={() => choose(b)}>
+            <button key={b.id} className={`fit-tile${picked?.id === b.id ? ' on' : ''}`} style={{ ['--n' as string]: n }} onClick={() => choose(b)}>
               <span className="fit-bubble">
                 <Icon name={b.icon} />
               </span>
               <strong>{b.name}</strong>
-              <small className="fit-badge">{FIT_LABEL[b.fit]}</small>
             </button>
           ))}
         </div>
+        {cat === 'all' && !all && (
+          <button className="site-btn ghost fit-more" onClick={() => setAll(true)}>
+            Show all {BUSINESSES.length} kinds of business <Icon name="chevronDown" />
+          </button>
+        )}
       </section>
 
       <section className="fit-band">
@@ -176,7 +191,7 @@ function Detail({ b, onPlan, onTalk }: { b: Business; onPlan: () => void; onTalk
               <Icon name="text" /> Your words
             </h3>
             <p>
-              The app would say “Receive a {b.thing.toLowerCase()}” and “Find a {b.thing.toLowerCase()}”.
+              The app would say “Receive {a(b.thing)}” and “Find {a(b.thing)}”.
             </p>
           </div>
           {b.limit && (
@@ -276,33 +291,53 @@ function Unknown({ text, onPlan }: { text: string; onPlan: () => void }) {
   );
 }
 
-/** Types each word, pauses, deletes it, then the next. */
+/** “a pallet”, “an item”. */
+function a(thing: string): string {
+  const w = thing.toLowerCase();
+  return `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
+}
+
+function shuffle<T>(list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+const HOLD_MS = 1800; // how long a finished word stays up
+const ERASE_MS = 240; // the whole word is gone in about this long
+const TYPE_MS = 60; // per letter, plus a little jitter
+
+/** Shows a word, erases all of it quickly, types the next one, pauses, and repeats through the list.
+ *  `words` must be a stable array (not rebuilt each render), or the cycle restarts on every letter. */
 function useTypewriter(words: string[]): string {
   const [text, setText] = useState(words[0]);
   useEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     let w = 0,
-      i = words[0].length,
-      del = true,
+      shown = words[0].length,
+      erasing = true,
       t = 0;
-    const tick = () => {
+    const step = () => {
       const word = words[w];
-      if (del) {
-        i--;
-        if (i <= 0) ((del = false), (w = (w + 1) % words.length));
-      } else {
-        i++;
-        if (i >= words[w].length) {
-          del = true;
-          setText(words[w]);
-          t = window.setTimeout(tick, 1600);
-          return;
-        }
+      if (erasing) {
+        // Take several letters per frame so long and short words both vanish in about ERASE_MS.
+        shown = Math.max(0, shown - Math.ceil(word.length / 8));
+        setText(word.slice(0, shown));
+        if (shown > 0) return (t = window.setTimeout(step, ERASE_MS / 8));
+        erasing = false;
+        w = (w + 1) % words.length;
+        return (t = window.setTimeout(step, 200));
       }
-      setText((del ? word : words[w]).slice(0, Math.max(0, i)));
-      t = window.setTimeout(tick, del ? 35 : 70);
+      shown++;
+      setText(word.slice(0, shown));
+      if (shown < word.length) return (t = window.setTimeout(step, TYPE_MS + Math.random() * 40));
+      erasing = true;
+      t = window.setTimeout(step, HOLD_MS);
     };
-    t = window.setTimeout(tick, 1600);
+    t = window.setTimeout(step, HOLD_MS);
     return () => window.clearTimeout(t);
   }, [words]);
   return text;
