@@ -1,3 +1,4 @@
+import { receivingSchema } from './receiving';
 // Command envelope validation at the boundary (page 22). The server derives actor identity;
 // the client never supplies a trusted role, location, timestamp, or revision.
 
@@ -10,6 +11,9 @@ const reason = text(500).optional();
 
 export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unknown>>> = {
   receive: z.object({
+    receiving: receivingSchema.optional(),
+    remember_product: z.boolean().optional(),
+    shipment_id: id.optional(),
     job_id: id,
     description: text(400),
     notes: text(2000).optional(),
@@ -26,6 +30,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   clear_hold: z.object({ reason }),
   reassign_job: z.object({ job_id: id, reason }),
   edit_details: z.object({
+    receiving: receivingSchema.optional(),
     description: text(400).optional(),
     notes: text(2000).optional(),
     supplier_ref: text(200).optional(),
@@ -59,7 +64,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   change_role: z.object({ user_id: id, role: z.string().max(20), reason }),
   remove_member: z.object({ user_id: id, reason }),
   import_batch: z.object({
-    import_kind: z.enum(['locations', 'jobs', 'pallets']),
+    import_kind: z.enum(['locations', 'jobs', 'pallets', 'shipments']),
     checksum: z.string().max(64),
     rows: z.array(z.record(z.string(), z.string().max(1000))).max(1000),
   }),

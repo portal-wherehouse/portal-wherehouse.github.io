@@ -1,3 +1,5 @@
+import { barcodeMatchKey, blankInfo, receivingSchema, productKey, type ProductMemory, type ExpectedShipment } from '../domain/receiving';
+import { readSupplierBarcode } from '../domain/supplierBarcode';
 // Local command engine: the demo stand-in for the Postgres command functions (pages 17, 21-23).
 //
 // It follows the same transaction sequence the online design requires:
@@ -47,6 +49,8 @@ import { LOCATION_KINDS } from '../domain/types';
 export const DB_SCHEMA_VERSION = 2;
 
 export interface Db {
+  products: Record<string, ProductMemory>;
+  shipments: Record<string, ExpectedShipment>;
   schema: number;
   seed: number | null;
   users: Record<string, User>;
@@ -69,6 +73,8 @@ export interface Db {
 
 export function emptyDb(): Db {
   return {
+    products: {},
+    shipments: {},
     schema: DB_SCHEMA_VERSION,
     seed: null,
     users: {},
@@ -118,7 +124,7 @@ class Tx {
   private undo: Undo[] = [];
   constructor(private db: Db) {}
 
-  put<K extends 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports'>(
+  put<K extends 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports'>(
     table: K,
     key: string,
     value: Db[K][string],
@@ -206,6 +212,8 @@ export class Engine {
     public db: Db,
     opts: EngineOptions = {},
   ) {
+    this.db.products ??= {};
+    this.db.shipments ??= {};
     this.clock = opts.clock ?? (() => new Date().toISOString());
     this.newId = opts.newId ?? (() => uuid());
     this.newToken = opts.newToken ?? (() => generateToken());
@@ -525,7 +533,7 @@ export class Engine {
   }
 
   private receive(tx: Tx, actorId: string, cmd: CommandEnvelope, now: string, reject: (c: ErrorCode, m: string) => CommandRejected): CommandResult {
-    const p = cmd.payload as { job_id: string; description: string; notes?: string; supplier_ref?: string };
+    const p = cmd.payload as { job_id: string; description: string; notes?: string; supplier_ref?: string; receiving?: import('../domain/receiving').PalletInfo; remember_product?: boolean; shipment_id?: string };
     const wh = this.activeWarehouse(cmd.workspace_id);
     if (!wh) return reject('INVALID_STATE', 'This company has no active warehouse.');
     const job = this.db.jobs[p.job_id];
@@ -539,6 +547,15 @@ export class Engine {
     const supplier = (p.supplier_ref ?? '').trim();
     if (supplier.length > 80) return reject('INVALID_INPUT', 'Supplier reference is limited to 80 characters.');
 
+    const info = p.receiving ?? blankInfo();
+    const shipment = p.shipment_id ? this.db.shipments[p.shipment_id] : null;
+    if (p.shipment_id && (!shipment || shipment.workspace_id !== cmd.workspace_id || shipment.warehouse_id !== wh.id)) return reject('NOT_FOUND', 'Expected shipment not found.');
+    if (shipment && shipment.pallet_id) return reject('INVALID_STATE', 'That shipment was already received. Open the existing pallet instead.');
+    if (shipment && barcodeMatchKey(shipment.barcode) !== barcodeMatchKey(supplier)) return reject('INVALID_INPUT', 'The supplier barcode no longer matches the selected shipment. Scan it again.');
+    if (p.remember_product) {
+      if (!info.product_code) return reject('INVALID_INPUT', 'Enter a reusable product barcode to remember this description.');
+      try { if (readSupplierBarcode(info.product_code).kind === 'sscc') return reject('INVALID_INPUT', 'An SSCC identifies one pallet. Use a separate reusable product code.'); } catch { return reject('INVALID_INPUT', 'Enter a valid reusable product barcode.'); }
+    }
     const n = tx.counter(cmd.workspace_id);
     const pallet: Pallet = {
       id: this.newId(),
@@ -547,6 +564,8 @@ export class Engine {
       code: formatPalletCode(n),
       job_id: job.id,
       description,
+      receiving: info,
+      ...(shipment ? {shipment_id: shipment.id} : {}),
       notes: notes || null,
       supplier_ref: supplier || null,
       state: 'RECEIVED',
@@ -560,6 +579,11 @@ export class Engine {
       archived_at: null,
       label_needs_reprint: false,
     };
+    if (shipment) tx.put('shipments', shipment.id, {...shipment, pallet_id:pallet.id, pending_barcode:null});
+    if (p.remember_product) {
+      const id = productKey(cmd.workspace_id, info.product_code);
+      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, field_names:info.fields.map(f=>f.name), updated_at:now});
+    }
     tx.put('pallets', pallet.id, pallet);
     const token = this.newToken();
     tx.put('labels', token, { workspace_id: cmd.workspace_id, token, kind: 'P', target_id: pallet.id, created_at: now, revoked_at: null });
@@ -748,7 +772,7 @@ export class Engine {
     reject: (c: ErrorCode, m: string, cur?: Pallet | null) => CommandRejected,
   ): CommandResult {
     const ws = cmd.workspace_id;
-    const p = cmd.payload as { import_kind: 'locations' | 'jobs' | 'pallets'; checksum: string; rows: Record<string, string>[] };
+    const p = cmd.payload as { import_kind: 'locations' | 'jobs' | 'pallets' | 'shipments'; checksum: string; rows: Record<string, string>[] };
     const rows = p.rows;
     const errors: RowError[] = [];
     const err = (i: number, column: string, message: string) => errors.push({ row: i + 2, column, message });
@@ -763,7 +787,30 @@ export class Engine {
       if (member.role !== 'OWNER' && member.role !== 'SUPERVISOR') return reject('FORBIDDEN', 'Only supervisors and owners can import jobs or locations.');
     }
 
-    if (p.import_kind === 'jobs') {
+    if (p.import_kind === 'shipments') {
+      if (!['OWNER','SUPERVISOR'].includes(member.role)) return reject('FORBIDDEN', 'Only supervisors and owners can import expected shipments.');
+      const prepared: ExpectedShipment[] = [];
+      rows.forEach((r,i) => {
+        const job = Object.values(this.db.jobs).find(j=>j.workspace_id===ws && normalizeCode(j.code)===normalizeCode(get(r,'job_code')));
+        if (!job || job.status!=='OPEN') err(i,'job_code','Choose an existing open job.');
+        const description = get(r,'description');
+        if (!description || description.length>160) err(i,'description','Enter a description up to 160 characters.');
+        let barcode = '';
+        try { barcode = readSupplierBarcode(get(r,'barcode')).reference; } catch { err(i,'barcode','Enter a valid supplier barcode.'); }
+        let fields: {name:string;value:string}[] = [];
+        try {
+          const raw = JSON.parse(get(r,'details_json') || '{}');
+          if (!raw || Array.isArray(raw) || typeof raw!=='object' || Object.values(raw).some(v=>typeof v!=='string')) throw Error();
+          fields = Object.entries(raw).map(([name,value])=>({name,value:value as string}));
+        } catch { err(i,'details_json','Use a JSON object containing field names and text values.'); }
+        const info = receivingSchema.safeParse({product_code:get(r,'product_code'),quantity:get(r,'quantity'),unit:get(r,'unit'),destination:get(r,'destination'),remind_on:get(r,'remind_on'),fields});
+        if (!info.success) err(i,'details',info.error.issues[0].message);
+        if (get(r,'notes').length>1000) err(i,'notes','Notes are limited to 1,000 characters.');
+        if (job && info.success) prepared.push({id:this.newId(),workspace_id:ws,warehouse_id:wh.id,barcode,pending_barcode:barcodeMatchKey(barcode),job_id:job.id,description,notes:get(r,'notes'),receiving:info.data,pallet_id:null,created_at:now});
+      });
+      if (errors.length) return {...reject('INVALID_INPUT','Nothing was imported. Fix the listed rows.'),errors};
+      for (const row of prepared) {tx.put('shipments',row.id,row);created.push(row.id);}
+    } else if (p.import_kind === 'jobs') {
       const seen = new Map<string, number>();
       const existing = new Set(Object.values(this.db.jobs).filter((j) => j.workspace_id === ws).map((j) => normalizeCode(j.code)));
       rows.forEach((r, i) => {
@@ -894,6 +941,7 @@ export class Engine {
       hold: !!p.hold,
       hold_reason: p.hold?.reason ?? null,
       description: p.description,
+      ...(p.receiving ? {receiving:p.receiving} : {}),
       archived: !!p.archived_at,
     };
   }
@@ -1075,6 +1123,10 @@ export class Engine {
         last_confirmed_rack: loc(p.last_confirmed_location_id),
         last_confirmed_at: p.last_confirmed_at ?? '',
         description: p.description,
+        supplier_ref: p.supplier_ref,
+        notes: p.notes,
+        ...p.receiving,
+        fields: JSON.stringify(p.receiving?.fields ?? []),
         version: p.version,
         received_at: p.received_at,
         archived_at: p.archived_at ?? '',

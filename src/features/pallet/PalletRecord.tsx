@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { PhotoImage } from '../../data/LiveView';
 // Pallet details (blueprint page 13): identity, photo, job, location, state, hold,
 // permitted contextual actions, lineage, and the full history.
@@ -198,6 +199,13 @@ export function PalletRecord() {
                 <dd style={{ whiteSpace: 'pre-wrap' }}>{p.notes}</dd>
               </>
             )}
+            {p.receiving && <>
+              {p.receiving.product_code && <><dt>Product barcode</dt><dd>{p.receiving.product_code}</dd></>}
+              {(p.receiving.quantity || p.receiving.unit) && <><dt>Quantity</dt><dd>{p.receiving.quantity} {p.receiving.unit}</dd></>}
+              {p.receiving.destination && <><dt>Going to</dt><dd>{p.receiving.destination}</dd></>}
+              {p.receiving.remind_on && <><dt>Still-here reminder</dt><dd>{p.receiving.remind_on} · Dashboard alert while received, stored or missing</dd></>}
+              {p.receiving.fields.map(f=><Fragment key={f.name}><dt>{f.name}</dt><dd>{f.value || '—'}</dd></Fragment>)}
+            </>}
             <dt>Received</dt>
             <dd title={p.received_at}>{fmtFull(p.received_at)}</dd>
             <dt>Last change</dt>

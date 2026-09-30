@@ -1,3 +1,4 @@
+import { receivingSchema } from './receiving';
 // Pure transition checker (blueprint pages 7, 12, 14, 15, 21).
 // Given the locked, re-read server values, decide whether a command is allowed and what it changes.
 // The engine owns persistence; this module owns the rules.
@@ -107,6 +108,7 @@ export interface TransitionInput {
 export type PalletPatch = Partial<
   Pick<
     Pallet,
+    | 'receiving'
     | 'state'
     | 'current_location_id'
     | 'last_confirmed_location_id'
@@ -305,6 +307,15 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
         if ((s || null) !== pallet.supplier_ref) {
           patch.supplier_ref = s || null;
           detail.supplier_ref = s || null;
+        }
+      }
+      if (payload.receiving !== undefined) {
+        const parsed = receivingSchema.safeParse(payload.receiving);
+        if (!parsed.success) return reject('INVALID_INPUT', parsed.error.issues[0].message);
+        if (JSON.stringify(parsed.data) !== JSON.stringify(pallet.receiving)) {
+          patch.receiving = parsed.data;
+          patch.label_needs_reprint = true;
+          detail.pallet_details = JSON.stringify(parsed.data);
         }
       }
       if (Object.keys(patch).length === 0) return reject('INVALID_INPUT', 'Nothing changed.');

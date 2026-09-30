@@ -1,3 +1,4 @@
+import { productKey, reminderDate } from '../../../src/domain/receiving';
 import { getFirestore, type Transaction, type Query, type DocumentSnapshot } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { emptyDb, type Db } from '../../../src/demo/engine';
@@ -59,6 +60,7 @@ export async function loadCommand(tx:Transaction,ws:string,cmd:CommandEnvelope,m
  const pallet=cmd.pallet_id?db.pallets[cmd.pallet_id]:undefined;
  for(const id of new Set([pallet?.job_id,p.job_id]))await one('jobs',id);
  for(const id of new Set([pallet?.current_location_id,pallet?.last_confirmed_location_id,p.location_id]))await one('locations',id);
+ if(k==='receive'){await one('shipments',p.shipment_id);if(p.remember_product&&p.receiving?.product_code)await one('products',productKey(ws,p.receiving.product_code));}
  if(k==='split')for(const child of p.children || [])await one('jobs',child.job_id);
  if(k==='add_photo'){
   await query('attachments',root.collection('attachments').where('pallet_id','==',cmd.pallet_id).where('state','==','ready').limit(3));
@@ -84,7 +86,7 @@ export async function loadCommand(tx:Transaction,ws:string,cmd:CommandEnvelope,m
   const table=p.import_kind==='locations'?'locations':'jobs',field=p.import_kind==='locations'?'location_code':'job_code';
   for(const code of new Set<string>((p.rows || []).map((r:any)=>normalizeCode(r[field]||'')))){
    await find(table,'code',code);
-   if(p.import_kind!=='pallets')await tx.get(root.collection('codeLocks').doc(`${table}_${encodeURIComponent(code)}`));
+   if(['jobs','locations'].includes(p.import_kind))await tx.get(root.collection('codeLocks').doc(`${table}_${encodeURIComponent(code)}`));
   }
  }
  return db;
@@ -92,7 +94,7 @@ export async function loadCommand(tx:Transaction,ws:string,cmd:CommandEnvelope,m
 
 export function rows(db:Db,ws:string):Map<string,any>{
  const out=new Map<string,any>();
- for(const table of ['warehouses','locations','jobs','pallets','labels','attachments','imports'] as const)for(const [id,v] of Object.entries(db[table]))out.set(`${table}/${id}`,v);
+ for(const table of ['warehouses','locations','jobs','pallets','labels','attachments','imports','products','shipments'] as const)for(const [id,v] of Object.entries(db[table]))out.set(`${table}/${id}`,v);
  for(const list of Object.values(db.events))for(const ev of list)out.set(`events/${ev.pallet_id}_${ev.revision}`,ev);
  for(const m of db.memberships)out.set(`members/${m.user_id}`,{...m,user:db.users[m.user_id]});
  for(const a of db.audit)out.set(`audit/${a.id}`,a);
@@ -106,7 +108,7 @@ export function persist(tx:Transaction,ws:string,before:Map<string,any>,db:Db){
  if(changes.length>400)throw new HttpsError('resource-exhausted','Import fewer rows at a time.');
  for(const [path,raw]of changes){
   const table=path.split('/')[0];let v=JSON.parse(JSON.stringify(raw));
-  if(table==='pallets')v={...v,has_hold:!!v.hold,search_terms:searchTerms({...v,description:v.description+' '+(db.jobs[v.job_id]?.name||'')})};
+  if(table==='pallets')v={...v,reminder_due:reminderDate(v),has_hold:!!v.hold,search_terms:searchTerms({...v,description:v.description+' '+(db.jobs[v.job_id]?.name||'')})};
   if(['events','audit','lineage','imports'].includes(table)||(!before.has(path)&&table==='labels'))tx.create(root.collection(table).doc(path.slice(table.length+1)),v);
   else tx.set(root.collection(table).doc(path.slice(table.length+1)),v);
   if(['jobs','locations'].includes(table))tx.set(root.collection('codeLocks').doc(`${table}_${encodeURIComponent(v.code)}`),{target_id:v.id});
@@ -115,7 +117,7 @@ export function persist(tx:Transaction,ws:string,before:Map<string,any>,db:Db){
  if(db.workspaces[ws])tx.set(root,db.workspaces[ws],{merge:true});
 }
 export function searchTerms(p:any):string[]{
- const text=`${p.code} ${p.description} ${p.notes||''} ${p.supplier_ref||''}`.toLowerCase();
+ const text=`${p.code} ${p.description} ${p.notes||''} ${p.supplier_ref||''} ${p.receiving?.product_code||''} ${p.receiving?.destination||''} ${(p.receiving?.fields||[]).map((f:any)=>f.name+' '+f.value).join(' ')}`.toLowerCase();
  const terms=new Set<string>();for(const word of text.match(/[\p{L}\p{N}-]+/gu)||[])for(let n=2;n<=Math.min(word.length,32);n++)terms.add(word.slice(0,n));
  return [...terms].slice(0,600);
 }

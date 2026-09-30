@@ -1,3 +1,4 @@
+import { FirebaseBackend } from '../../data/firebase';
 // CSV import (page 27): template, paste or choose a file, preview with row errors, then one atomic batch.
 
 import { useMemo, useState } from 'react';
@@ -12,7 +13,7 @@ import { useCommand } from '../../ui/useCommand';
 import { Explain, Notice, PageHead, PermissionDenied, Spinner, fmtAgo } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
 
-const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets' };
+const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets', shipments: 'Expected shipments' };
 
 export function Import() {
   const { role, toast, backend, go, workspaceId, v } = useApp();
@@ -84,7 +85,7 @@ export function Import() {
       </Explain>
 
       <div className="seg" role="group" aria-label="What to import" data-tour="import-kind">
-        {(Object.keys(IMPORT_TEMPLATES) as ImportKind[]).map((k) => (
+        {(Object.keys(IMPORT_TEMPLATES) as ImportKind[]).filter(k=>k!=='shipments'||!(backend instanceof FirebaseBackend)||backend.summary?.receiving_version===1).map((k) => (
           <button key={k} aria-pressed={kind === k} onClick={() => (setKind(k), cmd.reset())}>
             {KIND_LABEL[k]}
           </button>
@@ -186,7 +187,7 @@ export function Import() {
                       <Icon name="print" /> Print labels
                     </button>
                   )}
-                  <button className="btn small" onClick={() => go(kind === 'pallets' ? 'reconcile' : kind)}>
+                  <button className="btn small" onClick={() => go(kind === 'pallets' ? 'reconcile' : kind === 'shipments' ? 'receive' : kind)}>
                     Open {kind === 'pallets' ? 'reconcile' : KIND_LABEL[kind].toLowerCase()}
                   </button>
                   <button className="btn small" onClick={reset}>

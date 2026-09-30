@@ -84,6 +84,16 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      match /products/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
+      match /shipments/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
       match /pallets/{id} {
         allow get: if isMember(ws);
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;

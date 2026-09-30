@@ -82,3 +82,28 @@ Encode the full text above as a QR code (do not encode it as an SSCC barcode).
 1–160 characters. Leading zeros must be preserved. Receive fills both fields,
 requires the operator to choose a job and save, and refuses to overwrite different
 existing contents. Find extracts the same reference to search saved records.
+
+### Product memory and pallet details
+
+Receive can match a supplier scan to **Import → Expected shipments**, a warehouse's remembered product name, or an optional `WHR1` description. Ordinary supplier barcodes do not provide a universal description lookup. Expected shipments do not add stock until a receiver reviews and saves the pallet. Multiple matching deliveries require a choice; consuming a shipment and creating its pallet are one transaction.
+
+Keep the preferred product name in Description (for example, White birch). Quantity/unit (48 logs), destination, notes, date and up to 12 named custom details belong to that individual pallet. A reusable product barcode can remember the preferred description, unit and custom field names. Quantities and field values never become defaults. SSCC pallet IDs cannot be saved as reusable product codes. GTIN lookups accept equivalent zero-padded representations. Imported `details_json` is a JSON object of text values, such as `{"Grade":"A","Length":"16 inches"}`.
+
+Every received pallet gets its own Wherehouse QR and Code 128 label, even without a supplier barcode. The label prints the description and quantity; scanning its identity opens the current saved record, including destination and custom details. Editing pallet details flags the physical label for reprinting without changing its QR identity. Product defaults do not change existing pallets.
+
+**Still-here reminders** are dashboard alerts starting on the selected warehouse-calendar date. Received, stored and missing pallets remain eligible; dispatched, retired and archived pallets do not. Clear or reschedule a reminder with Edit details. The dashboard refreshes about once a minute while visible and shows the earliest 50 due pallets. This feature does not send email, SMS or device push notifications.
+
+#### Deploying the receiving extension
+
+The web UI waits for `getWarehouseSummary` to advertise `receiving_version: 1`, preventing new fields from being submitted to the earlier command handler. Deploy the command and rules **first**, then the summary function. In authenticated Cloud Shell from an up-to-date checkout:
+
+```sh
+cd ~/wherehouse
+git pull --ff-only
+npm ci
+npm --prefix firebase/functions ci
+npx firebase deploy --only functions:command,firestore:rules --project wherehouseportal
+npx firebase deploy --only functions:getWarehouseSummary --project wherehouseportal
+```
+
+Only run the second deploy after the first succeeds. No signup configuration or billing-plan change is involved. Existing pallets need no migration; the new detail fields are optional. Refresh the app after deployment.

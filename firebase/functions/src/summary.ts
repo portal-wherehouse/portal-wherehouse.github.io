@@ -1,3 +1,4 @@
+import { warehouseDate } from '../../../src/domain/receiving';
 import { getFirestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 export async function warehouseSummary(request:any){
@@ -6,7 +7,7 @@ export async function warehouseSummary(request:any){
  const [member,license]=await Promise.all([root.collection('members').doc(uid).get(),db.doc(`licenses/${ws}`).get()]);
  if(!member.get('active')||!license.get('active')||license.get('expires_at').toMillis()<=Date.now())throw new HttpsError('permission-denied','Active warehouse access is required.');
  const cache=root.collection('private').doc('summaryCache'),cached=await cache.get();
- if(cached.exists&&Date.now()-cached.get('at')<60000)return cached.get('value');
+ if(cached.exists&&cached.get('value')?.receiving_version===1&&Date.now()-cached.get('at')<60000)return cached.get('value');
  // A short lease coalesces concurrent requests; a crashed worker can be retried after 30 seconds.
  const lease=await db.runTransaction(async tx=>{const c=await tx.get(cache);if(c.get('leaseUntil')>Date.now())return false;tx.set(cache,{leaseUntil:Date.now()+30000},{merge:true});return true;});
  if(!lease){if(cached.get('value'))return cached.get('value');throw new HttpsError('unavailable','Overview is refreshing. Try again shortly.');}
@@ -15,7 +16,12 @@ export async function warehouseSummary(request:any){
  const names=['RECEIVED','STORED','MISSING','DISPATCHED','RETIRED'];
  const counts=Object.fromEntries(await Promise.all(names.map(async state=>[state,await count(pallets.where('state','==',state))])));
  const [holds,reprint,stale]=await Promise.all([count(pallets.where('has_hold','==',true).where('state','!=','RETIRED')),count(pallets.where('label_needs_reprint','==',true).where('state','!=','RETIRED')),count(pallets.where('state','==','STORED').where('last_confirmed_at','<',new Date(Date.now()-3*86400000).toISOString()))]);
- const value={counts,holds,reprint,stale,at:new Date().toISOString()};await cache.set({value,at:Date.now(),leaseUntil:0});return value;
+ const facility=(await root.collection('warehouses').where('active','==',true).limit(1).get()).docs[0];
+ const today=warehouseDate(facility?.get('timezone')||'UTC');
+ const dueQuery=root.collection('pallets').where('reminder_due','>=','2000-01-01').where('reminder_due','<=',today).orderBy('reminder_due');
+ const [due,reminder_count]=await Promise.all([dueQuery.limit(50).get(),count(dueQuery)]);
+ const reminders=due.docs.map(d=>({id:d.id,code:d.get('code'),description:d.get('description'),receiving:d.get('receiving'),state:d.get('state')}));
+ const value={counts,holds,reprint,stale,receiving_version:1,reminders,reminder_count,at:new Date().toISOString()};await cache.set({value,at:Date.now(),leaseUntil:0});return value;
 }
 
 export async function directoryCounts(request:any){

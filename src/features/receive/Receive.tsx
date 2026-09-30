@@ -1,6 +1,9 @@
+import { FirebaseBackend } from '../../data/firebase';
+import { barcodeMatchKey, blankInfo, productKey, receivingSchema, type ExpectedShipment, type ProductMemory } from '../../domain/receiving';
+import { PalletFields } from './PalletFields';
 // Receive: give a pallet an identity (blueprint page 11).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { readSupplierBarcode } from '../../domain/supplierBarcode';
 import { useScanTarget } from '../../device/scanRouter';
 import { BarcodeSheet } from '../scan/BarcodeSheet';
@@ -16,13 +19,20 @@ import { Explain, Field, Notice, PageHead, PermissionDenied, Spinner } from '../
 import { LabelSheet } from '../labels/LabelSheet';
 
 export function Receive() {
-  const { read, role, go, setLeaveGuard, toast, backend, prefs } = useApp();
+  const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId } = useApp();
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
   const [jobId, setJobId] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [supplier, setSupplier] = useState('');
+  const [info, setInfo] = useState(blankInfo);
+  const [remember, setRemember] = useState(false);
+  const [shipmentId, setShipmentId] = useState('');
+  const [matches, setMatches] = useState<ExpectedShipment[]>([]);
+  const [lookupBusy,setLookupBusy] = useState(false);
+  const lookupLock = useRef(false);
+  const enhanced = !(backend instanceof FirebaseBackend) || backend.summary?.receiving_version === 1;
   const [scanning, setScanning] = useState(false);
   const [scanHint, setScanHint] = useState('');
   const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
@@ -36,23 +46,45 @@ export function Receive() {
   const [sessionIds, setSessionIds] = useState<string[]>([]);
   const cmd = useCommand();
   const photoCmd = useCommand();
-  const locked = cmd.locked || cmd.busy;
-  const captureSupplier = (raw: string) => {
-    if (locked || created) throw Error('Finish the current receipt before scanning another pallet.');
+  const locked = cmd.locked || cmd.busy || lookupBusy;
+  const lookup = async (code:string) => {
+    if (backend instanceof FirebaseBackend) return backend.receivingLookup(code);
+    return {product:backend.db.products[productKey(workspaceId!,code)] ?? null,
+      shipments:Object.values(backend.db.shipments).filter(r=>r.workspace_id===workspaceId && r.pending_barcode===barcodeMatchKey(code))};
+  };
+  const memoryInfo = (product:ProductMemory) => ({...blankInfo(),product_code:product.code,unit:product.unit,fields:product.field_names.map(name=>({name,value:''}))});
+  const applyShipment = async (row:ExpectedShipment) => {
+    const product = row.receiving.product_code ? (await lookup(row.receiving.product_code)).product : null;
+    setShipmentId(row.id); setJobId(row.job_id); setSupplier(row.barcode);
+    setDescription(product?.description || row.description); setNotes(row.notes);
+    setInfo({...row.receiving,fields:row.receiving.fields.map(f=>({...f}))});
+    setScanHint('Matched imported shipment. Review and edit these details before saving.');
+    setMatches([]);
+  };
+  const captureSupplier = async (raw: string) => {
+    if (locked || created || lookupLock.current) throw Error('Finish the current receipt or lookup before scanning another pallet.');
     const result = readSupplierBarcode(raw);
     if (supplier.trim() && supplier.trim() !== result.reference) throw Error('Clear the current supplier reference before scanning a different label.');
     if (result.description && description.trim() && description.trim() !== result.description) throw Error('Clear the current description before scanning a label with different contents.');
-    setSupplier(result.reference);
-    if (result.description) setDescription(result.description);
-    setScanHint(result.hint);
+    lookupLock.current=true; setLookupBusy(true);
+    try {
+      const found = enhanced ? await lookup(result.reference) : {product:null,shipments:[]};
+      setSupplier(result.reference); setShipmentId(''); setMatches(found.shipments); setRemember(false);
+      const pristine = !description.trim() && !notes.trim() && JSON.stringify(info)===JSON.stringify(blankInfo());
+      if (found.shipments.length===1 && pristine) {await applyShipment(found.shipments[0]); return;}
+      if (!description.trim()) setDescription(found.product?.description || result.description || '');
+      if (pristine && found.product) setInfo(memoryInfo(found.product));
+      else if (!info.product_code && result.kind==='gtin') setInfo({...info,product_code:result.reference});
+      setScanHint(found.shipments.length ? 'Choose the expected delivery below, or keep your current entries.' : found.product ? 'Remembered product name loaded. Enter the details for this pallet.' : result.description ? result.hint : `${result.hint} No matching description found. Enter your warehouse’s product name and this pallet’s details.`);
+    } finally {lookupLock.current=false;setLookupBusy(false);}
   };
   useScanTarget('receive-supplier', (event) => {
-    try {captureSupplier(event.text); return true;}
-    catch (e) {toast((e as Error).message, 'error'); return 'error';}
+    void captureSupplier(event.text).catch(e=>toast((e as Error).message,'error'));
+    return true;
   }, roleAllows(role, 'receive') && !created && !locked && !scanning);
 
 
-  const dirty = !created && (description.trim() !== '' || notes.trim() !== '' || supplier.trim() !== '' || !!photo);
+  const dirty = !created && (description.trim() !== '' || notes.trim() !== '' || supplier.trim() !== '' || !!photo || JSON.stringify(info)!==JSON.stringify(blankInfo()));
   useEffect(() => {
     setLeaveGuard(dirty ? 'You have an unsaved receipt. Leave and discard it?' : null);
     return () => setLeaveGuard(null);
@@ -91,7 +123,13 @@ export function Receive() {
   const submit = async () => {
     setTouched(true);
     if (!jobId || !description.trim() || description.length > 160 || notes.length > 1000) return;
-    const r = await cmd.run('receive', { job_id: jobId, description, notes: notes || undefined, supplier_ref: supplier || undefined });
+    if (lookupLock.current || locked) return;
+    if (enhanced) {
+      const checked=receivingSchema.safeParse(info);
+      if (!checked.success) return toast(checked.error.issues[0].message,'error');
+    }
+    const r = await cmd.run('receive', { job_id: jobId, description, notes: notes || undefined, supplier_ref: supplier || undefined,
+      ...(enhanced ? {receiving:info,remember_product:remember,shipment_id:shipmentId||undefined} : {}) });
     if (r.phase === 'done' && r.accepted?.current_state) {
       const p = r.accepted.current_state;
       setCreated(p);
@@ -114,6 +152,8 @@ export function Receive() {
   const another = (sameContents = false) => {
     setCreated(null);
     if (!sameContents) setDescription('');
+    setInfo(sameContents ? {...blankInfo(),product_code:info.product_code,unit:info.unit,fields:info.fields.map(f=>({name:f.name,value:''}))} : blankInfo());
+    setRemember(false);setShipmentId('');setMatches([]);
     setSupplier('');
     setScanHint('');
     setNotes('');
@@ -211,7 +251,7 @@ export function Receive() {
           </div>
         </div>
         {sessionIds.length > 1 && <button className="btn" onClick={() => setLabelIds(sessionIds)}>Print all {sessionIds.length} labels from this receiving session</button>}
-        <p className="muted">“Receive another like this” keeps the job and description. Supplier references, photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
+        <p className="muted">“Receive another like this” keeps the job and description. Quantity, custom values, destination, reminder, supplier reference, photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
         {labelIds.length > 0 && <LabelSheet palletIds={labelIds} onClose={() => setLabelIds([])} />}
       </div>
     );
@@ -221,8 +261,10 @@ export function Receive() {
     <div className="stack">
       <PageHead eyebrow="Warehouse" title="Receive a pallet" sub="Give the pallet an identity. Place it on a rack next." />
       <button className="btn big" type="button" disabled={locked} onClick={() => setScanning(true)}><Icon name="scanner" />Scan supplier barcode</button>
-      <p className="hint">Scan a supplier barcode or receiving QR code. Descriptions fill in when the QR includes them. Review the details and choose a job before saving.</p>
+      <p className="hint">Scan to match expected shipment data or a remembered product. Review the editable description and this pallet’s details. No supplier barcode? Enter them manually and print the new pallet label after saving.</p>
       {scanning && <BarcodeSheet title="Scan supplier barcode" onScan={captureSupplier} onClose={() => setScanning(false)} />}
+      {!enhanced && <Notice tone="info">Product memory, shipment matching and pallet reminders will be available after the warehouse server update. Basic receiving is available now.</Notice>}
+      {matches.length>0 && <section className="panel stack"><h2>Expected deliveries matching this barcode</h2><p>Choosing one fills the form with its details. Review them before saving.</p>{matches.map(row=><button type="button" className="btn" disabled={locked} key={row.id} onClick={async()=>{setLookupBusy(true);try{await applyShipment(row);}catch(e){toast((e as Error).message,'error');}finally{setLookupBusy(false);}}}>{row.description} · {row.receiving.quantity} {row.receiving.unit} · {row.receiving.destination || jobs.find(j=>j.id===row.job_id)?.code}</button>)}<button className="btn ghost" onClick={()=>setMatches([])}>Keep my entries instead</button></section>}
       <Explain refs="pages 9, 11, 25">
         <p>A pallet is one physically handled unit, not a product SKU. Two identical pallets are two records, because they can be stored in different places.</p>
         <ul>
@@ -251,7 +293,7 @@ export function Receive() {
             ))}
           </select>
         </Field>
-        <Field label="Description" htmlFor="rcv-desc" hint={descErr ?? 'What would help someone recognize it: contents, packaging, color.'} count={description.length} max={160}>
+        <Field label="Description" htmlFor="rcv-desc" hint={descErr ?? 'Your warehouse’s product name, e.g. White birch. Put changing quantities and other details below.'} count={description.length} max={160}>
           <input
             id="rcv-desc"
             className="input"
@@ -272,7 +314,7 @@ export function Receive() {
         {scanHint && <p role="status" className="hint">{scanHint}</p>}
         <div className="grid-2">
           <Field label="Supplier reference (optional)" htmlFor="rcv-sup" hint="Scan or enter the supplier’s code. Find materials can search it after saving.">
-            <input id="rcv-sup" className="input" value={supplier} onChange={(e) => {setSupplier(e.target.value); setScanHint('');}} maxLength={80} disabled={locked} placeholder="e.g. PO 4471 / ACME-22" />
+            <input id="rcv-sup" className="input" value={supplier} onChange={(e) => {setSupplier(e.target.value); setScanHint(''); setShipmentId('');setMatches([]);}} maxLength={80} disabled={locked} placeholder="e.g. PO 4471 / ACME-22" />
           </Field>
           <Field label="Photo (optional)" hint={photoError ?? (photo ? `${photo.width}×${photo.height}, ${formatBytes(photo.bytes)} after compression (was ${formatBytes(photo.original_bytes)})` : 'JPEG, PNG or WebP up to 5 MB. Compressed on this device.')}>
             <div className="row nowrap">
@@ -289,6 +331,12 @@ export function Receive() {
             </div>
           </Field>
         </div>
+        {enhanced && <>
+          <Field label="Reusable product barcode (optional)" htmlFor="rcv-product" hint="For a code shared by this product across deliveries. A supplier pallet SSCC identifies one pallet and must not be used here."><input id="rcv-product" className="input" value={info.product_code} onChange={e=>{setInfo({...info,product_code:e.target.value});setRemember(false);}} maxLength={80} disabled={locked}/></Field>
+          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Remember this description for this product barcode</label>
+          <p className="hint">Saving with this checked updates your warehouse’s preferred name, unit and custom field names for future scans. It does not copy quantities, custom values, destinations or reminders, or change older pallets.</p>
+          <PalletFields value={info} onChange={setInfo} disabled={locked}/>
+        </>}
         <Field label="Note (optional)" htmlFor="rcv-note" count={notes.length} max={1000}>
           <textarea id="rcv-note" className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1200} disabled={locked} placeholder="Damage, packaging, who delivered it…" />
         </Field>
@@ -300,7 +348,7 @@ export function Receive() {
         )}
         <CommandFeedback state={cmd.state} onRecover={() => void recover()} />
         {!cmd.locked && (
-          <button type="submit" className="btn primary big block" disabled={cmd.busy}>
+          <button type="submit" className="btn primary big block" disabled={locked}>
             {cmd.busy ? <Spinner /> : <Icon name="receive" />}
             {cmd.busy ? 'Saving…' : 'Save pallet'}
           </button>

@@ -1,3 +1,4 @@
+import {testReceiving} from './receiving.mjs';
 import {testSignup} from './signup.mjs';
 import './local-only.mjs';
 import {issueKey,licenseStore} from './keys.mjs';
@@ -81,6 +82,7 @@ try {
  await licenseRef.update({limits:{maxPalletRecords:1}});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Over record quota'}),e=>e.code==='functions/resource-exhausted'&&/storage allowance/.test(e.message));ok('pallet storage allowance stops additions without deleting records');
  for(const limits of [{photoMonthBytes:0},{photoStoredBytes:0}]){await licenseRef.update({limits});await assert.rejects(owner.call('reservePhotoUpload',{workspaceId:ws,uploadId:randomUUID(),bytes:8,thumbBytes:4}),e=>e.code==='functions/resource-exhausted'&&/Existing photos/.test(e.message));}
  assert.equal((await getBytes(ref(owner.storage,path))).byteLength,bytes.length);await licenseRef.update({limits:{}});ok('upload and retained storage limits preserve photos and return clear errors');
+ await testReceiving({owner,viewer,outsider,ws,job,location:a,send,adminDb});
  await adminDb.doc(`licenses/${ws}`).update({active:false});
  await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Inactive license'}));await assert.rejects(getBytes(ref(owner.storage,path)));ok('revoked license blocks reads, commands and photos');
  await adminDb.doc(`licenses/${ws}`).update({active:true,expires_at:Timestamp.fromMillis(Date.now()-1000)});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Expired license'}));await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws)));ok('expired license blocks warehouse access');

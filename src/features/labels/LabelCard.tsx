@@ -1,3 +1,4 @@
+import { palletContents } from '../../domain/receiving';
 // Printable labels (blueprint page 16). Pallet labels: big code, job, short description, QR, and a Code 128
 // barcode of the printed code for laser scanners. Rack labels: the readable rack code first. Job and description
 // stay outside the QR, so edits never change the identity token.
@@ -30,7 +31,7 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
       <div className="label-card label-sheet">
         <FitCode text={pallet.code} className="l-code" maxHeight="0.56in" />
         <div className="l-job">JOB {job.code}</div>
-        <div className="l-desc l-clamp">{pallet.description}</div>
+        <div className="l-desc l-clamp">{palletContents(pallet)}</div>
         <div className="l-row">
           <Qr payload={payload} className="l-qr" />
           <div className="l-side">
@@ -44,7 +45,7 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
     <div className="label-card label-4x6 has-bc">
       <FitCode text={pallet.code} className="l-code" maxHeight="0.95in" />
       <div className="l-job">JOB {job.code}</div>
-      <div className="l-desc l-clamp">{pallet.description}</div>
+      <div className="l-desc l-clamp">{palletContents(pallet)}</div>
       <div className="l-desc l-one" style={{ fontWeight: 400, fontSize: '0.14in' }}>
         {job.name}
       </div>

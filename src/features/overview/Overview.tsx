@@ -1,5 +1,7 @@
+import { reminderDate, warehouseDate, palletContents } from '../../domain/receiving';
+import type { Pallet } from '../../domain/types';
 import { FirebaseBackend } from '../../data/firebase';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { EVENT_LABEL, STATE_LABEL } from '../../domain/transitions';
 import type { PalletState } from '../../domain/types';
 import { useApp, type RouteName } from '../../app/state';
@@ -18,13 +20,17 @@ const ACTIONS: { route: RouteName; title: string; hint: string; icon: IconName; 
 ];
 export function Overview() {
   const {read,go,backend,v,role} = useApp();
+  const [minute,setMinute]=useState(0);
+  useEffect(()=>{const timer=setInterval(()=>{setMinute(n=>n+1);if(backend instanceof FirebaseBackend && document.visibilityState==='visible')void backend.refreshSummary().catch(()=>{});},60000);return()=>clearInterval(timer);},[backend]);
   const data=useMemo(()=>read((e,a,ws)=>{
     const ctx=e.context(a,ws);
     const pallets=Object.values(e.db.pallets).filter(p=>p.workspace_id===ws&&!p.archived_at);
     const counts=Object.fromEntries(STATE_ORDER.map(s=>[s,0])) as Record<PalletState,number>;
     for(const p of pallets)counts[p.state]++;
-    return {ctx,counts,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000)};
-  }),[v,backend.network,read]);
+    const today=warehouseDate(ctx.warehouse?.timezone||'UTC');
+    const reminders=pallets.filter(p=>reminderDate(p) && reminderDate(p)!<=today).sort((a,b)=>a.receiving!.remind_on.localeCompare(b.receiving!.remind_on));
+    return {ctx,counts,reminders,reminder_count:reminders.length,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000)};
+  }),[v,backend.network,read,minute]);
   if(!data)return null;
   const live=backend instanceof FirebaseBackend;
   const summary=live?backend.summary:data;
@@ -51,6 +57,7 @@ export function Overview() {
       {actions.map(a=><button className="warehouse-action" key={a.route} aria-label={a.title} onClick={()=>go(a.route)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
     </div></section>
     {summary&&total===0&&<section className="panel warehouse-empty"><Icon name="locations"/><div><h2>Your warehouse is ready.</h2><p>{manager?'Add your rack locations and a job, then receive your first pallet.':'Your team’s pallets will appear here as deliveries are recorded.'}</p></div>{manager&&<button className="btn primary" onClick={()=>go('locations')}>Set up locations</button>}</section>}
+    {summary?.reminder_count>0 && <section className="panel stack" aria-label="Still here reminders"><h2>Still here: {summary.reminder_count} reminder{summary.reminder_count===1?'':'s'}</h2><p className="muted">Due in your warehouse’s timezone. Open a pallet to review, clear or reschedule its date. Missing pallets are included. Updates about once a minute while this dashboard is open.</p>{summary.reminders.map((p:Pallet)=><button className="btn" key={p.id} onClick={()=>go({name:'pallet',id:p.id})}>{p.code} · {palletContents(p)} · {p.receiving?.remind_on}{p.receiving?.destination?` · Going to ${p.receiving.destination}`:''}{p.state==='MISSING'?' · Missing':''}</button>)}{summary.reminder_count>50 && <p>Showing the 50 earliest reminders. Clear or reschedule reviewed dates to see the next ones.</p>}</section>}
     <div className="grid-2">
       <section className="panel stack"><div className="warehouse-section-head"><h2>Pallet status</h2><button className="btn ghost small" onClick={()=>go('find')}>Find pallets</button></div>
         {summary?<StateBar counts={counts} total={total}/>:<p className="muted">Refresh to load warehouse counts.</p>}

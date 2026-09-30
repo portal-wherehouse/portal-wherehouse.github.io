@@ -79,7 +79,8 @@
 .warehouse-chart-note{font-size:12px;margin:0;}.warehouse-activity>button{display:flex;align-items:center;gap:12px;width:100%;padding:13px 0;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);text-align:left;cursor:pointer;}.warehouse-activity>button:last-child{border:0;}.warehouse-activity>button>span:nth-child(2){display:grid;gap:5px;flex:1;min-width:0;overflow-wrap:anywhere;}.warehouse-activity strong{font-size:14px;}.warehouse-activity small,.warehouse-activity time{font-size:12px;color:var(--ink-3);}.warehouse-activity time{max-width:130px;text-align:right;}
 .warehouse-utilities{display:flex;gap:10px;flex-wrap:wrap;}
 .customer-app .bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr));}
-.customer-app .main.page-enter{animation:warehouse-in .28s ease both;}
+/* Release the animated transform after entry so fixed dialogs sit above mobile navigation. */
+.customer-app .main.page-enter{animation:warehouse-in .28s ease backwards;}
 .customer-app :is(.btn,.nav-item,.warehouse-action,.warehouse-metric,.result){transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;}
 .customer-app :is(.warehouse-action,.warehouse-metric):hover{border-color:#aac2dc;box-shadow:0 4px 14px #2849680b;transform:translateY(-2px);}
 .customer-app :is(.btn,.warehouse-action,.warehouse-metric):active{transform:translateY(1px);}

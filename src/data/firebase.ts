@@ -1,3 +1,4 @@
+import { barcodeMatchKey, productKey, type ExpectedShipment, type ProductMemory } from '../domain/receiving';
 import { initializeAppCheck, getToken as getAppCheckToken, setTokenAutoRefreshEnabled, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { palletQuery, PAGE_SIZE, type LiveFilter } from './liveQueries';
 import { normalizeCode, parsePalletCode, parseLabelPayload } from '../domain/codes';
@@ -194,6 +195,26 @@ export class FirebaseBackend extends Backend {
     const values=s.docs.map(d=>d.data());this.ingest(p.table,values);await this.related(p.table,values);p.cursor=s.docs.at(-1);p.more=s.size===PAGE_SIZE;if(key==='directory:jobs'||key==='directory:locations')await this.loadCounts(p.table as 'jobs'|'locations');this.bump(false);
   }
   directoryMore(){return ['jobs','locations'].filter(t=>this.pageMore('directory:'+t));}
+  async receivingLookup(code:string):Promise<{product:ProductMemory|null;shipments:ExpectedShipment[]}> {
+    const ws=this.activeWorkspace!,gen=this.generation;
+    const [product,shipments]=await Promise.all([
+      getDoc(doc(this.col('products'),productKey(ws,code))),
+      this.docs(query(this.col('shipments'),where('pending_barcode','==',barcodeMatchKey(code)),limit(21)))
+    ]);
+    this.metrics.reads++;
+    if(gen!==this.generation)throw Error('Warehouse changed. Scan again.');
+    if(shipments.size>20)throw Error('More than 20 expected deliveries match this product. Import unique pallet barcodes or enter this receipt manually.');
+    const rows=shipments.docs.map(d=>d.data() as ExpectedShipment);
+    await Promise.all([...new Set(rows.map(r=>r.job_id))].map(id=>this.one('jobs',id,true)));
+    if(gen!==this.generation)throw Error('Warehouse changed. Scan again.');
+    this.bump(false);
+    return {product:product.exists()?product.data() as ProductMemory:null,shipments:rows};
+  }
+  async refreshSummary(){
+    const gen=this.generation;
+    const data=(await httpsCallable(this.functions!,'getWarehouseSummary')({workspaceId:this.activeWorkspace})).data;
+    if(gen===this.generation){this.summary=data;this.bump(false);}
+  }
   async refreshView(){this.viewKey='';await this.openView(this.viewRoute);}
   async openView(route:{name:string;id?:string}){
     if(!this.activeWorkspace||!this.firestore)return;
@@ -225,7 +246,8 @@ export class FirebaseBackend extends Backend {
 
       if(['locations','map','overview'].includes(name))await this.loadCounts('locations');
       if(['jobs','job','overview'].includes(name))await this.loadCounts('jobs');
-      if(name==='overview'){this.summary=(await httpsCallable(this.functions!,'getWarehouseSummary')({workspaceId:this.activeWorkspace})).data;await this.page('activity','events',query(this.col('events'),orderBy('accepted_at','desc'),orderBy(documentId(),'desc'),limit(PAGE_SIZE)),true);}
+      if(['receive','import','pallet'].includes(name))await this.refreshSummary();
+      if(name==='overview'){await this.refreshSummary();await this.page('activity','events',query(this.col('events'),orderBy('accepted_at','desc'),orderBy(documentId(),'desc'),limit(PAGE_SIZE)),true);}
       if(name==='locations'||name==='labels')await this.loadLabels(Object.keys(this.db.locations));
     }catch(e){if(gen===this.viewGeneration)this.viewError=cloudMessage(e);}
     finally{if(gen===this.viewGeneration){this.viewLoading=false;this.bump(false);}}

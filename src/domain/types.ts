@@ -1,3 +1,4 @@
+import type { PalletInfo } from './receiving';
 // Core domain types for Wherehouse (built from the Pallet Locator blueprint) (blueprint pages 7-9, 19-20).
 // UUIDs identify records; human-readable codes support physical work.
 
@@ -72,6 +73,8 @@ export interface Hold {
 }
 
 export interface Pallet {
+  receiving?: PalletInfo;
+  shipment_id?: string;
   id: string;
   workspace_id: string;
   warehouse_id: string;
@@ -94,6 +97,7 @@ export interface Pallet {
 
 /** Operational values needed to explain a change (page 20, "Event fields"). */
 export interface PalletSnapshot {
+  receiving?: PalletInfo;
   state: PalletState;
   current_location_id: string | null;
   current_location_code: string | null;
@@ -214,7 +218,7 @@ export interface PalletLineage {
 export interface ImportBatch {
   id: string;
   workspace_id: string;
-  kind: 'locations' | 'jobs' | 'pallets';
+  kind: 'locations' | 'jobs' | 'pallets' | 'shipments';
   checksum: string;
   status: 'committed';
   summary: string;

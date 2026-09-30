@@ -1,3 +1,5 @@
+import { FirebaseBackend } from '../../data/firebase';
+import { PalletFields, blankInfo } from '../receive/PalletFields';
 // Contextual pallet actions (blueprint pages 14-15). Each action is one confirmed command with
 // the expected version, a reason where the blueprint requires one, and an honest result.
 
@@ -29,15 +31,17 @@ export const ACTION_META: Partial<Record<PalletCommandKind, { title: string; ver
 };
 
 export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: PalletCommandKind; detail: PalletDetail; onClose: () => void; presetEvent?: PalletEvent | null }) {
-  const { read, toast } = useApp();
+  const { read, toast, backend } = useApp();
   const cmd = useCommand();
   const p = detail.pallet;
+  const enhanced=!(backend instanceof FirebaseBackend)||backend.summary?.receiving_version===1;
+  const [info,setInfo]=useState(p.receiving ?? blankInfo());
   const meta = ACTION_META[kind]!;
   const ctx = read((e, a, ws) => e.context(a, ws));
   const events = read((e, a, ws) => e.history(a, ws, p.id)) ?? [];
   const users = read((e) => e.db.users) ?? {};
   const [reason, setReason] = useState('');
-  const [destination, setDestination] = useState(detail.job.destination_notes ?? '');
+  const [destination, setDestination] = useState(p.receiving?.destination || detail.job.destination_notes || '');
   const [note, setNote] = useState('');
   const [holdReason, setHoldReason] = useState('');
   const [locationId, setLocationId] = useState(detail.pallet.last_confirmed_location_id ?? '');
@@ -76,7 +80,7 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
       case 'reassign_job':
         return { job_id: jobId, reason };
       case 'edit_details':
-        return { description: desc, notes, supplier_ref: supplier, reason: reason || undefined };
+        return { description: desc, notes, supplier_ref: supplier, ...(enhanced?{receiving:info}:{}), reason: reason || undefined };
       case 'correct':
         return { corrects_event_id: eventId || undefined, state: target, location_id: target === 'STORED' ? locationId : undefined, reason };
       case 'label_applied':
@@ -238,6 +242,7 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
           </>
         )}
 
+        {kind==='edit_details' && enhanced && <PalletFields value={info} onChange={setInfo} disabled={cmd.busy||cmd.locked}/>}
         {(needsReason || kind === 'archive' || kind === 'edit_details') && (
           <Field label={needsReason ? 'Reason' : 'Reason (optional)'} htmlFor="act-reason" hint={err(needsReason && !reason.trim()) ?? 'Saved in the history with your name.'}>
             <textarea id="act-reason" className="textarea" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} style={{ minHeight: 64 }} />
