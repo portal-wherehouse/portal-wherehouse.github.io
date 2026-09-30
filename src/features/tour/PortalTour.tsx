@@ -291,6 +291,7 @@ function whereLine(stop: TourStop, route: RouteName | null, sidebar: boolean): s
   if (stop.where) return stop.where;
   const name = stop.nav ?? route;
   if (!name) return null;
+  if (name === 'overview') return sidebar ? 'Top of sidebar › Dashboard' : 'Bottom tabs › Dashboard';
   const group = NAV_GROUPS.find((g) => g.items.some((i) => i.route === name));
   const item = group?.items.find((i) => i.route === name);
   if (!group || !item) return null;

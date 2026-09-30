@@ -92,3 +92,7 @@
 @media(prefers-reduced-motion:reduce){.warehouse-loading *,.customer-app .main.page-enter,.customer-app .warehouse-home>*,.warehouse-welcome{animation:none!important;}.customer-app :is(.btn,.nav-item,.warehouse-action,.warehouse-metric,.result){transition:none;transform:none!important;}}
 .warehouse-empty>svg{width:32px;height:32px;flex:0 0 32px;color:var(--accent);}
 @media(max-width:520px){.customer-app .live-status-chip{display:none;}.warehouse-loading{padding:24px 12px;}}
+.customer-app .dashboard-nav{min-height:52px;margin-bottom:18px;border:1px solid var(--line);font-size:16px;font-weight:600;background:var(--surface-2);}
+.customer-app .dashboard-nav[aria-current='page']{background:var(--accent-soft);border-color:#c5d8ed;color:var(--accent);}
+.warehouse-home .warehouse-greeting{font-size:19px;font-weight:500;margin-top:14px;}
+@media(max-width:520px){.customer-app .bottom-nav button{font-size:10px;}.warehouse-home .warehouse-greeting{font-size:17px;}}

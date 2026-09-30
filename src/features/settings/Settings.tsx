@@ -47,8 +47,8 @@ function DemoSettings() {
         <Setting label="Text size" hint="Larger text and buttons for gloves and bright sunlight.">
           <Seg<Prefs['text']> value={prefs.text} options={[['normal', 'Standard'], ['large', 'Large']]} onChange={(text) => setPrefs({ text })} />
         </Setting>
-        <Setting label="Start on" hint="The screen that opens when you sign in.">
-          <Seg<Prefs['startTab']> value={prefs.startTab} options={[['receive', 'Receive'], ['move', 'Move'], ['find', 'Find'], ['overview', 'Overview']]} onChange={(startTab) => setPrefs({ startTab })} />
+        <Setting label="Start page" hint="Dashboard opens when you sign in or refresh the warehouse.">
+          <span>Dashboard</span>
         </Setting>
         <label className="toggle">
           <input type="checkbox" checked={prefs.explain} onChange={(e) => setPrefs({ explain: e.target.checked })} />

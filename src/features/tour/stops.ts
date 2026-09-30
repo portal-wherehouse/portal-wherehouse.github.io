@@ -179,10 +179,10 @@ export const STOPS: TourStop[] = [
     id: 'overview',
     chapter: 'The warehouse',
     icon: 'overview',
-    title: 'Warehouse home',
+    title: 'Dashboard',
     route: 'overview',
     target: ['[data-tour="overview-summary"]', '#main .grid-2'],
-    body: 'Warehouse home shows your name and role, recorded pallet counts, recent changes and large buttons for everyday tasks. Open Locations or Jobs for their detailed lists.',
+    body: 'Dashboard shows your name and role, recorded pallet counts, recent changes and large buttons for everyday tasks. Open Locations or Jobs for their detailed lists.',
     tip: 'Counts come from saved records. In a customer warehouse, the recent-changes chart shows the latest 50 events; Activity has the older history.',
   },
   {

@@ -100,7 +100,7 @@ const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.
 };
 
 const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' | 'overview' }[] = [
-  { route: 'overview', label: 'Home', icon: 'overview' },
+  { route: 'overview', label: 'Dashboard', icon: 'overview' },
   { route: 'receive', label: 'Receive', icon: 'receive' },
   { route: 'move', label: 'Move', icon: 'move' },
   { route: 'find', label: 'Find', icon: 'find' },
@@ -251,11 +251,12 @@ function Portal() {
       <div className={signedIn ? 'body' : 'body no-side'}>
         {signedIn && (
           <nav className="sidebar" aria-label="Main">
+            <button className="nav-item dashboard-nav" aria-current={route.name === 'overview' ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
             {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
               <div key={g.title} className="nav-group">
                 <details open={g.title === 'Floor' || g.title === 'Warehouse' || g.title === 'Support'}>
                 <summary>{g.title}</summary>
-                {g.items.map((i) => {
+                {g.items.filter(i => i.route !== 'overview').map((i) => {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
                   const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
                   return (

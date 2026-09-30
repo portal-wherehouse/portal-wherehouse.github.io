@@ -18,7 +18,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
   {
     title: 'Warehouse',
     items: [
-      { route: 'overview', label: 'Home', icon: 'overview', hint: 'Counts and attention' },
+      { route: 'overview', label: 'Dashboard', icon: 'overview', hint: 'Counts and attention' },
       { route: 'map', label: 'Warehouse map', icon: 'map', hint: 'Racks and what is on them' },
       { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
       { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },

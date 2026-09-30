@@ -11,7 +11,7 @@ async function enterPortalAs(page: Page, role: 'Owner' | 'Manager' | 'Operator' 
   await page.getByRole('button', { name: 'Sign in' }).first().click();
   await expect(page).toHaveURL(/#signin$/);
   await expect(page.getByRole('heading', { name: 'Sample warehouse', exact: true })).toBeVisible();
-  if(role==='Viewer'||role==='Manager'){await signInAs(page,role==='Viewer'?'viewer':'supervisor');await page.goto('/#find');await page.reload();}
+  if(role==='Viewer'||role==='Manager'){await signInAs(page,role==='Viewer'?'viewer':'supervisor');await page.goto('/#find');await page.reload();await page.goto('/#find');}
   else await page.getByRole('button',{name:role==='Owner'?'View a management dashboard':'View an employee dashboard'}).click();
   await portalReady(page);
   await expect(page.locator('.demo-strip')).toContainText(`You are using the ${role} account`);

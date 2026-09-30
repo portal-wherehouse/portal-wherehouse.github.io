@@ -55,3 +55,21 @@ for (const [view, width] of [['management',1280],['employee',390]] as const) {
   expect(errors).toEqual([]);
  });
 }
+
+for(const width of [1280,375]){
+ test(`Dashboard is first and refresh leaves Move (${width}px)`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.addInitScript(()=>localStorage.setItem('pl.prefs',JSON.stringify({startTab:'move'})));
+  await page.goto('/?demo=1#signin');await page.getByRole('button',{name:'View a management dashboard'}).click();
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await expect(page.locator(width>960?'.sidebar .nav-item':'.bottom-nav button').first()).toHaveText('Dashboard');
+  await expect(page.getByRole('region',{name:'Warehouse analytics'})).toBeVisible();
+  await page.locator('.warehouse-actions').getByRole('button',{name:'Move',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Move pallet',exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+  await expect(page).toHaveURL(/#overview$/);
+  await expect(page.locator('.warehouse-greeting')).toContainText('Welcome,');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+ });
+}

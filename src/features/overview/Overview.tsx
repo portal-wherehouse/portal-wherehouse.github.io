@@ -41,7 +41,7 @@ export function Overview() {
   ] as const;
   return <div className="stack warehouse-home">
     <header className="warehouse-home-head">
-      <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Welcome, {name}.</h1><p className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}<span aria-hidden="true"> · </span>Warehouse home</p></div>
+      <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><h2 className="warehouse-greeting">Welcome, {name}.</h2><p className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</p></div>
       <button className="btn" onClick={()=>go('activity')}><Icon name="activity"/>View activity</button>
     </header>
     <section aria-label="Warehouse analytics" className="warehouse-metrics" data-tour="overview-summary">

@@ -64,7 +64,7 @@ export interface Prefs {
 /** A theme the embedding page stamped before the app started (the hosted preview does this). */
 const HOST_THEME = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : null;
 
-const DEFAULT_PREFS: Prefs = { theme: 'system', text: 'normal', explain: false, startTab: 'find', haptics: true, advancedTools: false };
+const DEFAULT_PREFS: Prefs = { theme: 'system', text: 'normal', explain: false, startTab: 'overview', haptics: true, advancedTools: false };
 
 function readLocal<T>(key: string, fallback: T): T {
   try {
@@ -257,10 +257,14 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   const [demoActorId, setActor] = useState<string | null>(() => readLocalRaw('pl.actor'));
   const actorId = backend.mode === 'firebase' ? backend.authUid : demoActorId;
   const [workspaceId, setWs] = useState<string | null>(() => readLocalRaw('pl.workspace'));
+  const refreshToDashboard = useRef(typeof location !== 'undefined' &&
+    (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload' &&
+    !!parseHash(location.hash) && !isSiteRoute(parseHash(location.hash)!.name));
   const [stack, setStack] = useState<Route[]>(() => {
     if (typeof location === 'undefined') return [{ name: 'home' }];
     const linked = parseHash(location.hash);
-    // A reload keeps the trail of screens behind this one: it lives in the history entry.
+    if (refreshToDashboard.current) return [{ name: 'overview' }];
+    // Other document entries keep the trail of screens behind this one: it lives in the history entry.
     const saved = histState();
     if (saved && linked && hashFor(saved.stack[saved.stack.length - 1]) === hashFor(linked)) return saved.stack;
     // Everyone else lands on the website's home page; the portal is one button away.
@@ -277,7 +281,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   const stackRef = useRef(stack);
   stackRef.current = stack;
   /** Set for the next history write when it should replace the entry rather than add one. */
-  const replaceNext = useRef(false);
+  const replaceNext = useRef(refreshToDashboard.current);
   /** Scroll offset to put back once a Back/Forward has rendered. */
   const restoreY = useRef<number | null>(null);
   /** The address last handled, so the popstate and hashchange of one browser move act once. */
@@ -473,10 +477,9 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
         setWs(ws);
         writeLocal('pl.workspace', ws);
       }
-      const m = backend.db.memberships.find((x) => x.user_id === userId && (!ws || x.workspace_id === ws));
-      setStack([{ name: m?.role === 'VIEWER' ? 'find' : prefs.startTab }]);
+      setStack([{ name: 'overview' }]);
     },
-    [backend, prefs.startTab],
+    [backend],
   );
 
   const signOut = useCallback(() => {
@@ -491,7 +494,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     void backend.chooseWorkspace(id);
     setWs(id);
     writeLocal('pl.workspace', id);
-    setStack([{ name: 'find' }]);
+    setStack([{ name: 'overview' }]);
   }, [backend]);
 
   const envelope = useCallback(
