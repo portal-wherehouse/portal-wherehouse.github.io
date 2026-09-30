@@ -3186,3 +3186,128 @@ button.link {
 .warehouse-loading-quiet {
   min-height: 160px;
 }
+
+/* ------------------------------------------------------------------ bulk selection */
+
+.bulk-bar {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + 58px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+}
+.bulk-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bulk-count {
+  flex: 1 1 auto;
+}
+.bulk-exit {
+  font-weight: 700;
+}
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* Dim until something is ticked; Cancel selection is never dimmed. */
+.bulk-actions .btn:disabled {
+  opacity: 0.38;
+}
+.bulk-actions .btn.danger-outline:not(:disabled) {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.bulk-note {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.sel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--radius);
+}
+.sel-row .sel-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sel-row.on .sel-body > * {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.sel-box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--ink-3);
+  border-radius: 8px;
+  background: var(--surface);
+  color: #fff;
+  cursor: pointer;
+}
+.sel-row.on .sel-box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.sel-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.sel-mark.ok {
+  color: var(--ok);
+}
+.sel-mark.fail {
+  color: var(--bad);
+}
+.code-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 120px;
+  overflow: auto;
+}
+.bulk-progress {
+  width: 100%;
+  height: 14px;
+  accent-color: var(--accent);
+}
+.bulk-fails {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.issue-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.issue-thumb {
+  position: relative;
+  width: 110px;
+}
+.issue-thumb img {
+  width: 110px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.issue-thumb button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--surface);
+}

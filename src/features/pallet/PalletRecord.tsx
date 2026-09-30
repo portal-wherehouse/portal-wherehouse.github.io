@@ -5,7 +5,7 @@ import { PhotoImage } from '../../data/LiveView';
 
 import { useEffect, useState } from 'react';
 import { uuid } from '../../domain/codes';
-import { availableActions } from '../../domain/transitions';
+import { availableActions, roleAllows } from '../../domain/transitions';
 import type { PalletCommandKind, PalletEvent } from '../../domain/types';
 import { preparePhoto } from '../../device/photos';
 import { useApp } from '../../app/state';
@@ -14,6 +14,7 @@ import { useCommand } from '../../ui/useCommand';
 import { Empty, Explain, HoldBadge, Notice, PageHead, Sheet, StateBadge, WhereCell, fmtAgo, fmtFull, fmtTime } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
 import { ACTION_META, ActionSheet } from './Actions';
+import { IssueSheet } from '../bulk/Issues';
 import { History } from './History';
 import { SplitSheet } from './SplitSheet';
 
@@ -47,6 +48,7 @@ export function PalletRecord() {
   const users = read((e) => e.db.users) ?? {};
   const lineage = read((e, _a, ws) => e.lineageOf(ws, id));
   const [action, setAction] = useState<PalletCommandKind | null>(null);
+  const [issueOpen, setIssueOpen] = useState(false);
   const [presetEvent, setPresetEvent] = useState<PalletEvent | null>(null);
   const [labelOpen, setLabelOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState<string | null>(null);
@@ -118,9 +120,16 @@ export function PalletRecord() {
         title={<span style={{ fontSize: '1.25em' }}>{p.code}</span>}
         sub={p.description}
         actions={
-          <button className="btn" onClick={() => setLabelOpen(true)}>
-            <Icon name="print" /> Label
-          </button>
+          <>
+            <button className="btn" onClick={() => setLabelOpen(true)}>
+              <Icon name="print" /> Label
+            </button>
+            {roleAllows(role, 'report_issue') && (
+              <button className="btn" onClick={() => setIssueOpen(true)} disabled={offline}>
+                <Icon name="flag" /> Flag issue
+              </button>
+            )}
+          </>
         }
       />
       <div className="row">
@@ -335,6 +344,7 @@ export function PalletRecord() {
 
       {action && action !== 'split' && <ActionSheet kind={action} detail={detail} presetEvent={presetEvent} onClose={() => setAction(null)} />}
       {action === 'split' && <SplitSheet detail={detail} onClose={() => setAction(null)} />}
+      {issueOpen && <IssueSheet pallets={[backend.db.pallets[p.id] ?? p]} onClose={() => setIssueOpen(false)} />}
       {labelOpen && <LabelSheet palletIds={[p.id]} onClose={() => setLabelOpen(false)} />}
       {photoOpen && (
         <Sheet title={`Photo · ${p.code}`} onClose={() => setPhotoOpen(null)} wide>

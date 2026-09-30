@@ -946,6 +946,18 @@ export class FirebaseBackend extends Backend {
             query(this.col("invites"), limit(PAGE_SIZE)),
             true,
           ),
+          this.isManager()
+            ? this.page(
+                "issues",
+                "issues",
+                query(
+                  this.col("issues"),
+                  orderBy("created_at", "desc"),
+                  limit(PAGE_SIZE),
+                ),
+                true,
+              )
+            : Promise.resolve(),
         ]);
       else if (name === "incoming") {
         await this.page(
@@ -1009,9 +1021,24 @@ export class FirebaseBackend extends Backend {
           true,
         );
         await this.loadLabels([id]);
-      } else if (name === "move" && id) {
-        await this.one("pallets", id, true);
-        if (this.db.pallets[id]) await this.hydrate([this.db.pallets[id]]);
+      } else if (name === "move") {
+        if (id) {
+          await this.one("pallets", id, true);
+          if (this.db.pallets[id]) await this.hydrate([this.db.pallets[id]]);
+        }
+        // Received pallets waiting for a rack, for the list under the scanner.
+        await this.page(
+          "unplaced",
+          "pallets",
+          query(
+            this.col("pallets"),
+            where("archived_at", "==", null),
+            where("state", "==", "RECEIVED"),
+            orderBy("code"),
+            limit(PAGE_SIZE),
+          ),
+          true,
+        );
       }
 
       if (["locations", "map", "overview"].includes(name))
@@ -1290,6 +1317,17 @@ export class FirebaseBackend extends Backend {
       true,
     );
   }
+  isManager() {
+    const m = this.db.memberships.find(
+      (x) => x.user_id === this.authUid && x.workspace_id === this.activeWorkspace,
+    );
+    return !!m && ["OWNER", "SUPERVISOR"].includes(m.role);
+  }
+  /** Photos attached to issues are pallet photos; load their records so photoUrl can fetch them. */
+  async loadAttachments(ids: string[]) {
+    await Promise.all(ids.map((id) => this.one("attachments", id)));
+    this.bump(false);
+  }
   async photoUrl(id: string, thumbnail = true): Promise<string> {
     const a = this.db.attachments[id];
     if (!a || !this.storage) return "";
@@ -1450,6 +1488,7 @@ export class FirebaseBackend extends Backend {
         if (["import_batch", "rename_import"].includes(cmd.kind) && id)
           await this.one("imports", id, true);
         if (cmd.kind === "save_product" && id) await this.one("products", id, true);
+        if (cmd.kind === "update_issue" && id) await this.one("issues", id, true);
         if (["create_job", "close_job", "reopen_job"].includes(cmd.kind) && id)
           await this.one("jobs", id, true);
         if (

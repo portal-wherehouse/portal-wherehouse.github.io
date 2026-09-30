@@ -242,6 +242,13 @@ export async function loadCommand(
   }
   if (k === "remove_photo") await one("attachments", p.attachment_id);
   if (k === "rename_import") await one("imports", p.import_id);
+  if (k === "update_issue") await one("issues", p.issue_id);
+  if (k === "report_issue") {
+    await one("issues", cmd.command_id);
+    for (const id of (p.pallet_ids || []).slice(0, 50)) await one("pallets", id);
+    for (const id of (p.attachment_ids || []).slice(0, 6))
+      await one("attachments", id);
+  }
   if (k === "save_product" && typeof p.code === "string")
     await one("products", productKey(ws, p.code));
   if (k === "rotate_label")
@@ -323,6 +330,7 @@ export function rows(db: Db, ws: string): Map<string, any> {
     "imports",
     "products",
     "shipments",
+    "issues",
   ] as const)
     for (const [id, v] of Object.entries(db[table]))
       out.set(`${table}/${id}`, v);

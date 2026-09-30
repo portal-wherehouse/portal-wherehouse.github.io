@@ -14,6 +14,8 @@ import { Explain, HoldBadge, Notice, PageHead, PermissionDenied, Plate, Spinner,
 import { ScanPanel, type DemoTarget } from '../scan/ScanPanel';
 import { asSentence, isDoubleRead } from '../station/logic';
 import { initialMove, moveReducer, type MoveState } from './machine';
+import { ResultRow } from '../find/Find';
+import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
 
 const INTENT_VERB = { place: 'Place', move: 'Move', verify_location: 'Confirm still here' } as const;
 
@@ -366,6 +368,52 @@ export function Move() {
           </div>
         </div>
       </div>
+      {(s.stage === 'EXPECT_PALLET' || s.stage === 'RESULT' || s.stage === 'QUEUED') && <NeedsPlacement />}
+    </div>
+  );
+}
+
+/** Received pallets that have no rack yet. Tap one to move it, or select several and place them together. */
+function NeedsPlacement() {
+  const { backend, workspaceId, v, go } = useApp();
+  const bulk = useBulk();
+  const [all, setAll] = useState(false);
+  const rows = useMemo(
+    () =>
+      Object.values(backend.db.pallets)
+        .filter((p) => p.workspace_id === workspaceId && p.state === 'RECEIVED' && !p.archived_at)
+        .sort((a, b) => a.code.localeCompare(b.code))
+        .map((p) => ({ pallet: p, job: backend.db.jobs[p.job_id], location: null, lastLocation: null })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [v, workspaceId],
+  );
+  const shown = all || bulk.selecting ? rows : rows.slice(0, 8);
+  const extra = pinnedRows(backend.db, bulk, rows.map((r) => r.pallet.id));
+  if (!rows.length && !extra.length) return null;
+  return (
+    <div className="panel stack" data-testid="needs-placement">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <div className="panel-title" style={{ margin: 0 }}>
+          <Icon name="receive" width={16} height={16} /> Needs placement · {rows.length}
+        </div>
+        <SelectButton bulk={bulk} />
+      </div>
+      <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
+        Received but not on a rack yet. Tap one to move it, or tap Select to place several at once.
+      </p>
+      <BulkBar bulk={bulk} visibleIds={rows.map((r) => r.pallet.id)} />
+      <div className="results">
+        {[...shown, ...extra].map((r) => (
+          <SelectRow key={r.pallet.id} bulk={bulk} id={r.pallet.id} code={r.pallet.code}>
+            <ResultRow row={r} onOpen={() => go({ name: 'move', id: r.pallet.id })} />
+          </SelectRow>
+        ))}
+      </div>
+      {!all && !bulk.selecting && rows.length > shown.length && (
+        <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setAll(true)}>
+          Show all {rows.length}
+        </button>
+      )}
     </div>
   );
 }

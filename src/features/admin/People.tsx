@@ -8,6 +8,7 @@ import { Icon } from '../../ui/icons';
 import { Avatar, Explain, Field, PageHead, ROLE_DESC, ROLE_LABEL, fmtAgo, fmtFull } from '../../ui/ui';
 import { AuthorizedEmails } from './AuthorizedEmails';
 import { AdminSheet } from './AdminSheet';
+import { IssuesPanel } from '../bulk/Issues';
 
 const ROLES: Role[] = ['OWNER', 'SUPERVISOR', 'OPERATOR', 'VIEWER'];
 
@@ -48,6 +49,7 @@ export function People() {
         }
       />
       {canAdmin && <div className="manager-shortcuts"><button className="btn" onClick={()=>go('overview')}>Warehouse overview</button><button className="btn" onClick={()=>go('locations')}>Racks & locations</button><button className="btn" onClick={()=>go('labels')}>Print labels</button><button className="btn" onClick={()=>go('activity')}>Movement log</button></div>}
+      <IssuesPanel />
       {canAdmin && backend.mode === 'firebase' && <AuthorizedEmails />}
       <h2 className="panel-title">Your team</h2>
       <Explain refs="pages 5, 9, 20">
@@ -256,7 +258,7 @@ export function RoleMatrix() {
 function AuditList({ entries }: { entries: AdminAudit[] }) {
   const { backend } = useApp();
   const users = backend.db.users;
-  const target = (a: AdminAudit) => backend.db.jobs[a.target_id]?.code ?? backend.db.locations[a.target_id]?.code ?? users[a.target_id]?.name ?? (a.action === 'import_batch' || a.action === 'rename_import' ? (backend.db.imports[a.target_id]?.name ?? `batch ${a.target_id.slice(0, 8)}`) : '');
+  const target = (a: AdminAudit) => backend.db.jobs[a.target_id]?.code ?? backend.db.locations[a.target_id]?.code ?? users[a.target_id]?.name ?? (a.action === 'import_batch' || a.action === 'rename_import' ? (backend.db.imports[a.target_id]?.name ?? `batch ${a.target_id.slice(0, 8)}`) : a.action === 'report_issue' || a.action === 'update_issue' ? (backend.db.issues?.[a.target_id]?.pallet_codes.join(', ') ?? 'an issue') : '');
   const change = (a: AdminAudit) => {
     const b = a.before ?? {};
     const af = a.after ?? {};

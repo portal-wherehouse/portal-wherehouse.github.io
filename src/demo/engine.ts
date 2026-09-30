@@ -44,11 +44,12 @@ import type {
   Warehouse,
   Workspace,
 } from '../domain/types';
-import { LOCATION_KINDS } from '../domain/types';
+import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus } from '../domain/types';
 
 export const DB_SCHEMA_VERSION = 2;
 
 export interface Db {
+  issues: Record<string, Issue>;
   products: Record<string, ProductMemory>;
   shipments: Record<string, ExpectedShipment>;
   schema: number;
@@ -73,6 +74,7 @@ export interface Db {
 
 export function emptyDb(): Db {
   return {
+    issues: {},
     products: {},
     shipments: {},
     schema: DB_SCHEMA_VERSION,
@@ -118,7 +120,7 @@ class Tx {
   private undo: Undo[] = [];
   constructor(private db: Db) {}
 
-  put<K extends 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports'>(
+  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports'>(
     table: K,
     key: string,
     value: Db[K][string],
@@ -208,6 +210,7 @@ export class Engine {
   ) {
     this.db.products ??= {};
     this.db.shipments ??= {};
+    this.db.issues ??= {};
     this.clock = opts.clock ?? (() => new Date().toISOString());
     this.newId = opts.newId ?? (() => uuid());
     this.newToken = opts.newToken ?? (() => generateToken());
@@ -362,6 +365,8 @@ export class Engine {
       case 'import_batch':
       case 'rename_import':
       case 'save_product':
+      case 'report_issue':
+      case 'update_issue':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -786,6 +791,65 @@ export class Engine {
         tx.put('products', key, product);
         const a = audit(key, existing ? { description: existing.description, unit: existing.unit, category: existing.category ?? '' } : null, { code, description, unit, category });
         return this.accepted(cmd, now, a.id, null, key);
+      }
+      case 'report_issue': {
+        const q = cmd.payload as { issue_kind: IssueKind; description: string; pallet_ids: string[]; attachment_ids?: string[] };
+        const description = (q.description ?? '').trim();
+        if (!ISSUE_KINDS.includes(q.issue_kind)) return reject('INVALID_INPUT', 'Choose what kind of issue this is.');
+        if (!description) return reject('INVALID_INPUT', 'Describe the issue.');
+        if (description.length > 2000) return reject('INVALID_INPUT', 'Descriptions are limited to 2,000 characters.');
+        const ids = [...new Set(q.pallet_ids ?? [])];
+        if (!ids.length) return reject('INVALID_INPUT', 'Choose at least one pallet.');
+        if (ids.length > 50) return reject('INVALID_INPUT', 'An issue can name up to 50 pallets.');
+        const pallets = ids.map((id) => this.db.pallets[id]);
+        if (pallets.some((x) => !x || x.workspace_id !== ws)) return reject('NOT_FOUND', 'A pallet on this issue was not found.');
+        const photos = [...new Set(q.attachment_ids ?? [])];
+        for (const a of photos) {
+          const att = this.db.attachments[a];
+          if (!att || att.workspace_id !== ws || !ids.includes(att.pallet_id)) return reject('NOT_FOUND', 'A photo on this issue was not found. Add it again.');
+        }
+        const issue: Issue = {
+          id: cmd.command_id,
+          workspace_id: ws,
+          warehouse_id: wh.id,
+          kind: q.issue_kind,
+          description,
+          pallet_ids: ids,
+          pallet_codes: pallets.map((x) => x!.code),
+          attachment_ids: photos,
+          reported_by: actorId,
+          reporter_name: this.db.users[actorId]?.name ?? '',
+          created_at: now,
+          status: 'NEW',
+          reviewed_by: null,
+          reviewer_name: null,
+          reviewed_at: null,
+          review_note: null,
+        };
+        if (this.db.issues[issue.id]) return reject('INVALID_INPUT', 'That issue was already reported.');
+        tx.put('issues', issue.id, issue);
+        const a = audit(issue.id, null, { kind: issue.kind, pallets: issue.pallet_codes.join(', ') });
+        return this.accepted(cmd, now, a.id, null, issue.id);
+      }
+      case 'update_issue': {
+        const issue = this.db.issues[p.issue_id ?? ''];
+        if (!issue || issue.workspace_id !== ws) return reject('NOT_FOUND', 'Issue not found.');
+        const status = (p.status ?? '') as IssueStatus;
+        if (!ISSUE_STATUSES.includes(status)) return reject('INVALID_INPUT', 'Choose a status.');
+        const note = (p.note ?? '').trim();
+        if (note.length > 1000) return reject('INVALID_INPUT', 'Notes are limited to 1,000 characters.');
+        if (status === issue.status && note === (issue.review_note ?? '')) return reject('INVALID_INPUT', 'Nothing changed.');
+        const reopened = status === 'NEW';
+        tx.put('issues', issue.id, {
+          ...issue,
+          status,
+          reviewed_by: reopened ? null : actorId,
+          reviewer_name: reopened ? null : (this.db.users[actorId]?.name ?? ''),
+          reviewed_at: reopened ? null : now,
+          review_note: note || null,
+        });
+        const a = audit(issue.id, { status: issue.status }, { status, note: note || null });
+        return this.accepted(cmd, now, a.id, null, issue.id);
       }
       case 'rename_import': {
         const batch = this.db.imports[p.import_id ?? ''];

@@ -89,6 +89,12 @@ service cloud.firestore {
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
+      // Flagged issues: managers review them on the Manager dashboard. Reports go through the command function.
+      match /issues/{id} {
+        allow get: if isSupervisor(ws);
+        allow list: if isSupervisor(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
       match /shipments/{id} {
         allow get: if isMember(ws);
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;

@@ -12,6 +12,7 @@ import { useApp } from '../../app/state';
 import { parseScanCommand } from '../../device/scanCommands';
 import { modalOpen, useScanTarget } from '../../device/scanRouter';
 import { Icon } from '../../ui/icons';
+import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
 import { Empty, Explain, HoldBadge, Notice, PageHead, StateBadge, WhereCell, fmtAgo, fmtTime } from '../../ui/ui';
 
 export function Find() {
@@ -24,6 +25,7 @@ export function Find() {
   const [holdOnly, setHoldOnly] = useState(false);
   const [archived, setArchived] = useState(false);
   const [pages, setPages] = useState(1);
+  const bulk = useBulk();
   const cloud=backend instanceof FirebaseBackend?backend:null;
   useEffect(()=>{if(!cloud)return;const timer=setTimeout(()=>void cloud.search({q,states,job_id:jobId||undefined,location_id:locId||undefined,include_archived:archived,hold:holdOnly}),300);return()=>clearTimeout(timer);},[cloud,q,states,jobId,locId,archived,holdOnly]);
   const input = useRef<HTMLInputElement>(null);
@@ -212,11 +214,15 @@ export function Find() {
             {cloud ? 'Showing ' : ''}{result.total} {result.total === 1 ? 'pallet' : 'pallets'}
             {q ? ` for “${q.trim()}”` : ''}
           </span>
-          <span className="faint" style={{ fontSize: 12.5 }}>
-            Refreshed {fmtAgo(backend.lastSync)}
+          <span className="row" style={{ gap: 10 }}>
+            <span className="faint" style={{ fontSize: 12.5 }}>
+              Refreshed {fmtAgo(backend.lastSync)}
+            </span>
+            {result.items.length > 0 && <SelectButton bulk={bulk} />}
           </span>
         </div>
       )}
+      <BulkBar bulk={bulk} visibleIds={result?.items.map((r) => r.pallet.id) ?? []} />
 
       {cloud?.viewLoading && <p role="status">Searching…</p>}
       {result && result.items.length === 0 && !cloud?.viewLoading ? (
@@ -237,8 +243,10 @@ export function Find() {
         </div>
       ) : (
         <div className="results">
-          {result?.items.map((r) => (
-            <ResultRow key={r.pallet.id} row={r} onOpen={() => go({ name: 'pallet', id: r.pallet.id })} />
+          {[...(result?.items ?? []), ...pinnedRows(backend.db, bulk, result?.items.map((r) => r.pallet.id) ?? [])].map((r) => (
+            <SelectRow key={r.pallet.id} bulk={bulk} id={r.pallet.id} code={r.pallet.code}>
+              <ResultRow row={r} onOpen={() => go({ name: 'pallet', id: r.pallet.id })} />
+            </SelectRow>
           ))}
         </div>
       )}

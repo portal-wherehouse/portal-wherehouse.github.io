@@ -72,6 +72,13 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     file_name: text(200).optional(),
   }),
   rename_import: z.object({ import_id: id, name: text(80) }),
+  report_issue: z.object({
+    issue_kind: z.enum(['DAMAGED', 'MISSING', 'WRONG', 'OTHER']),
+    description: text(2000),
+    pallet_ids: z.array(id).min(1).max(50),
+    attachment_ids: z.array(id).max(6).optional(),
+  }),
+  update_issue: z.object({ issue_id: id, status: z.enum(['NEW', 'APPROVED', 'FILED', 'DISMISSED']), note: text(1000).optional() }),
   save_product: z.object({ code: text(80), description: text(160), unit: text(40).optional(), category: text(60).optional(), create: z.boolean().optional() }),
 };
 

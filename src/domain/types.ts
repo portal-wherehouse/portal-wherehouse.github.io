@@ -158,6 +158,33 @@ export interface Attachment {
   created_at: string;
 }
 
+export const ISSUE_KINDS = ['DAMAGED', 'MISSING', 'WRONG', 'OTHER'] as const;
+export type IssueKind = (typeof ISSUE_KINDS)[number];
+export const ISSUE_STATUSES = ['NEW', 'APPROVED', 'FILED', 'DISMISSED'] as const;
+export type IssueStatus = (typeof ISSUE_STATUSES)[number];
+
+/** A problem someone flagged on the floor (damage, missing items), waiting for a manager. */
+export interface Issue {
+  id: string;
+  workspace_id: string;
+  warehouse_id: string;
+  kind: IssueKind;
+  description: string;
+  pallet_ids: string[];
+  /** Codes at the time of the report, so the list reads without loading every pallet. */
+  pallet_codes: string[];
+  /** Photos are stored as pallet photos; the issue points at them. */
+  attachment_ids: string[];
+  reported_by: string;
+  reporter_name: string;
+  created_at: string;
+  status: IssueStatus;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+}
+
 export interface AdminAudit {
   id: string;
   workspace_id: string;
@@ -210,6 +237,8 @@ export const ADMIN_COMMANDS = [
   'import_batch',
   'rename_import',
   'save_product',
+  'report_issue',
+  'update_issue',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 

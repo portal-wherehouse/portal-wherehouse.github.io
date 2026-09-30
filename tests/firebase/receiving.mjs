@@ -166,4 +166,39 @@ export async function testReceiving({
   console.log(
     "PASS shared pallet details, scoped product memory, atomic shipment receipt and due reminders",
   );
+  const issue = await send(owner, "report_issue", {
+    issue_kind: "DAMAGED",
+    description: "Wrap torn on arrival",
+    pallet_ids: [receipt.pallet_id, free.id],
+  });
+  assert.equal(issue.ok, true, JSON.stringify(issue));
+  const issues = await getDocs(
+    query(collection(owner.db, "workspaces", ws, "issues"), limit(20)),
+  );
+  assert.equal(issues.size, 1);
+  assert.equal(issues.docs[0].get("status"), "NEW");
+  assert.equal(issues.docs[0].get("pallet_codes").length, 2);
+  await assert.rejects(
+    getDocs(query(collection(viewer.db, "workspaces", ws, "issues"), limit(20))),
+  );
+  await assert.rejects(
+    setDoc(doc(owner.db, "workspaces", ws, "issues", issue.target_id), {
+      status: "FILED",
+    }),
+  );
+  assert.equal(
+    (await send(viewer, "report_issue", { issue_kind: "OTHER", description: "x", pallet_ids: [free.id] }).catch(() => ({ ok: false }))).ok,
+    false,
+  );
+  const filed = await send(owner, "update_issue", {
+    issue_id: issue.target_id,
+    status: "FILED",
+    note: "Claim sent",
+  });
+  assert.equal(filed.ok, true, JSON.stringify(filed));
+  assert.equal(
+    (await getDoc(doc(owner.db, "workspaces", ws, "issues", issue.target_id))).get("status"),
+    "FILED",
+  );
+  console.log("PASS flagged issues: reported, manager-only reads, reviewed");
 }

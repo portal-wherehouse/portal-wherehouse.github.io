@@ -12,6 +12,7 @@ import { Icon, type IconName } from '../../ui/icons';
 import { Empty, Explain, PageHead, Spinner, fmtAgo } from '../../ui/ui';
 import { ResultRow } from '../find/Find';
 import { LabelSheet } from '../labels/LabelSheet';
+import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
 
 type ListId = 'unplaced' | 'missing' | 'holds' | 'reprint' | 'stale';
 
@@ -30,6 +31,9 @@ export function Reconcile() {
   if(tab==='unplaced')filters.push(where('state','==','RECEIVED'));if(tab==='missing')filters.push(where('state','==','MISSING'));if(tab==='holds')filters.push(where('has_hold','==',true));if(tab==='reprint')filters.push(where('label_needs_reprint','==',true));if(tab==='stale')filters.push(where('state','==','STORED'),where('last_confirmed_at','<',new Date(Date.now()-3*86400000).toISOString()));
   void backend.filteredList('records',filters);},[backend,tab]);
   const [printing, setPrinting] = useState<string[] | null>(null);
+  const bulk = useBulk();
+  // A new list starts a new selection.
+  useEffect(() => bulk.stop(), [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = useMemo(
     () =>
@@ -46,7 +50,7 @@ export function Reconcile() {
   );
   if (!data) return null;
   const meta = LISTS.find((l) => l.id === tab)!;
-  const rows = data[tab];
+  const rows = [...data[tab], ...pinnedRows(backend.db, bulk, data[tab].map((r) => r.pallet.id))];
   const total = LISTS.reduce((n, l) => n + data[l.id].length, 0);
 
   return (
@@ -75,14 +79,21 @@ export function Reconcile() {
         </Empty>
       ) : (
         <>
-          {tab === 'reprint' && (
-            <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={() => setPrinting(rows.map((r) => r.pallet.id))}>
-              <Icon name="print" /> Print all {rows.length} labels
-            </button>
-          )}
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            {tab === 'reprint' ? (
+              <button className="btn primary" onClick={() => setPrinting(rows.map((r) => r.pallet.id))}>
+                <Icon name="print" /> Print all {rows.length} labels
+              </button>
+            ) : (
+              <span />
+            )}
+            <SelectButton bulk={bulk} />
+          </div>
+          <BulkBar bulk={bulk} visibleIds={data[tab].map((r) => r.pallet.id)} />
           <div className="results">
             {rows.map((r) => (
-              <div key={r.pallet.id} className="result-card">
+              <SelectRow key={r.pallet.id} bulk={bulk} id={r.pallet.id} code={r.pallet.code}>
+              <div className="result-card">
                 <ResultRow row={r} onOpen={() => go({ name: 'pallet', id: r.pallet.id })} />
                 <div className="row result-actions">
                   {/* Each fix is offered only to roles that can make it; the others see who can. */}
@@ -125,6 +136,7 @@ export function Reconcile() {
                     ))}
                 </div>
               </div>
+              </SelectRow>
             ))}
           </div>
         </>
