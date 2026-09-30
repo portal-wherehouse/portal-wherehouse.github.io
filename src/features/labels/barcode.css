@@ -47,14 +47,15 @@
   text-overflow: ellipsis;
 }
 
-/* 4 x 6: a little less QR (still over 2 inches) makes room for a full-width barcode above the footer. */
+/* 4 x 6: a 1.6 in QR, then a clear gap before the full-width barcode, so a scanner aimed at one
+   doesn't catch the other. 1.6 in still leaves each QR module over 1.5 mm for phone cameras. */
 .label-4x6.has-bc .l-qr {
-  width: 2.05in;
-  height: 2.05in;
+  width: 1.6in;
+  height: 1.6in;
 }
 
 .label-4x6.has-bc .l-bc {
-  margin-top: 0.02in;
+  margin-top: 0.35in;
 }
 
 /* Letter sheet: job and description under the code, then the QR with the barcode beside it. */

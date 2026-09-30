@@ -51,7 +51,7 @@ export function ImportHistory({ batches }: { batches: ImportBatch[] }) {
         <label htmlFor="import-q" className="sr-only">
           Search imports
         </label>
-        <input id="import-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, file, pallet code or anything in the spreadsheet" autoComplete="off" />
+        <input id="import-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search imports, pallet codes or cells" autoComplete="off" />
       </div>
       {shown.length === 0 && <p className="muted" style={{ margin: 0 }}>No import matches “{q.trim()}”.</p>}
       <div className="stack" style={{ gap: 6 }}>
@@ -197,23 +197,39 @@ function ImportDetail({ batch, onClose }: { batch: ImportBatch; onClose: () => v
             </div>
           </>
         ) : (
-          <Notice tone="info" title="The spreadsheet wasn't kept for this import">
-            It was made before Wherehouse saved each import's rows. New imports keep their full spreadsheet.
+          <>
+            <Notice tone="info" title="This import is from before spreadsheets were saved">
+              Imports made from now on keep their full spreadsheet here.{olderPallets.length > 0 ? ' The pallets it created are below.' : ''}
+            </Notice>
             {olderPallets.length > 0 && (
-              <span style={{ display: 'block', marginTop: 8 }}>
-                Pallets it created:{' '}
-                {olderPallets.map((p, i) => (
-                  <span key={p!.id}>
-                    {i > 0 && ', '}
-                    <button className="link mono" onClick={() => go({ name: 'pallet', id: p!.id })}>
-                      {p!.code}
-                    </button>{' '}
-                    {p!.description}
-                  </span>
-                ))}
-              </span>
+              <div className="table-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
+                <table className="t" style={{ fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th>Pallet</th>
+                      <th>Description</th>
+                      <th>Job</th>
+                      <th>Supplier ref</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {olderPallets.map((p) => (
+                      <tr key={p!.id}>
+                        <td>
+                          <button className="link mono" onClick={() => go({ name: 'pallet', id: p!.id })}>
+                            {p!.code}
+                          </button>
+                        </td>
+                        <td>{p!.description}</td>
+                        <td>{backend.db.jobs[p!.job_id]?.code ?? ''}</td>
+                        <td>{p!.supplier_ref ?? ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </Notice>
+          </>
         )}
       </div>
       {labels && <LabelSheet palletIds={labels} onClose={() => setLabels(null)} />}

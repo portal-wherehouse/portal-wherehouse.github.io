@@ -238,13 +238,27 @@ export class FirebaseBackend extends Backend {
         await b.chooseWorkspace(b.workspaceIds[0] ?? "");
         return;
       }
-      try {
-        await httpsCallable(b.functions!, "joinAuthorizedWarehouses")({});
-      } catch {
-        b.cloudError =
-          "Could not check authorized warehouse access. Try Refresh access.";
-      }
-      if (b.authUid !== uid) return;
+      // Adding warehouses a manager authorized for this email is a server call that can be slow to
+      // start. It runs beside opening the warehouse this account already has, not before it.
+      b.joining = httpsCallable(b.functions!, "joinAuthorizedWarehouses")({})
+        .then(() => {})
+        .catch(() => {
+          if (b.authUid === uid && !b.workspaceIds.length) {
+            b.cloudError =
+              "Could not check authorized warehouse access. Try Refresh access.";
+            b.bump(false);
+          }
+        })
+        .finally(async () => {
+          if (b.authUid !== uid) return;
+          // Read the profile once more, so a warehouse the check just added opens without a detour.
+          const profile = await getDoc(doc(b.firestore!, "users", uid)).catch(() => null);
+          if (b.authUid !== uid) return;
+          b.joining = null;
+          if (profile) b.workspaceIds = profile.data()?.workspaces ?? b.workspaceIds;
+          if (!b.activeWorkspace || !b.workspaceIds.includes(b.activeWorkspace))
+            void b.chooseWorkspace(b.workspaceIds[0] ?? "");
+        });
       b.watchProfile();
     });
     const online = () => {
@@ -289,6 +303,8 @@ export class FirebaseBackend extends Backend {
         void this.offlineStore!.rememberWorkspaces(this.workspaceIds).catch(
           () => {},
         );
+        // No warehouse yet while the authorization check runs: keep loading until it finishes.
+        if (!this.workspaceIds.length && this.joining) return;
         if (
           !this.activeWorkspace ||
           !this.workspaceIds.includes(this.activeWorkspace)
@@ -408,7 +424,13 @@ export class FirebaseBackend extends Backend {
         this.bump(false);
         return true;
       };
-      const license = await getDoc(licenseRef);
+      // The three opening reads go out together; each result is still checked in order.
+      const membershipRef = doc(this.firestore, "workspaces", ws, "members", this.authUid);
+      const [license, membership, root] = await Promise.all([
+        getDoc(licenseRef),
+        getDoc(membershipRef),
+        getDoc(doc(this.firestore, "workspaces", ws)).catch(() => null),
+      ]);
       if (!checkLicense(license.data())) return;
       this.unsubscribe.push(
         onSnapshot(
@@ -423,16 +445,13 @@ export class FirebaseBackend extends Backend {
           },
         ),
       );
-      const membership = await getDoc(
-        doc(this.firestore, "workspaces", ws, "members", this.authUid),
-      );
       if (gen !== this.generation) return;
       if (!membership.data()?.active) {
         this.fail("Your access to this warehouse was removed.");
         return;
       }
       const manager = ["OWNER", "SUPERVISOR"].includes(membership.data()?.role);
-      const root = await getDoc(doc(this.firestore, "workspaces", ws));
+      if (!root) throw Error("Warehouse could not load.");
       this.metrics.reads += 3;
       if (gen !== this.generation) return;
       this.ingest("workspaces", [root.data()]);
@@ -521,6 +540,8 @@ export class FirebaseBackend extends Backend {
         );
     }
   }
+  /** The authorization check that runs at sign-in, while it is still running. */
+  joining: Promise<void> | null = null;
   summary: any = null;
   viewLoading = false;
   viewError = "";

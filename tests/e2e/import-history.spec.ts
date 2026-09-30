@@ -11,6 +11,8 @@ test('an import is named, found by search, reopened with its spreadsheet, rename
   await page.getByRole('button', { name: 'Import another' }).click();
 
   const history = page.getByTestId('import-history');
+  // Each row stays one compact line on a desktop screen.
+  expect((await history.locator('.import-row').first().boundingBox())!.height).toBeLessThan(80);
   await history.getByLabel('Search imports').fill('birch');
   await expect(history.locator('.import-row')).toHaveCount(1);
   await history.getByLabel('Search imports').fill('no such thing');

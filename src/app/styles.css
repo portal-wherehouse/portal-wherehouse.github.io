@@ -2316,15 +2316,15 @@ table.t th.n {
 
 .label-sheet .l-row {
   display: flex;
-  gap: 0.12in;
+  gap: 0.3in;
   align-items: flex-end;
   flex: 1;
   min-height: 0;
 }
 
 .label-sheet .l-qr {
-  width: 1.55in;
-  height: 1.55in;
+  width: 1.35in;
+  height: 1.35in;
   flex: none;
 }
 
@@ -3150,8 +3150,20 @@ table.t td svg,
   border-color: var(--accent);
 }
 .import-row .grow {
+  flex: 1 1 auto;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+.import-row > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--ink-3, currentColor);
+}
+.import-row > .tag,
+.import-row > .muted {
+  flex: none;
+  white-space: nowrap;
 }
 @media (max-width: 560px) {
   .import-row {
