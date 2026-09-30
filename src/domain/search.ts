@@ -34,6 +34,8 @@ export function rankRow(row: SearchRow, rawQuery: string): number {
   if (!q) return 0;
   const palletCode = row.pallet.code;
   const asPallet = parsePalletCode(q);
+  const supplierCode = normalizeCode(row.pallet.supplier_ref ?? '');
+  if (supplierCode && q === supplierCode) return 0;
   const jobCode = normalizeCode(row.job.code);
   const locCode = row.location ? normalizeCode(row.location.code) : '';
   if (q === palletCode || asPallet === palletCode || q === jobCode || (locCode && q === locCode)) return 0;

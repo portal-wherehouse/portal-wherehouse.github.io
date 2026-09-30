@@ -96,3 +96,8 @@
 .customer-app .dashboard-nav[aria-current='page']{background:var(--accent-soft);border-color:#c5d8ed;color:var(--accent);}
 .warehouse-home .warehouse-greeting{font-size:19px;font-weight:500;margin-top:14px;}
 @media(max-width:520px){.customer-app .bottom-nav button{font-size:10px;}.warehouse-home .warehouse-greeting{font-size:17px;}}
+
+.find-search-tools{display:flex;gap:12px;align-items:stretch;}
+.find-search-tools .search-bar{flex:1;min-width:0;}
+.find-search-tools>.btn{flex-shrink:0;}
+@media(max-width:520px){.find-search-tools{flex-direction:column;}.find-search-tools>.btn{width:100%;min-height:48px;}}

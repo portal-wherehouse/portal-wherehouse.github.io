@@ -1,6 +1,9 @@
 // Receive: give a pallet an identity (blueprint page 11).
 
 import { useEffect, useMemo, useState } from 'react';
+import { readSupplierBarcode } from '../../domain/supplierBarcode';
+import { useScanTarget } from '../../device/scanRouter';
+import { BarcodeSheet } from '../scan/BarcodeSheet';
 import { uuid } from '../../domain/codes';
 import { roleAllows } from '../../domain/transitions';
 import type { Pallet } from '../../domain/types';
@@ -20,6 +23,8 @@ export function Receive() {
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [supplier, setSupplier] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scanHint, setScanHint] = useState('');
   const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -31,6 +36,21 @@ export function Receive() {
   const [sessionIds, setSessionIds] = useState<string[]>([]);
   const cmd = useCommand();
   const photoCmd = useCommand();
+  const locked = cmd.locked || cmd.busy;
+  const captureSupplier = (raw: string) => {
+    if (locked || created) throw Error('Finish the current receipt before scanning another pallet.');
+    const result = readSupplierBarcode(raw);
+    if (supplier.trim() && supplier.trim() !== result.reference) throw Error('Clear the current supplier reference before scanning a different label.');
+    if (result.description && description.trim() && description.trim() !== result.description) throw Error('Clear the current description before scanning a label with different contents.');
+    setSupplier(result.reference);
+    if (result.description) setDescription(result.description);
+    setScanHint(result.hint);
+  };
+  useScanTarget('receive-supplier', (event) => {
+    try {captureSupplier(event.text); return true;}
+    catch (e) {toast((e as Error).message, 'error'); return 'error';}
+  }, roleAllows(role, 'receive') && !created && !locked && !scanning);
+
 
   const dirty = !created && (description.trim() !== '' || notes.trim() !== '' || supplier.trim() !== '' || !!photo);
   useEffect(() => {
@@ -93,7 +113,9 @@ export function Receive() {
 
   const another = (sameContents = false) => {
     setCreated(null);
-    if (!sameContents) { setDescription(''); setSupplier(''); }
+    if (!sameContents) setDescription('');
+    setSupplier('');
+    setScanHint('');
     setNotes('');
     setPhoto(null);
     setPhotoState('none');
@@ -189,17 +211,18 @@ export function Receive() {
           </div>
         </div>
         {sessionIds.length > 1 && <button className="btn" onClick={() => setLabelIds(sessionIds)}>Print all {sessionIds.length} labels from this receiving session</button>}
-        <p className="muted">“Receive another like this” keeps the job, description and supplier reference. Photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
+        <p className="muted">“Receive another like this” keeps the job and description. Supplier references, photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
         {labelIds.length > 0 && <LabelSheet palletIds={labelIds} onClose={() => setLabelIds([])} />}
       </div>
     );
   }
 
-  const locked = cmd.locked || cmd.busy;
-
   return (
     <div className="stack">
       <PageHead eyebrow="Warehouse" title="Receive a pallet" sub="Give the pallet an identity. Place it on a rack next." />
+      <button className="btn big" type="button" disabled={locked} onClick={() => setScanning(true)}><Icon name="scanner" />Scan supplier barcode</button>
+      <p className="hint">Scan a supplier barcode or receiving QR code. Descriptions fill in when the QR includes them. Review the details and choose a job before saving.</p>
+      {scanning && <BarcodeSheet title="Scan supplier barcode" onScan={captureSupplier} onClose={() => setScanning(false)} />}
       <Explain refs="pages 9, 11, 25">
         <p>A pallet is one physically handled unit, not a product SKU. Two identical pallets are two records, because they can be stored in different places.</p>
         <ul>
@@ -246,9 +269,10 @@ export function Receive() {
             ))}
           </datalist>
         </Field>
+        {scanHint && <p role="status" className="hint">{scanHint}</p>}
         <div className="grid-2">
-          <Field label="Supplier reference (optional)" htmlFor="rcv-sup" hint="Reference text only. It never becomes the pallet's identity.">
-            <input id="rcv-sup" className="input" value={supplier} onChange={(e) => setSupplier(e.target.value)} maxLength={80} disabled={locked} placeholder="e.g. PO 4471 / ACME-22" />
+          <Field label="Supplier reference (optional)" htmlFor="rcv-sup" hint="Scan or enter the supplier’s code. Find materials can search it after saving.">
+            <input id="rcv-sup" className="input" value={supplier} onChange={(e) => {setSupplier(e.target.value); setScanHint('');}} maxLength={80} disabled={locked} placeholder="e.g. PO 4471 / ACME-22" />
           </Field>
           <Field label="Photo (optional)" hint={photoError ?? (photo ? `${photo.width}×${photo.height}, ${formatBytes(photo.bytes)} after compression (was ${formatBytes(photo.original_bytes)})` : 'JPEG, PNG or WebP up to 5 MB. Compressed on this device.')}>
             <div className="row nowrap">

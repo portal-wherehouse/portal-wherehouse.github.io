@@ -2,17 +2,21 @@ import { FirebaseBackend } from '../../data/firebase';
 // Find: search by job, pallet code, rack, or description; location first (blueprint page 13).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { levenshtein, normalizeCode } from '../../domain/codes';
+import { BarcodeSheet } from '../scan/BarcodeSheet';
+import { readSupplierBarcode } from '../../domain/supplierBarcode';
+import { levenshtein, normalizeCode, parseLabelPayload, parsePalletCode } from '../../domain/codes';
 import { PALLET_STATES, type PalletState } from '../../domain/types';
 import { STATE_LABEL } from '../../domain/transitions';
 import type { RankedRow } from '../../domain/search';
 import { useApp } from '../../app/state';
-import { modalOpen } from '../../device/scanRouter';
+import { parseScanCommand } from '../../device/scanCommands';
+import { modalOpen, useScanTarget } from '../../device/scanRouter';
 import { Icon } from '../../ui/icons';
 import { Empty, Explain, HoldBadge, Notice, PageHead, StateBadge, WhereCell, fmtAgo, fmtTime } from '../../ui/ui';
 
 export function Find() {
-  const { read, route, go, backend, v } = useApp();
+  const { read, route, go, backend, v, actorId, workspaceId, toast } = useApp();
+  const [scanning, setScanning] = useState(false);
   const [q, setQ] = useState(route.q ?? '');
   const [states, setStates] = useState<PalletState[]>([]);
   const [jobId, setJobId] = useState('');
@@ -23,6 +27,23 @@ export function Find() {
   const cloud=backend instanceof FirebaseBackend?backend:null;
   useEffect(()=>{if(!cloud)return;const timer=setTimeout(()=>void cloud.search({q,states,job_id:jobId||undefined,location_id:locId||undefined,include_archived:archived,hold:holdOnly}),300);return()=>clearTimeout(timer);},[cloud,q,states,jobId,locId,archived,holdOnly]);
   const input = useRef<HTMLInputElement>(null);
+  const captureSearch = async (raw: string) => {
+    let query: string;
+    if (parseLabelPayload(raw)) {
+      if (!actorId || !workspaceId) throw Error('Sign in to your warehouse first.');
+      if (cloud) await cloud.preloadScan(raw);
+      const record = backend.reader.resolve(actorId, workspaceId, raw);
+      query = record.type === 'pallet' ? record.pallet.code : record.location.code;
+    } else query = parsePalletCode(raw) ?? readSupplierBarcode(raw).reference;
+    setQ(query); setStates([]); setJobId(''); setLocId(''); setHoldOnly(false); setArchived(true);
+  };
+  useScanTarget('find-materials', (event) => {
+    // Keep existing hardware shortcuts for Wherehouse labels, racks, and commands.
+    if (parseScanCommand(event.text) || parsePalletCode(event.text) || parseLabelPayload(event.text) || Object.values(backend.db.locations).some(location => location.workspace_id === workspaceId && normalizeCode(location.code) === normalizeCode(event.text))) return false;
+    void captureSearch(event.text).catch((e: unknown) => toast(e instanceof Error ? e.message : 'Could not read this label.', 'error'));
+    return true;
+  }, !scanning);
+
 
   useEffect(() => {
     if (route.q !== undefined) setQ(route.q);
@@ -92,6 +113,7 @@ export function Find() {
           Showing what this device had at {fmtTime(backend.cache.at)} ({fmtAgo(backend.cache.at)}). Pallets moved since then will not show their new location until you reconnect.
         </Notice>
       )}
+      <div className="find-search-tools">
       <div className="search-bar" data-tour="find-search">
         <Icon name="find" />
         <label htmlFor="find-q" className="sr-only">
@@ -110,6 +132,9 @@ export function Find() {
           enterKeyHint="search"
         />
       </div>
+      <button type="button" className="btn primary" onClick={() => setScanning(true)}><Icon name="scanner" />Scan barcode</button>
+      </div>
+      {scanning && <BarcodeSheet title="Scan to find materials" onScan={captureSearch} onClose={() => setScanning(false)} />}
       <div className="filter-row" role="group" aria-label="Filter by state" data-tour="find-filters">
         {PALLET_STATES.map((s) => (
           <button key={s} className="pill-toggle" aria-pressed={states.includes(s)} onClick={() => toggleState(s)}>
@@ -197,7 +222,7 @@ export function Find() {
       {result && result.items.length === 0 && !cloud?.viewLoading ? (
         <div className="panel">
           <Empty icon="find" title={q ? `No pallets match “${q.trim()}”` : 'No pallets match these filters'}>
-            <p>Check the spelling, or type the code printed on the label. Filters above may also be hiding results.</p>
+            <p>Check the spelling, or type the code printed on the label. Supplier codes are searchable after they have been saved on a receipt. Filters above may also be hiding results.</p>
           </Empty>
           {suggestions.length > 0 && (
             <div className="row" style={{ justifyContent: 'center', marginBottom: 12 }}>

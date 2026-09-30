@@ -147,7 +147,7 @@ export function ScanPanel({
       if (text) resolveOwn(text, 'photo');
       else {
         beep('bad');
-        onError('No QR code found in that photo. Hold the phone closer and keep the label flat, or type the printed code.', `photo:${file.name}:${file.size}`);
+        onError('No barcode or QR code found in that photo. Hold the phone closer and keep the label flat, or type the printed code.', `photo:${file.name}:${file.size}`);
       }
     } catch {
       onError('That photo could not be read.', `photo:${file.name}`);

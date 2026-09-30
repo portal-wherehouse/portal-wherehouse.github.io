@@ -1,5 +1,5 @@
-// Scanner adapter (blueprint page 16): native BarcodeDetector when available, a maintained
-// browser decoder (jsQR) otherwise, and manual code entry on every device (in the UI).
+// Scanner adapter (blueprint page 16): native BarcodeDetector when available,
+// browser decoders (jsQR and ZXing) otherwise, and manual code entry on every device (in the UI).
 // Camera access is only requested after a user action, prefers the rear camera, and stops
 // its tracks when the scanner closes.
 
@@ -11,7 +11,7 @@ function nativeDetector(): Detector | null {
   const BD = (globalThis as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
   if (!BD) return null;
   try {
-    return new BD({ formats: ['qr_code'] });
+    return new BD({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'data_matrix'] });
   } catch {
     return null;
   }
@@ -28,7 +28,7 @@ export type CameraError = 'denied' | 'unavailable' | 'insecure' | 'failed';
 export interface CameraSession {
   stop(): void;
   switchCamera(): Promise<void>;
-  decoder: 'native' | 'jsqr';
+  decoder: 'native' | 'zxing';
 }
 
 export async function startCamera(video: HTMLVideoElement, onText: (text: string) => void, onError: (e: CameraError, message: string) => void): Promise<CameraSession | null> {
@@ -60,6 +60,8 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
   try {
     await open();
   } catch (err) {
+    (stream as MediaStream | null)?.getTracks().forEach((t) => t.stop());
+    video.srcObject = null;
     const name = (err as DOMException)?.name;
     if (name === 'NotAllowedError' || name === 'SecurityError') onError('denied', 'Camera access was blocked. Allow the camera in your browser settings, or type the printed code.');
     else if (name === 'NotFoundError' || name === 'OverconstrainedError') onError('unavailable', 'No camera was found. Type the printed code instead.');
@@ -74,30 +76,35 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
     if (now - last > 140 && video.readyState >= 2) {
       last = now;
       try {
+        let found = false;
         if (native) {
-          const codes = await native.detect(video);
-          if (codes[0]?.rawValue) onText(codes[0].rawValue);
-        } else if (ctx) {
+          try {
+            const codes = await native.detect(video);
+            if (codes[0]?.rawValue) { found = true; if (!stopped) onText(codes[0].rawValue); }
+          } catch { /* Try the browser decoder if native detection fails. */ }
+        }
+        if (!found && ctx) {
           const w = video.videoWidth;
           const h = video.videoHeight;
-          const scale = Math.min(1, 720 / Math.max(w, h));
+          const scale = Math.min(1, 1280 / Math.max(w, h));
           canvas.width = Math.round(w * scale);
           canvas.height = Math.round(h * scale);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-          if (code?.data) onText(code.data);
+          const text = code?.data ?? (await import('./barcodeDecoder')).decodeBarcodePixels(img);
+          if (text && !stopped) onText(text);
         }
       } catch {
         /* a bad frame is not an error */
       }
     }
-    raf = requestAnimationFrame(() => void tick());
+    if (!stopped) raf = requestAnimationFrame(() => void tick());
   };
   raf = requestAnimationFrame(() => void tick());
 
   return {
-    decoder: native ? 'native' : 'jsqr',
+    decoder: native ? 'native' : 'zxing',
     stop() {
       stopped = true;
       cancelAnimationFrame(raf);
@@ -115,10 +122,11 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
   };
 }
 
-/** Decode a QR code from a photo the user took or picked (works where live camera is unavailable). */
+/** Decode a barcode or QR code from a photo the user took or picked (works where live camera is unavailable). */
 export async function decodeImageFile(file: File): Promise<string | null> {
   const bitmap = await loadBitmap(file);
   if (!bitmap) return null;
+  try {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
@@ -139,8 +147,11 @@ export async function decodeImageFile(file: File): Promise<string | null> {
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
     if (code?.data) return code.data;
+    const text = (await import('./barcodeDecoder')).decodeBarcodePixels(img);
+    if (text) return text;
   }
   return null;
+  } finally { if ('close' in bitmap) bitmap.close(); }
 }
 
 async function loadBitmap(file: Blob): Promise<ImageBitmap | HTMLImageElement | null> {
@@ -149,9 +160,10 @@ async function loadBitmap(file: Blob): Promise<ImageBitmap | HTMLImageElement | 
   } catch {
     return new Promise((resolve) => {
       const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = URL.createObjectURL(file);
+      const url = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
     });
   }
 }

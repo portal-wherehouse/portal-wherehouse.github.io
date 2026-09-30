@@ -51,3 +51,34 @@ The [printing and scanning page](https://portal-wherehouse.github.io/#hardware) 
 The process page contains a one-second static placeholder video in MP4 and WebM. It is deliberately not the finished animation.
 
 The earlier [pilot review](docs/pilot-review.md) is a fictional workflow simulation, not a customer testimonial or a completed field trial. Older architecture documents describe the original local prototype; the current Firebase guide and source are authoritative for this release.
+
+### Supplier barcode scanning
+
+Find materials and Receive have camera/photo scan buttons and accept keyboard scanners.
+The scanner reads QR, Code 128/GS1-128, Code 39, EAN/UPC, ITF, and Data Matrix using
+native detection with a locally bundled, lazy-loaded ZXing fallback. Barcode images
+are decoded on the device; scanning does not send photos to a lookup service.
+
+Receive recognizes SSCC application identifier `00`, preserves its 18 digits, and
+checks its check digit. It also accepts product codes and supplier references.
+The supplier reference is saved with the receipt and can be searched from Find.
+Product codes may match multiple pallets. Scanning never creates a receipt by itself,
+and copying a previous receipt clears its supplier reference.
+
+A standard SSCC identifies a logistics unit; it is not a database of its contents.
+Supplier ASN/EDI or packing-list/catalog imports are not connected by this feature.
+Descriptions for ordinary supplier barcodes must still be entered by the receiver.
+See the [GS1 logistics label guideline](https://ref.gs1.org/guidelines/logistic-label/).
+
+For labels explicitly made for Wherehouse, an **optional custom QR format** can
+include a description. This is not a universal supplier or GS1 format:
+
+```text
+WHR1:{"supplier_ref":"006141411234567890","description":"24 cartons of LED light fixtures"}
+```
+
+Encode the full text above as a QR code (do not encode it as an SSCC barcode).
+`supplier_ref` is a string of 1–80 characters; `description` is plain text of
+1–160 characters. Leading zeros must be preserved. Receive fills both fields,
+requires the operator to choose a job and save, and refuses to overwrite different
+existing contents. Find extracts the same reference to search saved records.
