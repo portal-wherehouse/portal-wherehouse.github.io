@@ -87,6 +87,7 @@ export class FirebaseBackend extends Backend {
     return b;
   }
   private clear() {
+    this.summary=null;
     if(this.expiryTimer)clearTimeout(this.expiryTimer);this.expiryTimer=null;this.invitations=[];
     this.viewGeneration++;this.viewKey='';this.viewStops.forEach(f=>f());this.viewStops=[];this.pages.clear();
     this.generation++; this.unsubscribe.forEach(f=>f());this.unsubscribe=[];

@@ -51,3 +51,44 @@
 .sample-note{display:flex;gap:9px;align-items:flex-start;background:#f1f6fc;border:1px solid #d9e6f5;border-radius:8px;padding:10px 12px;color:#46617f;font:400 12px/1.5 system-ui,sans-serif;margin:12px 0;max-width:440px;flex-basis:100%;}
 .sample-note>span{display:grid;place-items:center;border:1px solid #7792b2;border-radius:50%;width:16px;height:16px;flex-shrink:0;font-size:11px;}
 @media(max-width:600px){.sample-choice{padding:16px 12px;}.sample-choice strong{font-size:16px;}.sample-choice small{font-size:13px;}.customer-app .door-title{font-size:28px;font-weight:500;}.sample-note{font-size:12px;}}
+
+/* Warehouse arrival and the everyday home screen. */
+.warehouse-loading{display:grid;justify-items:center;align-content:center;gap:16px;min-height:240px;padding:32px 20px;text-align:center;width:100%;color:var(--ink);}
+.warehouse-welcome{min-height:75vh;max-width:620px;margin:auto;animation:warehouse-in .45s ease both;}
+.warehouse-loading h1{font:550 clamp(24px,4vw,34px)/1.25 system-ui,sans-serif;margin:0;letter-spacing:-.6px;}
+.warehouse-loading p{margin:0;font-size:14px;line-height:1.6;overflow-wrap:anywhere;}
+.warehouse-loading .warehouse-loading-name{font-weight:550;font-size:16px;}
+.warehouse-loader-mark{position:relative;display:grid;place-items:center;width:64px;height:64px;border-radius:18px;background:var(--accent-soft);color:var(--accent);}
+.warehouse-loader-mark svg{width:34px;height:34px;}
+.warehouse-loader-mark>span{position:absolute;inset:-7px;border:2px solid transparent;border-top-color:var(--accent);border-radius:24px;animation:warehouse-orbit 1.8s linear infinite;}
+.warehouse-loader-track{width:180px;height:3px;border-radius:9px;background:var(--line);overflow:hidden;}
+.warehouse-loader-track span{display:block;width:40%;height:100%;background:var(--accent);animation:warehouse-progress 1.3s ease-in-out infinite;}
+.warehouse-home{gap:24px;max-width:1280px;margin:auto;}
+.warehouse-home-head,.warehouse-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.warehouse-home-head h1{font:550 clamp(24px,3vw,32px)/1.25 system-ui,sans-serif;letter-spacing:-.65px;margin:6px 0;overflow-wrap:anywhere;}
+.warehouse-identity{font-size:14px;color:var(--ink-2);margin:8px 0 0;}
+.warehouse-home h2{font:550 17px/1.4 system-ui,sans-serif;letter-spacing:-.2px;margin:0;}
+.warehouse-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+.warehouse-metric{display:grid;gap:9px;text-align:left;min-width:0;padding:19px;border:1px solid var(--line);background:var(--surface);border-radius:10px;color:var(--ink);cursor:pointer;}
+.warehouse-metric>span{font-size:13px;font-weight:500;}.warehouse-metric strong{font:550 30px/1.2 system-ui,sans-serif;font-variant-numeric:tabular-nums;}.warehouse-metric small{font-size:12px;line-height:1.45;color:var(--ink-3);}
+.warehouse-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px;}
+.warehouse-action{display:flex;align-items:center;gap:14px;min-height:104px;min-width:0;padding:20px 16px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;}
+.warehouse-action>span:nth-child(2){flex:1;min-width:0;display:grid;gap:6px;}.warehouse-action strong{font:550 18px/1.3 system-ui,sans-serif;}.warehouse-action small{font:400 13px/1.45 system-ui,sans-serif;color:var(--ink-2);}.warehouse-action>svg{width:16px;flex-shrink:0;color:var(--ink-3);}
+.warehouse-action-icon{display:grid;place-items:center;flex-shrink:0;width:40px;height:40px;border-radius:10px;color:var(--accent);background:var(--accent-soft);}.warehouse-action-icon svg{width:21px;height:21px;}
+.warehouse-empty{display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:var(--accent-soft);}.warehouse-empty>div{flex:1;min-width:180px;}.warehouse-empty p{font-size:14px;line-height:1.6;margin:5px 0 0;color:var(--ink-2);}
+.warehouse-chart-note{font-size:12px;margin:0;}.warehouse-activity>button{display:flex;align-items:center;gap:12px;width:100%;padding:13px 0;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);text-align:left;cursor:pointer;}.warehouse-activity>button:last-child{border:0;}.warehouse-activity>button>span:nth-child(2){display:grid;gap:5px;flex:1;min-width:0;overflow-wrap:anywhere;}.warehouse-activity strong{font-size:14px;}.warehouse-activity small,.warehouse-activity time{font-size:12px;color:var(--ink-3);}.warehouse-activity time{max-width:130px;text-align:right;}
+.warehouse-utilities{display:flex;gap:10px;flex-wrap:wrap;}
+.customer-app .bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr));}
+.customer-app .main.page-enter{animation:warehouse-in .28s ease both;}
+.customer-app :is(.btn,.nav-item,.warehouse-action,.warehouse-metric,.result){transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;}
+.customer-app :is(.warehouse-action,.warehouse-metric):hover{border-color:#aac2dc;box-shadow:0 4px 14px #2849680b;transform:translateY(-2px);}
+.customer-app :is(.btn,.warehouse-action,.warehouse-metric):active{transform:translateY(1px);}
+.customer-app .warehouse-home>section,.customer-app .warehouse-home>.grid-2{animation:warehouse-in .38s ease both;}.customer-app .warehouse-home>section:nth-child(3){animation-delay:.06s;}.customer-app .warehouse-home>.grid-2{animation-delay:.1s;}
+@keyframes warehouse-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes warehouse-progress{0%{transform:translateX(-100%);}100%{transform:translateX(350%);}}
+@keyframes warehouse-orbit{to{transform:rotate(360deg);}}
+@media(max-width:900px){.warehouse-metrics,.warehouse-actions{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){.warehouse-home{gap:20px;}.warehouse-home-head h1{font-size:25px;}.warehouse-metrics{gap:10px;}.warehouse-metric{padding:14px 12px;}.warehouse-metric strong{font-size:26px;}.warehouse-metric small{font-size:11px;}.warehouse-actions{grid-template-columns:1fr;gap:10px;}.warehouse-action{min-height:84px;padding:16px;}.warehouse-action strong{font-size:17px;}.warehouse-activity .warehouse-action-icon{display:none;}.warehouse-activity time{max-width:85px;}.customer-app .bottom-nav button{font-size:11px;min-width:0;}.warehouse-home-head>.btn{min-height:40px;}}
+@media(prefers-reduced-motion:reduce){.warehouse-loading *,.customer-app .main.page-enter,.customer-app .warehouse-home>*,.warehouse-welcome{animation:none!important;}.customer-app :is(.btn,.nav-item,.warehouse-action,.warehouse-metric,.result){transition:none;transform:none!important;}}
+.warehouse-empty>svg{width:32px;height:32px;flex:0 0 32px;color:var(--accent);}
+@media(max-width:520px){.customer-app .live-status-chip{display:none;}.warehouse-loading{padding:24px 12px;}}

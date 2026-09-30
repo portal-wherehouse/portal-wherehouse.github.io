@@ -8,7 +8,7 @@ export function SignIn(){
  const open=(role:'OWNER'|'OPERATOR')=>{
   const member=backend.db.memberships.find(m=>m.active&&m.role===role);if(!member)return;
   signIn(member.user_id,member.workspace_id);
-  go(route.name!=='signin'?route:role==='OWNER'?'overview':'find');
+  go(route.name!=='signin'?route:'overview');
  };
  return <div className="door customer-app">
  <aside className="door-side"><div className="door-side-top"><button className="door-brand" onClick={()=>go('home')}><BrandMark className="door-brand-mark"/><span className="door-brand-name">{BRAND.name}</span></button></div>

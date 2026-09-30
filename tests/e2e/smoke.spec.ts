@@ -4,8 +4,8 @@
 import { expect, test } from '@playwright/test';
 import { signInAs, watchErrors } from './helpers';
 
-const PORTAL: [hash: string, h1: string][] = [
-  ['overview', 'Overview'],
+const PORTAL: [hash: string, h1: string | RegExp][] = [
+  ['overview', /^Welcome, /],
   ['receive', 'Receive a pallet'],
   ['move', 'Move pallet'],
   ['find', 'Find materials'],

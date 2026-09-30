@@ -1,3 +1,4 @@
+import { WarehouseLoading } from '../portal/WarehouseLoading';
 import { SampleHints } from '../portal/SampleHints';
 import { LiveView } from '../data/LiveView';
 // App shell. Website pages get the site header and footer; everything else is the portal:
@@ -98,7 +99,8 @@ const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.
   data: DataStorage,
 };
 
-const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' }[] = [
+const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' | 'overview' }[] = [
+  { route: 'overview', label: 'Home', icon: 'overview' },
   { route: 'receive', label: 'Receive', icon: 'receive' },
   { route: 'move', label: 'Move', icon: 'move' },
   { route: 'find', label: 'Find', icon: 'find' },
@@ -108,12 +110,14 @@ const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find'
 /** Which top-level tab a detail screen belongs to, for highlighting. */
 function tabFor(name: RouteName): RouteName {
   if (name === 'pallet') return 'find';
-  if (['receive', 'move', 'find'].includes(name)) return name;
+  if (['overview', 'receive', 'move', 'find'].includes(name)) return name;
   return 'more';
 }
 
 export function App() {
   const { route, actorId, backend, workspaceId } = useApp();
+  const [welcome, setWelcome] = useState('');
+  useEffect(() => { if (backend.cloudError) setWelcome(''); }, [backend.cloudError]);
   if (isSiteRoute(route.name)) {
     const Page = SITE_PAGES[route.name];
     return (
@@ -126,7 +130,8 @@ export function App() {
       </>
     );
   }
-  if (backend.mode === 'firebase' && (route.name === 'signin' || !actorId || !workspaceId || backend.loading || backend.cloudError)) return <LiveSignIn />;
+  if (welcome && !backend.cloudError) return <main className="auth-shell"><WarehouseLoading name={welcome} welcome ready={!backend.loading && !!workspaceId && route.name === 'overview'} onComplete={() => setWelcome('')} /></main>;
+  if (backend.mode === 'firebase' && (route.name === 'signin' || !actorId || !workspaceId || backend.loading || backend.cloudError)) return <LiveSignIn onActivated={setWelcome} />;
   if (route.name === 'signin' || !actorId) {
     return (
       <>
@@ -188,7 +193,7 @@ function Portal() {
       </div>}
 
       <header className="topbar">
-        <button className="brand" onClick={() => go(app.prefs.startTab)} aria-label={`${BRAND.portal} home`}>
+        <button className="brand" onClick={() => go('overview')} aria-label={`${BRAND.portal} home`}>
           <BrandMark className="brand-mark" />
           <span className="brand-name">{BRAND.name}</span>
           <span className="brand-sub">{companyName || 'Warehouse'}</span>
@@ -210,7 +215,7 @@ function Portal() {
               {offline ? <Icon name="wifiOff" /> : <span className="dot" />}
               <span className="net-label">{offline ? 'Offline' : 'Online'}</span>
               {pending > 0 && <span className="tag warn" style={{ marginLeft: 2 }}>{pending}</span>}
-            </button> : <span className="chip static" title="Records are saved to your warehouse account">{backend.mode === 'firebase' ? 'Shared warehouse' : 'Local demo'}</span>}
+            </button> : <span className="chip static live-status-chip" title="Records are saved to your warehouse account">{backend.mode === 'firebase' ? 'Shared warehouse' : 'Local demo'}</span>}
           </>
         )}
         {backend.mode === 'demo' && !backend.sampleMode && <button className="chip tour-chip" onClick={() => app.prefs.advancedTools ? app.startGuide(0) : app.setTourOpen(true)} data-tour="take-tour" aria-label={app.prefs.advancedTools ? 'Take the tour' : 'Practice shift'}>
@@ -266,7 +271,7 @@ function Portal() {
             ))}
           </nav>
         )}
-        <main className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
+        <main key={`${route.name}:${route.id ?? ''}`} className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
           {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
           {backend.mode === 'firebase' && <PendingCloudRequests />}
           {removed ? <RemovedAccess /> : signedIn ? <LiveView><Screen key={`${route.name}:${route.id ?? ''}`} /></LiveView> : <Screen />}
@@ -275,7 +280,7 @@ function Portal() {
 
       {signedIn && (
         <nav className="bottom-nav" aria-label="Main">
-          {TABS.filter(t => role !== 'VIEWER' || t.route === 'find' || t.route === 'more').map((t) => (
+          {TABS.filter(t => role !== 'VIEWER' || t.route === 'overview' || t.route === 'find' || t.route === 'more').map((t) => (
             <button key={t.route} aria-current={tabFor(route.name) === t.route ? 'page' : undefined} onClick={() => go(t.route)} data-tour={`tab-${t.route}`}>
               <Icon name={t.icon} />
               {t.label}

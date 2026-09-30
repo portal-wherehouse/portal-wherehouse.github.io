@@ -1,4 +1,4 @@
-// More: every other screen, for the phone layout where only four tabs fit.
+// More: every other screen, for the phone layout where the main tabs stay focused.
 
 import type { Role } from '../../domain/types';
 import { useApp, type RouteName } from '../../app/state';
@@ -18,7 +18,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
   {
     title: 'Warehouse',
     items: [
-      { route: 'overview', label: 'Overview', icon: 'overview', hint: 'Counts and attention' },
+      { route: 'overview', label: 'Home', icon: 'overview', hint: 'Counts and attention' },
       { route: 'map', label: 'Warehouse map', icon: 'map', hint: 'Racks and what is on them' },
       { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
       { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },
@@ -63,7 +63,7 @@ export function visibleNavGroups(role: Role | null, advanced: boolean, live = fa
 }
 
 /** Screens the phone's bottom tabs already reach. */
-const PHONE_TABS: RouteName[] = ['receive', 'move', 'find'];
+const PHONE_TABS: RouteName[] = ['overview', 'receive', 'move', 'find'];
 
 export function More() {
   const { go, role, prefs, backend } = useApp();

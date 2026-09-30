@@ -30,7 +30,7 @@ try {
   window.__expireSignupCheckbox=()=>{input.checked=false;options['expired-callback']();};return 1;
  },reset:()=>{}}};`}));
  await signupPage.goto('http://127.0.0.1:4175/#signin');
- assert.equal(await signupPage.getByRole('group',{name:'Account verification'}).count(),0);
+ await expect(signupPage.getByRole('group',{name:'Account verification'})).toHaveCount(0);
  await signupPage.getByRole('button',{name:'Create account',exact:true}).click();
  await signupPage.getByLabel('Your name',{exact:true}).fill('New signup');
  await signupPage.getByLabel('Email',{exact:true}).fill(`signup-browser-${Date.now()}@example.com`);
@@ -43,13 +43,15 @@ try {
  assert.equal(await signupPage.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
  await signupPage.screenshot({path:'test-results/signup-checkbox-mobile.png'});
  await createButton.click();await signupPage.getByRole('button',{name:'I’ve verified my email',exact:true}).waitFor();
- assert.equal(await signupPage.getByRole('group',{name:'Account verification'}).count(),0);
+ await expect(signupPage.getByRole('group',{name:'Account verification'})).toHaveCount(0);
  await signupPage.getByRole('button',{name:'Sign out',exact:true}).click();
- assert.equal(await signupPage.getByRole('group',{name:'Account verification'}).count(),0);
+ await expect(signupPage.getByRole('group',{name:'Account verification'})).toHaveCount(0);
  await signupPage.close();console.log('PASS mobile signup checkbox gates submission, expires, creates an account and stays off sign-in');
  await page.goto('http://127.0.0.1:4175/#signin');await page.getByLabel('Email',{exact:true}).fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await page.getByText('Activate my warehouse with a usage key',{exact:true}).click();await page.getByLabel('Warehouse name',{exact:true}).fill('Browser warehouse');await page.getByLabel('Usage key',{exact:true}).fill(usageKey);await page.getByRole('button',{name:'Activate warehouse',exact:true}).click();
- await page.getByRole('heading',{name:'Locations',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(0,4000));throw e;});assert.equal(await page.locator('.demo-strip').count(),0);assert.equal(await page.getByRole('button',{name:'Practice shift',exact:true}).count(),0);
+ await page.getByText('Activate my warehouse with a usage key',{exact:true}).click();await page.getByLabel('Warehouse name',{exact:true}).fill('Browser warehouse');await page.getByLabel('Usage key',{exact:true}).fill('WH-invalid');await page.getByRole('button',{name:'Activate warehouse',exact:true}).click();await page.getByRole('alert').first().waitFor();assert.equal(await page.getByRole('heading',{name:'Welcome to Wherehouse.',exact:true}).count(),0);await page.getByLabel('Usage key',{exact:true}).fill(usageKey);await page.setViewportSize({width:375,height:812});await page.getByRole('button',{name:'Activate warehouse',exact:true}).click();
+ await page.getByRole('heading',{name:'Welcome to Wherehouse.',exact:true}).waitFor();await page.getByText('Loading Browser warehouse…',{exact:true}).waitFor();await page.screenshot({path:'test-results/warehouse-welcome-mobile.png',animations:'disabled'});
+ await page.getByRole('heading',{name:'Welcome, Browser owner.',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(0,4000));throw e;});assert.equal(await page.locator('.demo-strip').count(),0);assert.equal(await page.getByRole('button',{name:'Practice shift',exact:true}).count(),0);
+ await expect(page.locator('.warehouse-identity')).toContainText('Owner');await expect(page.getByRole('region',{name:'Warehouse analytics'})).toBeVisible();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'test-results/warehouse-home-mobile.png',animations:'disabled'});await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'test-results/warehouse-home-desktop.png',animations:'disabled'});console.log('PASS activation welcome, named loading, personal dashboard, analytics and mobile layout');
  await page.goto('http://127.0.0.1:4175/#jobs');await page.getByRole('button',{name:'New job',exact:true}).click();
  await page.locator('#job-code').fill('J-LIVE');await page.locator('#job-name').fill('Live browser delivery');await page.getByRole('button',{name:'Create job',exact:true}).click();
  await page.getByRole('heading',{name:'Live browser delivery',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(-4000));throw e;});
@@ -58,7 +60,7 @@ try {
  await page.getByRole('button',{name:'Open record',exact:true}).click();await page.getByRole('heading',{name:/P-000/}).waitFor();
  const imageData=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1800;c.height=1200;const x=c.getContext('2d');const data=x.createImageData(c.width,c.height);for(let i=0;i<data.data.length;i+=4){data.data[i]=(i*17)%255;data.data[i+1]=Math.floor(i/123)%255;data.data[i+2]=(i*31)%255;data.data[i+3]=255;}x.putImageData(data,0,0);x.fillStyle='white';x.font='70px sans-serif';x.fillText('LABEL DETAIL 12345',60,150);return c.toDataURL('image/png').split(',')[1];});
  await page.locator('input[type=file]').setInputFiles({name:'detail.png',mimeType:'image/png',buffer:Buffer.from(imageData,'base64')});await page.getByRole('button',{name:'Open photo',exact:true}).waitFor();
- const second=await browser.newPage();await second.goto('http://127.0.0.1:4175/#signin');await second.getByLabel('Email',{exact:true}).fill(email);await second.getByLabel('Password',{exact:true}).fill(password);await second.getByRole('button',{name:'Sign in',exact:true}).click();await second.locator('#find-q').fill('Shared browser pallet');await second.locator('.result').waitFor();
+ const second=await browser.newPage();await second.goto('http://127.0.0.1:4175/#signin');await second.getByLabel('Email',{exact:true}).fill(email);await second.getByLabel('Password',{exact:true}).fill(password);await second.getByRole('button',{name:'Sign in',exact:true}).click();await second.getByRole('heading',{name:'Welcome, Browser owner.',exact:true}).waitFor();await second.locator('.warehouse-actions').getByRole('button',{name:'Find',exact:true}).click();await second.locator('#find-q').fill('Shared browser pallet');await second.locator('.result').waitFor();
  await second.reload();await second.locator('#find-q').fill('Shared browser pallet');await second.locator('.result').waitFor();
  const openingUsage=await second.evaluate(()=>window.__wherehouseBackend.usage());assert.equal(openingUsage.photoBytes,0);assert.ok(openingUsage.reads<250);
  await second.locator('.result').click();const thumbButton=second.getByRole('button',{name:'Open photo',exact:true});await thumbButton.scrollIntoViewIfNeeded();await thumbButton.locator('img').waitFor();
@@ -67,7 +69,7 @@ try {
  await mkdir('docs/measurements',{recursive:true});await writeFile('docs/measurements/browser-photos.json',JSON.stringify({openingUsage,thumbnailBytes:thumbUsage.photoBytes,detailBytes:fullUsage.photoBytes-thumbUsage.photoBytes,description:'Actual browser canvas compression, authenticated image fetches; sign-in and Find download zero photo bytes.'},null,2));
  console.log('PASS sign-in loads zero photo bytes; visible thumbnail and opened detail download separately');
 
- await page.goto('http://127.0.0.1:4175/#overview');await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();await page.getByText('Pallets on hand',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);
+ await page.goto('http://127.0.0.1:4175/#overview');await page.getByRole('heading',{name:'Welcome, Browser owner.',exact:true}).waitFor();await page.getByText('Pallets on hand',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);
  await page.goto('http://127.0.0.1:4175/#activity');await page.getByRole('heading',{name:'Activity',exact:true}).waitFor();await page.locator('.t tbody tr').first().waitFor();await page.getByLabel('Kind of change').selectOption('movement');await page.locator('.t tbody tr').first().waitFor();assert.equal(await page.getByRole('alert').count(),0);console.log('PASS bounded overview counts and filtered shared activity');
  await second.goto('http://127.0.0.1:4175/#settings');await second.getByRole('button',{name:'Sign out',exact:true}).click();await second.goto('http://127.0.0.1:4175/#find');await second.getByLabel('Email',{exact:true}).waitFor();assert.equal(await second.locator('.result').count(),0);
  await page.goto('http://127.0.0.1:4175/#help');await page.getByRole('button',{name:'Take the tour',exact:true}).click();

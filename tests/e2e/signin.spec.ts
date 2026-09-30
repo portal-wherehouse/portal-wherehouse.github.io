@@ -12,7 +12,8 @@ test('sample entry offers only management and employee views',async({page})=>{
 });
 test('employee sample keeps floor actions and explains them without a tour overlay',async({page})=>{
  const errors=watchErrors(page);await page.goto('/?demo=1#signin');await page.getByRole('button',{name:'View an employee dashboard'}).click();await portalReady(page);
- await expect(page).toHaveURL(/#find$/);await expect(page.locator('.sample-note').first()).toBeVisible();
+ await expect(page).toHaveURL(/#overview$/);await expect(page.locator('.sample-note').first()).toBeVisible();
+ await expect(page.locator('.warehouse-identity')).toContainText('Operator');await page.locator('.warehouse-actions').getByRole('button',{name:'Find',exact:true}).click();
  await expect(page.locator('.sidebar').getByRole('button',{name:'Receive',exact:true})).toBeVisible();
  await expect(page.locator('.sidebar').getByRole('button',{name:'Manager dashboard',exact:true})).toHaveCount(0);
  await page.locator('.result').filter({hasText:'Example pallet 1'}).click();await expect(page.locator('.tl-item')).toHaveCount(3);await expect(page.locator('.sample-note').first()).toBeVisible();

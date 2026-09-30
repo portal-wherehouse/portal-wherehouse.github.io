@@ -1,3 +1,4 @@
+import { WarehouseLoading } from '../portal/WarehouseLoading';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp } from '../app/state';
 import { FirebaseBackend } from './firebase';
@@ -7,7 +8,7 @@ export function LiveView({children}:{children:ReactNode}){
  const key=route.name+':'+(route.id||'')+':'+workspaceId;
  useEffect(()=>{let alive=true;if(backend instanceof FirebaseBackend)void backend.openView(route).then(()=>{if(alive)setReady(key);});return()=>{alive=false;};},[backend,key]);
  if(!(backend instanceof FirebaseBackend))return <>{children}</>;
- if(ready!==key||(backend.viewLoading&&route.name!=='find'))return <p role="status">Opening warehouse…</p>;
+ if(ready!==key||(backend.viewLoading&&route.name!=='find'))return <WarehouseLoading name={workspaceId ? backend.db.workspaces[workspaceId]?.name : undefined} />;
  const moreKeys=['records','history','activity','audit','imports','rack','children'].filter(k=>backend.pageMore(k));
  const run=async(fn:()=>Promise<void>)=>{setBusy(true);try{await fn();}catch(e){backend.viewError=(e as Error).message;}finally{setBusy(false);}};
  return <>{backend.viewError&&<p role="alert">{backend.viewError} <button className="btn small" onClick={()=>void run(()=>backend.refreshView())}>Retry</button></p>}{children}

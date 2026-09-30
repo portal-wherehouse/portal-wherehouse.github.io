@@ -1,178 +1,73 @@
 import { FirebaseBackend } from '../../data/firebase';
-// Warehouse overview: what needs attention, where things are, and what happened recently.
-
 import { useMemo, useState } from 'react';
 import { EVENT_LABEL, STATE_LABEL } from '../../domain/transitions';
 import type { PalletState } from '../../domain/types';
-import { useApp } from '../../app/state';
-import { Icon } from '../../ui/icons';
-import { Explain, PageHead, StatTile, fmtTime } from '../../ui/ui';
+import { useApp, type RouteName } from '../../app/state';
+import { Icon, type IconName } from '../../ui/icons';
+import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
-
+const ACTIONS: { route: RouteName; title: string; hint: string; icon: IconName; write?: boolean }[] = [
+  {route:'receive',title:'Receive',hint:'Record an incoming pallet',icon:'receive',write:true},
+  {route:'move',title:'Move',hint:'Scan a pallet and its new rack',icon:'move',write:true},
+  {route:'find',title:'Find',hint:'Look up a pallet, job or rack',icon:'find'},
+  {route:'locations',title:'Locations',hint:'Racks, areas and their pallets',icon:'locations',write:true},
+  {route:'jobs',title:'Jobs',hint:'Materials grouped by project',icon:'jobs'},
+  {route:'labels',title:'Print labels',hint:'Pallet and rack labels',icon:'labels',write:true},
+];
 export function Overview() {
-  const { read, go, backend, actorId, workspaceId, v } = useApp();
-  const data = useMemo(
-    () =>
-      read((e, a, ws) => {
-        const ctx = e.context(a, ws);
-        const pallets = Object.values(e.db.pallets).filter((p) => p.workspace_id === ws && !p.archived_at);
-        const counts = Object.fromEntries(STATE_ORDER.map((s) => [s, 0])) as Record<PalletState, number>;
-        for (const p of pallets) counts[p.state]++;
-        const occ = e.occupancy(ws);
-        const activity = e.activity(a, ws, 5000);
-        const jobCounts = e.jobCounts(ws);
-        return {
-          ctx,
-          counts,
-          total: pallets.length,
-          holds: pallets.filter((p) => p.hold && p.state !== 'RETIRED').length,
-          reprint: pallets.filter((p) => p.label_needs_reprint && p.state !== 'RETIRED').length,
-          staleUnverified: pallets.filter((p) => p.state === 'STORED' && p.last_confirmed_at && Date.now() - new Date(p.last_confirmed_at).getTime() > 3 * 86_400_000).length,
-          occ,
-          activity,
-          jobCounts,
-        };
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [v, backend.network],
-  );
-  if (!data) return null;
-  const pending = actorId && workspaceId ? backend.outbox.pending(actorId, workspaceId).length + backend.pendingFor(actorId, workspaceId).length : 0;
-  if(backend instanceof FirebaseBackend && backend.summary){Object.assign(data.counts,backend.summary.counts);data.total=Object.values(data.counts).reduce((n,c)=>n+c,0);data.holds=backend.summary.holds;data.reprint=backend.summary.reprint;data.staleUnverified=backend.summary.stale;}
-  const onHand = data.counts.STORED + data.counts.RECEIVED;
-  const users = backend.db.users;
-
-  return (
-    <div className="stack">
-      <PageHead eyebrow={`${data.ctx.workspace.name} · ${data.ctx.warehouse?.code}`} title="Overview" sub={`${data.ctx.warehouse?.name} · times shown in your timezone; the warehouse runs on ${data.ctx.warehouse?.timezone}.`} />
-
-      <div className="grid-2" data-tour="overview-summary">
-        <div className="panel stack">
-          <div className="panel-title">Pallets on hand</div>
-          <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
-            <span className="hero-number">{onHand}</span>
-            <span className="muted">
-              {data.counts.STORED} stored on racks, {data.counts.RECEIVED} waiting for placement
-            </span>
-          </div>
-          <StateBar counts={data.counts} total={data.total} />
-        </div>
-        <div className="panel stack">
-          <div className="panel-title">Needs attention</div>
-          <div className="stats" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
-            <StatTile label="Needs placement" icon="receive" value={data.counts.RECEIVED} onClick={() => go('reconcile')} />
-            <StatTile label="Missing" icon="question" value={data.counts.MISSING} onClick={() => go('reconcile')} />
-            <StatTile label="On hold" icon="hold" value={data.holds} onClick={() => go('reconcile')} />
-            <StatTile label="Labels to reprint" icon="print" value={data.reprint} onClick={() => go('reconcile')} />
-            <StatTile label="Not verified in 3+ days" icon="check" value={data.staleUnverified} onClick={() => go('reconcile')} />
-            <StatTile label="Unsent on this device" icon="sync" value={pending} onClick={() => go('sync')} />
-          </div>
-        </div>
-      </div>
-
-      <Explain refs="pages 3, 8, 15, 32">
-        <p>Everything here is counted from recorded state, not guessed. “On hand” is received plus stored. Occupancy is the number of pallets recorded at a location. It is not a capacity figure, because the app does not know pallet sizes or rack load limits.</p>
-      </Explain>
-
-      <div className="grid-2">
-        <div className="panel">
-          <div className="panel-title">Recent changes by day</div>
-          {backend.mode==='firebase'&&<p className="muted">Latest 50 changes. Full history is available in Activity.</p>}
-          <ActivityChart events={data.activity.map((e) => e.accepted_at)} />
-        </div>
-        <div className="panel stack">
-          <div className="panel-title">
-            Busiest locations <span className="grow" />
-            <button className="btn ghost small" onClick={() => go('map')}>
-              Open map <Icon name="chevronRight" />
-            </button>
-          </div>
-          <Occupancy locations={data.ctx.locations} occ={data.occ} onOpen={(id) => go({ name: 'location', id })} />
-        </div>
-      </div>
-
-      <div className="grid-2">
-        <div className="panel">
-          <div className="panel-title">
-            Recent activity <span className="grow" />
-            <button className="btn ghost small" onClick={() => go('activity')}>
-              All activity <Icon name="chevronRight" />
-            </button>
-          </div>
-          <div className="stack" style={{ gap: 8 }}>
-            {data.activity.slice(0, 8).map((ev) => {
-              const p = backend.db.pallets[ev.pallet_id];
-              return (
-                <button key={ev.id} className="row nowrap ov-act" style={{ background: 'none', border: 0, padding: '4px 0', cursor: 'pointer', textAlign: 'left', color: 'var(--ink)' }} onClick={() => go({ name: 'pallet', id: ev.pallet_id })}>
-                  <span className="pcode" style={{ minWidth: 86 }}>
-                    {p?.code}
-                  </span>
-                  <span className="grow">
-                    <strong>{EVENT_LABEL[ev.type]}</strong>
-                    {ev.after_state.current_location_code && ev.type !== 'receive' ? (
-                      <>
-                        {' → '}
-                        <span className="code-nw">{ev.after_state.current_location_code}</span>
-                      </>
-                    ) : null}
-                    <span className="muted"> · {users[ev.actor_id]?.name}</span>
-                  </span>
-                  <span className="faint ov-act-time" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
-                    {fmtTime(ev.accepted_at)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="panel flush">
-          <div className="panel-title" style={{ padding: '14px 16px 0' }}>
-            Jobs
-          </div>
-          <div className="table-wrap" style={{ border: 0, borderRadius: 0 }}>
-            <table className="t cards-sm">
-              <thead>
-                <tr>
-                  <th>Job</th>
-                  <th className="n">On hand</th>
-                  <th className="n">Missing</th>
-                  <th className="n">Holds</th>
-                  <th className="n">Dispatched</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.ctx.jobs.map((j) => {
-                  const c = data.jobCounts[j.id] ?? {};
-                  return (
-                    <tr key={j.id} className="click" onClick={() => go({ name: 'job', id: j.id })}>
-                      <td className="lead">
-                        <span className="jcode">{j.code}</span> {j.status === 'CLOSED' && <span className="tag">closed</span>}
-                        <span className="muted job-name">{j.name}</span>
-                      </td>
-                      <td className="n" data-label="On hand">
-                        {(c.STORED ?? 0) + (c.RECEIVED ?? 0)}
-                      </td>
-                      <td className="n" data-label="Missing">
-                        {c.MISSING ?? 0}
-                      </td>
-                      <td className="n" data-label="Holds">
-                        {c.HOLD ?? 0}
-                      </td>
-                      <td className="n" data-label="Dispatched">
-                        {c.DISPATCHED ?? 0}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+  const {read,go,backend,v,role} = useApp();
+  const data=useMemo(()=>read((e,a,ws)=>{
+    const ctx=e.context(a,ws);
+    const pallets=Object.values(e.db.pallets).filter(p=>p.workspace_id===ws&&!p.archived_at);
+    const counts=Object.fromEntries(STATE_ORDER.map(s=>[s,0])) as Record<PalletState,number>;
+    for(const p of pallets)counts[p.state]++;
+    return {ctx,counts,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000)};
+  }),[v,backend.network,read]);
+  if(!data)return null;
+  const live=backend instanceof FirebaseBackend;
+  const summary=live?backend.summary:data;
+  const counts:Record<PalletState,number>=summary?.counts || data.counts;
+  const total=Object.values(counts).reduce((sum,n)=>sum+n,0);
+  const name=data.ctx.user?.name || 'there';
+  const manager=role==='OWNER'||role==='SUPERVISOR';
+  const actions=ACTIONS.filter(a=>role!=='VIEWER'||!a.write);
+  const metrics=[
+    {label:'Pallets on hand',value:counts.STORED+counts.RECEIVED,detail:'Stored + waiting to be stored',route:'find'},
+    {label:'Waiting to be stored',value:counts.RECEIVED,detail:'Ready for a rack or area',route:'reconcile'},
+    {label:'Dispatched',value:counts.DISPATCHED,detail:'Recorded as sent out',route:'find'},
+    {label:'On hold',value:summary?.holds || 0,detail:'Review before dispatching',route:'reconcile'},
+  ] as const;
+  return <div className="stack warehouse-home">
+    <header className="warehouse-home-head">
+      <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Welcome, {name}.</h1><p className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}<span aria-hidden="true"> · </span>Warehouse home</p></div>
+      <button className="btn" onClick={()=>go('activity')}><Icon name="activity"/>View activity</button>
+    </header>
+    <section aria-label="Warehouse analytics" className="warehouse-metrics" data-tour="overview-summary">
+      {metrics.map(m=><button className="warehouse-metric" key={m.label} onClick={()=>go(role==='VIEWER'?'find':m.route)}><span>{m.label}</span><strong>{summary?m.value.toLocaleString():'Unavailable'}</strong><small>{summary?m.detail:'Counts are unavailable. Try Refresh.'}</small></button>)}
+    </section>
+    <section aria-labelledby="warehouse-actions-title"><div className="warehouse-section-head"><h2 id="warehouse-actions-title">What do you need to do?</h2></div><div className="warehouse-actions">
+      {actions.map(a=><button className="warehouse-action" key={a.route} aria-label={a.title} onClick={()=>go(a.route)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
+    </div></section>
+    {summary&&total===0&&<section className="panel warehouse-empty"><Icon name="locations"/><div><h2>Your warehouse is ready.</h2><p>{manager?'Add your rack locations and a job, then receive your first pallet.':'Your team’s pallets will appear here as deliveries are recorded.'}</p></div>{manager&&<button className="btn primary" onClick={()=>go('locations')}>Set up locations</button>}</section>}
+    <div className="grid-2">
+      <section className="panel stack"><div className="warehouse-section-head"><h2>Pallet status</h2><button className="btn ghost small" onClick={()=>go('find')}>Find pallets</button></div>
+        {summary?<StateBar counts={counts} total={total}/>:<p className="muted">Refresh to load warehouse counts.</p>}
+        {summary&&counts.MISSING>0&&<button className="btn" onClick={()=>go(role==='VIEWER'?'find':'reconcile')}>{counts.MISSING} missing: needs attention</button>}
+      </section>
+      <section className="panel stack"><h2>Recent changes</h2><p className="muted warehouse-chart-note">{live?'Latest 50 recorded changes, grouped by day.':'Recorded changes over the last 14 days.'}</p><ActivityChart events={data.activity.map(e=>e.accepted_at)}/></section>
     </div>
-  );
+    <section className="panel stack"><div className="warehouse-section-head"><h2>Latest activity</h2><button className="btn ghost small" onClick={()=>go('activity')}>View history</button></div>
+      {!data.activity.length?<p className="muted">No pallet activity yet. Receiving a pallet starts its history.</p>:<div className="warehouse-activity">{data.activity.slice(0,6).map(ev=><button key={ev.id} onClick={()=>go({name:'pallet',id:ev.pallet_id})}><span className="warehouse-action-icon"><Icon name="activity"/></span><span><strong>{EVENT_LABEL[ev.type]}{backend.db.pallets[ev.pallet_id]?.code?` · ${backend.db.pallets[ev.pallet_id].code}`:''}</strong><small>{ev.after_state.current_location_code || 'Pallet record'} · {backend.db.users[ev.actor_id]?.name || 'Team member'}</small></span><time dateTime={ev.accepted_at}>{fmtTime(ev.accepted_at)}</time></button>)}</div>}
+    </section>
+    <nav className="warehouse-utilities" aria-label="More warehouse tools">
+      <button className="btn" onClick={()=>go('map')}><Icon name="map"/>Warehouse map</button>
+      {manager&&<button className="btn" onClick={()=>go('people')}><Icon name="people"/>Manage team</button>}
+      <button className="btn" onClick={()=>go('more')}><Icon name="more"/>All features</button>
+      <button className="btn ghost" onClick={()=>go('help')}><Icon name="help"/>Get help</button>
+    </nav>
+  </div>;
 }
 
 function StateBar({ counts, total }: { counts: Record<PalletState, number>; total: number }) {
@@ -272,30 +167,6 @@ function ActivityChart({ events }: { events: string[] }) {
           {buckets[hover].full}: {buckets[hover].n} {buckets[hover].n === 1 ? 'change' : 'changes'}
         </div>
       )}
-    </div>
-  );
-}
-
-function Occupancy({ locations, occ, onOpen }: { locations: { id: string; code: string; kind: string; active: boolean }[]; occ: Record<string, number>; onOpen: (id: string) => void }) {
-  const rows = locations
-    .filter((l) => l.active)
-    .map((l) => ({ ...l, n: occ[l.id] ?? 0 }))
-    .sort((a, b) => b.n - a.n || a.code.localeCompare(b.code))
-    .slice(0, 7);
-  const max = Math.max(1, ...rows.map((r) => r.n));
-  return (
-    <div className="stack" style={{ gap: 6 }}>
-      {rows.map((r) => (
-        <button key={r.id} onClick={() => onOpen(r.id)} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 135px) minmax(30px, 1fr) 78px', gap: 10, alignItems: 'center', background: 'none', border: 0, padding: '3px 0', cursor: 'pointer', color: 'var(--ink)', textAlign: 'left' }}>
-          <span className="jcode" style={{fontSize:14,fontWeight:500,overflowWrap:'anywhere'}}>{r.code}</span>
-          <span style={{ height: 14, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
-            <span style={{ display: 'block', height: '100%', width: `${(r.n / max) * 100}%`, background: 'var(--accent)', borderRadius: '0 4px 4px 0' }} />
-          </span>
-          <span className="muted num" style={{ fontSize: 13 }}>
-            {r.n} recorded
-          </span>
-        </button>
-      ))}
     </div>
   );
 }

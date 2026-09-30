@@ -22,7 +22,7 @@ const STOPS: { title: string; hash: string | null; record?: RegExp }[] = [
   { title: 'Find', hash: 'find' },
   { title: 'A pallet record', hash: '', record: /P-\d{6}/ },
   { title: 'Its history', hash: '', record: /P-\d{6}/ },
-  { title: 'Overview', hash: 'overview' },
+  { title: 'Warehouse home', hash: 'overview' },
   { title: 'Warehouse map', hash: 'map' },
   { title: 'Needs attention', hash: 'reconcile' },
   { title: 'Activity', hash: 'activity' },
