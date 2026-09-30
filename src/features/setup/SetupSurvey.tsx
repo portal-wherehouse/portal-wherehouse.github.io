@@ -13,6 +13,7 @@ import {
   groupById,
   groupsFor,
   keptLabels,
+  loadSavedSurvey,
   loadSurveyProgress,
   PLACE_NAME,
   PLACE_SUB,
@@ -58,7 +59,8 @@ type Step = {
   only?: string;
   placeholder?: string;
   show?: (a: SurveyAnswers) => boolean;
-  site?: boolean;
+  /** Only in the plan survey on the website, or only in the setup survey in the portal. Both when unset. */
+  part?: 'plan' | 'setup';
   numeric?: boolean;
   valid?: (v: string) => boolean;
 };
@@ -99,7 +101,21 @@ const STEPS: Step[] = [
     moreLabel: 'other kinds of inventory',
   },
   {
+    id: 'size',
+    part: 'plan',
+    q: (a) => `About how much ${noun(a)} do you keep on hand?`,
+    why: 'A rough idea of size lets us estimate your setup time and whether a tech visit is the bigger or smaller job. You’ll enter real numbers during setup.',
+    kind: 'one',
+    options: [
+      { id: '0', title: 'Small', sub: 'Fits in a room or two', icon: 'box' },
+      { id: '1', title: 'Medium', sub: 'A back room, shop or small warehouse', icon: 'stack' },
+      { id: '2', title: 'Large', sub: 'A full warehouse or yard', icon: 'layers' },
+      { id: '3', title: 'Very large', sub: 'Several buildings or a big lot', icon: 'building' },
+    ],
+  },
+  {
     id: 'layout',
+    part: 'setup',
     q: 'Where does each kind go, and how much is there?',
     why: 'Each row becomes its own storage zones. An area is one rack row, one room or one section of floor. The quantities decide how many spots and labels you need.',
     hint: 'A guess is fine. You can change all of it during setup.',
@@ -108,6 +124,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'limits',
+    part: 'setup',
     q: 'What limits how much fits in a spot?',
     why: (a) => `Pick what you need to respect when you put ${noun(a)} away. Weight limits turn on weight tracking; the others set how many fit per spot, so Move only suggests spots with room.`,
     hint: 'Pick all that apply.',
@@ -137,6 +154,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'hold',
+    part: 'setup',
     q: (a) => `Do you reserve ${noun(a)} for a specific customer, order or job?`,
     why: (a) => `For example, ${profileOf(a).holdExample} If you do this, the app can tag and group reserved ${noun(a)}. If not, we hide the feature.`,
     kind: 'one',
@@ -146,9 +164,10 @@ const STEPS: Step[] = [
       { id: 'other', title: 'Yes, something else', sub: 'You name it', icon: 'sparkle' },
     ],
   },
-  { id: 'holdWord', q: 'What do you reserve them for?', why: 'The app groups reserved inventory under this word. A caterer might say “event”, a builder “build”, a rental shop “rental”. You’d see screens like “Items for this rental”.', hint: 'One word, like Rental, Build or Delivery.', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.hold === 'other' },
+  { id: 'holdWord', part: 'setup', q: 'What do you reserve them for?', why: 'The app groups reserved inventory under this word. A caterer might say “event”, a builder “build”, a rental shop “rental”. You’d see screens like “Items for this rental”.', hint: 'One word, like Rental, Build or Delivery.', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.hold === 'other' },
   {
     id: 'hasPrinter',
+    part: 'setup',
     q: 'Do you already have a printer for labels?',
     why: 'Every spot and every labeled unit, bin or pallet gets a QR label. We’ll check your printer or suggest one.',
     hint: 'Any printer counts, even an office one.',
@@ -158,9 +177,10 @@ const STEPS: Step[] = [
       { id: 'no', title: 'No, not yet', icon: 'x' },
     ],
   },
-  { id: 'printer', q: 'Which printer is it?', why: 'Our labels need a 4-inch-wide label printer or a regular letter page. We’ll tell you if yours works.', kind: 'one', options: PRINTERS.map((p) => ({ id: p.id, title: p.title, sub: p.examples, icon: PRINTER_ICON[p.id] ?? 'labels' })), show: (a) => a.hasPrinter === 'yes' },
+  { id: 'printer', part: 'setup', q: 'Which printer is it?', why: 'Our labels need a 4-inch-wide label printer or a regular letter page. We’ll tell you if yours works.', kind: 'one', options: PRINTERS.map((p) => ({ id: p.id, title: p.title, sub: p.examples, icon: PRINTER_ICON[p.id] ?? 'labels' })), show: (a) => a.hasPrinter === 'yes' },
   {
     id: 'scanner',
+    part: 'setup',
     q: 'How will you scan labels?',
     why: 'Any smartphone camera can scan our labels, just not as fast as a handheld scanner. Many teams use phones for everyone and a scanner where they receive the most.',
     kind: 'one',
@@ -176,16 +196,19 @@ const STEPS: Step[] = [
     q: 'Do you want photos and paperwork backed up online?',
     why: 'Cloud backup keeps photos of damage, delivery papers and signed receipts with every record, safe online. Paper records are included in every plan.',
     kind: 'one',
-    site: true,
+    part: 'plan',
     options: [
       { id: 'cloud', title: `Cloud document backup: +${money(CLOUD_ADDON.monthly)}/month`, sub: 'Photos and documents saved with every record', icon: 'cloud' },
       { id: 'paper', title: 'Paper records: +$0.00, included', sub: 'Print what you need; nothing extra stored online', icon: 'print' },
     ],
   },
-  { id: 'zip', q: 'What’s your zip code?', why: 'We use it to check whether a Wherehouse tech can come set everything up for you in person.', kind: 'text', placeholder: 'Enter your zip code', site: true, numeric: true, valid: (v) => /^\d{5}$/.test(v.trim()) },
+  { id: 'zip', q: 'What’s your zip code?', why: 'We use it to check whether a Wherehouse tech can come set everything up for you in person.', kind: 'text', placeholder: 'Enter your zip code', part: 'plan', numeric: true, valid: (v) => /^\d{5}$/.test(v.trim()) },
 ];
 
-const CURATE = ['Laying out your storage zones', 'Counting your spots and labels', 'Checking your printer', 'Estimating your setup time', 'Finding your plan'];
+const CURATE: Record<'site' | 'portal', string[]> = {
+  site: ['Reading your answers', 'Estimating your setup time', 'Checking for a tech near you', 'Finding your plan'],
+  portal: ['Laying out your storage zones', 'Counting your spots and labels', 'Checking your printer', 'Writing your next steps'],
+};
 const VERDICT: Record<string, { label: string; tone: string; icon: IconName }> = {
   works: { label: 'Works', tone: 'ok', icon: 'checkCircle' },
   maybe: { label: 'Check the model', tone: 'warn', icon: 'alertCircle' },
@@ -196,8 +219,9 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'portal'; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
   const resume = useMemo(() => loadSurveyProgress(mode), [mode]);
-  const [a, setA] = useState<SurveyAnswers>(resume?.answers ?? BLANK_ANSWERS);
-  const visible = (x: SurveyAnswers) => STEPS.filter((s) => (!s.site || mode === 'site') && (!s.show || s.show(x)));
+  const planned = useMemo(() => (mode === 'portal' ? loadSavedSurvey() : null), [mode]);
+  const [a, setA] = useState<SurveyAnswers>(resume?.answers ?? planned ?? BLANK_ANSWERS);
+  const visible = (x: SurveyAnswers) => STEPS.filter((s) => (!s.part || (s.part === 'plan') === (mode === 'site')) && (!s.show || s.show(x)));
   const [i, setI] = useState(() => (resume ? visible(resume.answers).findIndex((s) => s.id === resume.step) : -1)); // -1 is the intro
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
   const [phase, setPhase] = useState<'ask' | 'curate' | 'result'>(() => (resume?.step === 'result' ? 'result' : 'ask'));
@@ -213,7 +237,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
   }, [onClose]);
   // Keep every answer, so a refresh or a closed tab comes back to the same question.
   useEffect(() => {
-    if (i < 0 && phase === 'ask' && a === BLANK_ANSWERS) return;
+    if (i < 0 && phase === 'ask' && (a === BLANK_ANSWERS || a === planned)) return;
     saveSurveyProgress(mode, a, phase === 'result' ? 'result' : (step?.id ?? ''));
   }, [a, i, phase, mode, step]);
 
@@ -238,19 +262,11 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
       let list = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
       if (s.only) list = id === s.only ? (cur.includes(id) ? [] : [id]) : list.filter((x) => x !== s.only);
       const answers = { ...a, [field]: list } as SurveyAnswers;
-      // A new kind of inventory starts with sensible storage, so the next page is a quick check, not a form.
-      if (field === 'groups') {
-        const layout: Record<string, GroupLayout> = {};
-        for (const g of list) {
-          const x = groupById(g, a.profile);
-          if (x) layout[g] = a.layout[g] ?? defaultLayout(x);
-        }
-        answers.layout = layout;
-      }
       return setA(answers);
     }
     // A new kind of business starts its own questions from scratch.
-    const answers = (s.id === 'profile' && id !== a.profile ? { ...a, profile: id, groups: [], layout: {}, limits: [], hold: null, holdWord: '' } : { ...a, [s.id]: id }) as SurveyAnswers;
+    const value = s.id === 'size' ? Number(id) : id;
+    const answers = (s.id === 'profile' && id !== a.profile ? { ...a, profile: id, groups: [], layout: {}, limits: [], hold: null, holdWord: '' } : { ...a, [s.id]: value }) as SurveyAnswers;
     setA(answers);
     // The printer answer shows its verdict first; everything else moves on by itself.
     if (s.id !== 'printer') timer.current = window.setTimeout(() => next(answers), 320);
@@ -287,33 +303,40 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
       </header>
       <main className="survey-stage">
         {phase === 'curate' ? (
-          <Curating />
+          <Curating steps={CURATE[mode]} />
         ) : phase === 'result' ? (
           <Results rec={rec} mode={mode} onBack={back} onRestart={restart} onClose={close} onApplied={onApplied} answers={a} />
         ) : !step ? (
           <Card k="intro" dir={dir}>
-            <p className="survey-eyebrow">{mode === 'site' ? 'Find your plan' : 'Setting up your warehouse'} · about 3 minutes</p>
-            <h1 className="survey-q">{mode === 'site' ? 'Let’s find the right plan for your business.' : 'Let’s put your warehouse in Wherehouse.'}</h1>
-            <p className="survey-hint">A few questions about what you carry, where it’s stored and what equipment you have. {mode === 'site' ? 'You’ll get your storage zones, spot and label counts, printer advice, a setup time estimate and a recommended plan.' : 'You’ll get your storage zones, spot and label counts, printer advice and your words.'}</p>
+            <p className="survey-eyebrow">{mode === 'site' ? 'Find your plan · about 1 minute' : 'Set up your warehouse · about 5 minutes'}</p>
+            <h1 className="survey-q">{mode === 'site' ? 'Let’s find the right plan for your business.' : planned ? 'Now let’s get into your space.' : 'Let’s put your warehouse in Wherehouse.'}</h1>
+            <p className="survey-hint">
+              {mode === 'site'
+                ? 'A few quick questions about your business, what you carry and your crew. You’ll get a recommended plan, a setup time estimate and the ways to get started. The detailed numbers come later, when you set up your warehouse.'
+                : planned
+                  ? 'We filled in what you told us in the plan survey. Now the details: where each kind of inventory goes, how much you have, what limits your spots, and your printer and scanner.'
+                  : 'Questions about what you carry, where it goes, how much you have, and your printer and scanner.'}
+            </p>
             <ul className="survey-intro-list">
-              <li>
-                <span className="survey-bubble">
-                  <Icon name="box" />
-                </span>
-                What you carry
-              </li>
-              <li>
-                <span className="survey-bubble">
-                  <Icon name="locations" />
-                </span>
-                Where it’s stored
-              </li>
-              <li>
-                <span className="survey-bubble">
-                  <Icon name="print" />
-                </span>
-                Printer and scanner
-              </li>
+              {(mode === 'site'
+                ? ([
+                    ['building', 'Your business'],
+                    ['box', 'What you carry'],
+                    ['people', 'Your crew'],
+                  ] as const)
+                : ([
+                    ['locations', 'Where it goes'],
+                    ['stack', 'How much you have'],
+                    ['print', 'Printer and scanner'],
+                  ] as const)
+              ).map(([icon, text]) => (
+                <li key={text}>
+                  <span className="survey-bubble">
+                    <Icon name={icon} />
+                  </span>
+                  {text}
+                </li>
+              ))}
             </ul>
             <p className="survey-saved">
               <Icon name="checkCircle" /> Your answers save as you go, so you can leave and pick up where you left off.
@@ -351,7 +374,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
                 label={say(step.q, a) ?? ''}
                 main={step.optionsFor ? step.optionsFor(a) : step.options!}
                 more={step.moreFor?.(a) ?? []}
-                isOn={(id) => (step.kind === 'many' ? (a[step.id as ListField] as string[]).includes(id) : a[step.id] === id)}
+                isOn={(id) => (step.kind === 'many' ? (a[step.id as ListField] as string[]).includes(id) : String(a[step.id]) === id)}
                 onPick={(id) => pick(step, id)}
               />
             )}
@@ -360,7 +383,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
               <button type="button" className="survey-back" onClick={back}>
                 <Icon name="chevronLeft" /> Back
               </button>
-              {(step.kind !== 'one' || step.id === 'printer') && (
+              {(step.kind !== 'one' || step.id === 'printer' || answered(step)) && (
                 <button type="button" className="survey-go" disabled={!answered(step)} onClick={() => next()}>
                   Continue <Icon name="arrowRight" />
                 </button>
@@ -376,14 +399,14 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
 /** One row per kind of inventory: where it's kept, how many areas, roughly how many, and whether they share bins. */
 function Layout({ a, setA }: { a: SurveyAnswers; setA: (a: SurveyAnswers) => void }) {
   const n = surveyNumbers(a);
-  const set = (id: string, patch: Partial<GroupLayout>, x: ProductGroup) => setA({ ...a, layout: { ...a.layout, [id]: { ...(a.layout[id] ?? defaultLayout(x)), ...patch } } });
+  const set = (id: string, patch: Partial<GroupLayout>, x: ProductGroup) => setA({ ...a, layout: { ...a.layout, [id]: { ...(a.layout[id] ?? defaultLayout(x, a.size ?? 1)), ...patch } } });
   return (
     <>
       <div className="survey-layout">
         {a.groups.map((id, k) => {
           const x = groupById(id, a.profile);
           if (!x) return null;
-          const l = a.layout[id] ?? defaultLayout(x);
+          const l = a.layout[id] ?? defaultLayout(x, a.size ?? 1);
           const others = (Object.keys(PLACES) as Place[]).filter((p) => !x.places.includes(p));
           const kept = keptLabels(x);
           return (
@@ -514,18 +537,18 @@ function PrinterVerdict({ id }: { id: string }) {
   );
 }
 
-function Curating() {
+function Curating({ steps }: { steps: string[] }) {
   const [n, setN] = useState(0);
   useEffect(() => {
-    const t = window.setInterval(() => setN((x) => Math.min(CURATE.length, x + 1)), 480);
+    const t = window.setInterval(() => setN((x) => Math.min(steps.length, x + 1)), 480);
     return () => window.clearInterval(t);
-  }, []);
+  }, [steps]);
   return (
     <section className="survey-card survey-curate enter-fwd" role="status" aria-live="polite">
       <div className="survey-orb" aria-hidden="true" />
       <h1 className="survey-q">Building your plan…</h1>
       <ul>
-        {CURATE.map((c, k) => (
+        {steps.map((c, k) => (
           <li key={c} className={k < n ? 'done' : k === n ? 'now' : ''}>
             <Icon name={k < n ? 'checkCircle' : 'clock'} /> {c}
           </li>
@@ -536,14 +559,56 @@ function Curating() {
 }
 
 function Results({ rec, mode, answers, onBack, onRestart, onClose, onApplied }: { rec: Recommendation; mode: 'site' | 'portal'; answers: SurveyAnswers; onBack: () => void; onRestart: () => void; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
-  const v = VERDICT[rec.printer.verdict];
-  const s = rec.setup;
-  const n = rec.numbers;
   return (
     <section className="survey-card survey-results enter-fwd" data-testid="survey-results">
       <p className="survey-eyebrow">Your recommendation</p>
       <h1 className="survey-q">{mode === 'site' ? 'Here’s your plan.' : 'Here’s your starting setup.'}</h1>
-      {mode === 'site' && <PlanChoice answers={answers} />}
+      {mode === 'site' ? (
+        <>
+          <PlanChoice answers={answers} />
+          <NextSurvey answers={answers} />
+          <SiteActions onBack={onBack} onRestart={onRestart} answers={answers} />
+        </>
+      ) : (
+        <SetupDetails rec={rec} answers={answers} onBack={onBack} onClose={onClose} onApplied={onApplied} />
+      )}
+    </section>
+  );
+}
+
+/** What the setup survey will work out once they're in, from what the plan survey already knows. */
+function NextSurvey({ answers }: { answers: SurveyAnswers }) {
+  const kinds = answers.groups.map((id) => groupById(id, answers.profile)?.name).filter(Boolean) as string[];
+  return (
+    <div className="survey-next" data-testid="next-survey">
+      <h2 className="survey-sub">What happens in setup</h2>
+      <p>
+        When you start, a second survey, <b>Set up your warehouse</b>, picks up from these answers and gets into your real space{kinds.length ? <> for {kinds.slice(0, 3).join(', ').toLowerCase()}{kinds.length > 3 ? ' and more' : ''}</> : null}:
+      </p>
+      <ul className="survey-next-list">
+        {(
+          [
+            ['locations', 'Where each kind goes, and how many separate areas'],
+            ['stack', 'How much you have, and exact spot and label counts'],
+            ['target', 'Weight, count and stacking limits for your spots'],
+            ['print', 'Whether your printer works, and which labels to buy'],
+          ] as const
+        ).map(([icon, text]) => (
+          <li key={text}>
+            <Icon name={icon} /> {text}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SetupDetails({ rec, answers, onBack, onClose, onApplied }: { rec: Recommendation; answers: SurveyAnswers; onBack: () => void; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
+  const v = VERDICT[rec.printer.verdict];
+  const s = rec.setup;
+  const n = rec.numbers;
+  return (
+    <>
       <h2 className="survey-sub">Your setup by the numbers</h2>
       <div className="survey-stats">
         <Stat n={0} value={fmt(n.zones)} label={n.zones === 1 ? 'storage zone' : 'storage zones'} />
@@ -628,8 +693,8 @@ function Results({ rec, mode, answers, onBack, onRestart, onClose, onApplied }: 
           <b>These are estimates from your answers, not a finished setup.</b> You still create your zones and spots, print and hang labels, load what you have and add your crew. The setup checklist walks you through it, and you can change any of this later in Warehouse settings.
         </p>
       </div>
-      {mode === 'site' ? <SiteActions onBack={onBack} onRestart={onRestart} answers={answers} /> : <PortalActions rec={rec} onBack={onBack} onClose={onClose} onApplied={onApplied} />}
-    </section>
+      <PortalActions rec={rec} answers={answers} onBack={onBack} onClose={onClose} onApplied={onApplied} />
+    </>
   );
 }
 
@@ -787,7 +852,7 @@ function PlanChoice({ answers }: { answers: SurveyAnswers }) {
   );
 }
 
-function PortalActions({ rec, onBack, onClose, onApplied }: { rec: Recommendation; onBack: () => void; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
+function PortalActions({ rec, answers, onBack, onClose, onApplied }: { rec: Recommendation; answers: SurveyAnswers; onBack: () => void; onClose: () => void; onApplied?: (rec: Recommendation) => void }) {
   const { send } = useApp();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -797,7 +862,8 @@ function PortalActions({ rec, onBack, onClose, onApplied }: { rec: Recommendatio
     const r = await applyRecommendation(send, rec);
     setBusy(false);
     if (r) return setError(r);
-    saveSurvey(null);
+    // Kept, so the setup checklist builds zones from the layout answers.
+    saveSurvey(answers);
     saveSurveyProgress('portal', null);
     onApplied?.(rec);
     onClose();

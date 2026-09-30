@@ -32,6 +32,8 @@ export interface SurveyAnswers {
   word: string;
   /** Product groups the business carries, from its profile. */
   groups: string[];
+  /** Roughly how much is on hand overall, from the plan survey; the setup survey starts each kind at this range. */
+  size: Tier | null;
   layout: Record<string, GroupLayout>;
   limits: Limit[];
   people: People | null;
@@ -46,7 +48,7 @@ export interface SurveyAnswers {
   zip: string;
 }
 
-export const BLANK_ANSWERS: SurveyAnswers = { profile: null, word: '', groups: [], layout: {}, limits: [], people: null, hold: null, holdWord: '', hasPrinter: null, printer: null, scanner: null, files: null, zip: '' };
+export const BLANK_ANSWERS: SurveyAnswers = { profile: null, word: '', groups: [], size: null, layout: {}, limits: [], people: null, hold: null, holdWord: '', hasPrinter: null, printer: null, scanner: null, files: null, zip: '' };
 
 export type Verdict = 'works' | 'maybe' | 'no' | 'none';
 
@@ -367,8 +369,8 @@ const MIN_PER = { zone: 15, spot: 1, label: 0.75, imported: 0.2 };
 const SMALL_SPOT_PLACES: Place[] = ['shelves', 'cabinets', 'wall', 'tires', 'hanging', 'carts'];
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
 
-export function defaultLayout(x: ProductGroup): GroupLayout {
-  return { place: x.places[0], areas: 1, qty: 1, kept: x.kept };
+export function defaultLayout(x: ProductGroup, qty: Tier = 1): GroupLayout {
+  return { place: x.places[0], areas: qty >= 2 ? 2 : 1, qty, kept: x.kept };
 }
 export function keptLabels(x: ProductGroup): Record<Kept, string> {
   if (x.size === 'pallet') return { own: 'One product per pallet', shared: 'Mixed pallets with a contents list' };
@@ -398,7 +400,7 @@ export function planZones(a: SurveyAnswers): ZonePlan[] {
   for (const id of a.groups) {
     const x = groupById(id, a.profile);
     if (!x) continue;
-    const l = a.layout[id] ?? defaultLayout(x);
+    const l = a.layout[id] ?? defaultLayout(x, a.size ?? 1);
     const units = QTY[x.size][l.qty].mid;
     const per = l.kept === 'shared' ? SHARED_PER[x.size] : 1;
     const labeled = Math.ceil(units / per);

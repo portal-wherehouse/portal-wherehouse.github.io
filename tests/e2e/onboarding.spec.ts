@@ -33,6 +33,7 @@ test('a new warehouse is locked to the setup checklist until every step is done'
   await page.goto('/?demo=1#find');
   await expect(wizard).toBeVisible();
 
+  await wizard.getByText('Or just set the words by hand').click();
   await wizard.getByRole('radio', { name: /Parts and boxes on shelves/ }).click();
   await wizard.getByRole('button', { name: 'Save and continue' }).click();
   await expect(wizard).toContainText('Create your storage zones');
@@ -82,6 +83,7 @@ test('skipping the checklist unlocks the app and keeps it in the sidebar to come
   await expect(page.getByTestId('skip-checklist')).toHaveCount(0);
   await expect(nav.getByTestId('setup-nav')).toBeVisible();
   // Progress saved after skipping does not lock the app again.
+  await wizard.getByText('Or just set the words by hand').click();
   await wizard.getByRole('radio', { name: /Parts and boxes on shelves/ }).click();
   await wizard.getByRole('button', { name: 'Save and continue' }).click();
   await expect(wizard).toContainText('Create your storage zones');

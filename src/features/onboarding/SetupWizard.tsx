@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { useApp } from '../../app/state';
 import { useSetup } from '../../app/words';
 import { hashString, normalizeCode, uuid } from '../../domain/codes';
+import { SetupSurvey } from '../setup/SetupSurvey';
 import { loadSavedSurvey, recommend, saveSurvey, surveyZones } from '../../domain/survey';
 import { PRESETS, pluralize, type SetupPreset } from '../../domain/terms';
 import type { LocationKind, Onboarding, OnboardingZone, Warehouse } from '../../domain/types';
@@ -18,7 +19,7 @@ import { LabelSheet } from '../labels/LabelSheet';
 import './onboarding.css';
 
 export const WIZARD_STEPS: { id: string; title: string; icon: IconName; optional?: boolean }[] = [
-  { id: 'words', title: 'What you store', icon: 'box' },
+  { id: 'words', title: 'Your inventory and space', icon: 'box' },
   { id: 'zones', title: 'Storage zones', icon: 'map' },
   { id: 'spots', title: 'Spots in each zone', icon: 'locations' },
   { id: 'barcodes', title: 'Barcodes', icon: 'barcode' },
@@ -262,32 +263,48 @@ function WordsStep({ busy, save }: StepProps) {
     if (!(o.status === 'result' && o.result.ok)) return setErr(o.status === 'result' && !o.result.ok ? o.result.message : 'Could not save. Try again.');
     await save({}, 'words');
   };
+  const [asking, setAsking] = useState(false);
+  const rec = survey?.groups.length ? recommend(survey) : null;
   return (
     <>
-      <StepHead icon="box" title="What are you storing?" why="This sets the words the app uses on every screen and label, and hides what you don't need.">
-        {survey && <p className="wizard-note">We filled this in from your plan survey. Change anything you like.</p>}
+      <StepHead icon="box" title="Your inventory and space" why="A few minutes of questions about where each kind of inventory goes, how much you have, what limits your spots, and your printer and scanner. The answers set your words and build your storage zones in the next step.">
+        {survey?.profile && <p className="wizard-note">We filled in what you told us in the plan survey. Now it gets into your real space.</p>}
       </StepHead>
-      <div className="wizard-choices" role="radiogroup" aria-label="What are you storing?">
-        {PRESETS.map((p) => (
-          <Choice key={p.id} on={preset === p.id} icon={STORE_ICON[p.id]} title={p.title} sub={p.examples} onClick={() => (setPreset(p.id), p.id !== 'custom' && setW({ ...p.setup }))} />
-        ))}
+      {rec && survey?.layout && Object.keys(survey.layout).length > 0 && (
+        <p className="wizard-note" data-testid="setup-numbers">
+          So far: {rec.numbers.zones} zones, about {rec.numbers.spots.toLocaleString('en-US')} spots and {(rec.numbers.spots + rec.numbers.unitLabels).toLocaleString('en-US')} labels. The app says “{rec.setup.thing}”.
+        </p>
+      )}
+      <div className="row">
+        <button type="button" className="btn primary big" onClick={() => setAsking(true)} data-testid="setup-survey-open">
+          <Icon name="sparkle" /> {survey?.layout && Object.keys(survey.layout).length ? 'Review the setup questions' : 'Answer the setup questions'}
+        </button>
       </div>
-      <div className="grid-2">
-        <label className="field">
-          <span className="label">One is called</span>
-          <input className="input" value={w.thing} maxLength={24} onChange={(e) => setW({ ...w, thing: e.target.value, things: pluralize(e.target.value) })} />
+      {asking && <SetupSurvey mode="portal" onClose={() => setAsking(false)} onApplied={() => void save({}, 'words')} />}
+      <details className="wizard-manual">
+        <summary>Or just set the words by hand</summary>
+        <div className="wizard-choices" role="radiogroup" aria-label="What are you storing?">
+          {PRESETS.map((p) => (
+            <Choice key={p.id} on={preset === p.id} icon={STORE_ICON[p.id]} title={p.title} sub={p.examples} onClick={() => (setPreset(p.id), p.id !== 'custom' && setW({ ...p.setup }))} />
+          ))}
+        </div>
+        <div className="grid-2">
+          <label className="field">
+            <span className="label">One is called</span>
+            <input className="input" value={w.thing} maxLength={24} onChange={(e) => setW({ ...w, thing: e.target.value, things: pluralize(e.target.value) })} />
+          </label>
+          <label className="field">
+            <span className="label">More than one</span>
+            <input className="input" value={w.things} maxLength={24} onChange={(e) => setW({ ...w, things: e.target.value })} />
+          </label>
+        </div>
+        <label className="toggle">
+          <input type="checkbox" checked={w.jobs_on} onChange={(e) => setW({ ...w, jobs_on: e.target.checked })} />
+          <span>Reserve {w.things.toLowerCase() || 'inventory'} for customers, orders, projects or events (called “{w.jobs}”)</span>
         </label>
-        <label className="field">
-          <span className="label">More than one</span>
-          <input className="input" value={w.things} maxLength={24} onChange={(e) => setW({ ...w, things: e.target.value })} />
-        </label>
-      </div>
-      <label className="toggle">
-        <input type="checkbox" checked={w.jobs_on} onChange={(e) => setW({ ...w, jobs_on: e.target.checked })} />
-        <span>Set {w.things.toLowerCase() || 'things'} aside for customers, orders, projects or events (called “{w.jobs}”)</span>
-      </label>
-      {err && <Notice tone="error">{err}</Notice>}
-      <Continue busy={busy} disabled={!preset || !w.thing.trim() || !w.things.trim()} onClick={() => void go()} />
+        {err && <Notice tone="error">{err}</Notice>}
+        <Continue busy={busy} disabled={!preset || !w.thing.trim() || !w.things.trim()} onClick={() => void go()} />
+      </details>
     </>
   );
 }

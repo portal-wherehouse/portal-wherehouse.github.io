@@ -61,7 +61,7 @@ export function useChecklistSteps(): { steps: ChecklistStep[]; skipped: boolean;
   const total = counts ? Object.values(counts).reduce((sum, n) => sum + n, 0) : facts.pallets;
   const things = setup.things.toLowerCase();
   const steps: ChecklistStep[] = [
-    { id: 'survey', title: 'Answer the setup survey', hint: 'A minute of questions picks your words, labels and printer.', done: setup.preset !== null, action: 'Start', run: (open) => open('survey') },
+    { id: 'survey', title: 'Answer the setup survey', hint: 'Questions about your space work out your zones, spots, labels and printer.', done: setup.preset !== null, action: 'Start', run: (open) => open('survey') },
     { id: 'spots', title: 'Create your zones and spots', hint: facts.spots ? `${facts.spots} spot${facts.spots === 1 ? '' : 's'} so far.` : 'Build a whole rack or shelf unit at once.', done: facts.spots > 0, action: 'Build a rack', run: (open) => open('builder') },
     { id: 'labels', title: 'Print and hang spot labels', hint: 'One QR label on every spot.', done: flag(labelsKey) || total > 0, action: 'Print labels', run: () => (setFlag(labelsKey), go('labels' as RouteName)) },
     { id: 'items', title: `Add your first ${things}`, hint: 'Receive one, or import a spreadsheet.', done: total > 0, action: 'Receive', run: () => go('receive') },

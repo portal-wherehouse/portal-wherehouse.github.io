@@ -92,3 +92,6 @@
 .setup-nav .nav-item[aria-current] .setup-nav-dot { border-color: var(--accent); color: var(--accent); }
 .setup-back { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); }
 @media (prefers-reduced-motion: reduce) { .wizard *, .setup-nav * { animation: none !important; transition: none !important; } }
+.wizard-manual { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+.wizard-manual > summary { cursor: pointer; font-weight: 700; color: var(--ink-2); padding: 6px 0; }
+.wizard-manual[open] > summary { margin-bottom: 12px; }
