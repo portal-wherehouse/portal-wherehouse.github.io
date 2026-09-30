@@ -20,7 +20,7 @@ import { Explain, Field, Notice, PageHead, PermissionDenied, Spinner } from '../
 import { LabelSheet } from '../labels/LabelSheet';
 
 export function Receive() {
-  const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId } = useApp();
+  const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId, route, v } = useApp();
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
   const [jobId, setJobId] = useState('');
@@ -35,6 +35,8 @@ export function Receive() {
   const [shipmentId, setShipmentId] = useState('');
   const [matches, setMatches] = useState<ExpectedShipment[]>([]);
   const [lookupBusy,setLookupBusy] = useState(false);
+  /** The scanned barcode isn't on an Incoming list or a saved product. */
+  const [newCode, setNewCode] = useState(false);
   const lookupLock = useRef(false);
   const enhanced = !(backend instanceof FirebaseBackend) || backend.summary?.receiving_version === 1;
   const [scanning, setScanning] = useState(false);
@@ -56,13 +58,13 @@ export function Receive() {
     return {product:backend.db.products[productKey(workspaceId!,code)] ?? null,
       shipments:Object.values(backend.db.shipments).filter(r=>r.workspace_id===workspaceId && r.pending_barcode===barcodeMatchKey(code))};
   };
-  const memoryInfo = (product:ProductMemory) => ({...blankInfo(),product_code:product.code,unit:product.unit,fields:product.field_names.map(name=>({name,value:''}))});
+  const memoryInfo = (product:ProductMemory) => ({...blankInfo(),product_code:product.code,unit:product.unit,category:product.category ?? '',fields:product.field_names.map(name=>({name,value:''}))});
   const applyShipment = async (row:ExpectedShipment) => {
     const product = row.receiving.product_code ? (await lookup(row.receiving.product_code)).product : null;
-    setShipmentId(row.id); setJobId(row.job_id); setSupplier(row.barcode);
+    setShipmentId(row.id); setJobId(row.job_id); if (row.job_id) setShowJob(true); setSupplier(row.barcode); setNewCode(false);
     setDescription(product?.description || row.description); setNotes(row.notes);
-    setInfo({...row.receiving,fields:row.receiving.fields.map(f=>({...f}))});
-    setScanHint('Matched imported shipment. Review and edit these details before saving.');
+    setInfo({...blankInfo(),...row.receiving,fields:row.receiving.fields.map(f=>({...f}))});
+    setScanHint('Found on your Incoming list. Check the details, then save the pallet.');
     setMatches([]);
   };
   const captureSupplier = async (raw: string) => {
@@ -74,10 +76,13 @@ export function Receive() {
     try {
       const found = enhanced ? await lookup(result.reference) : {product:null,shipments:[]};
       setSupplier(result.reference); setShipmentId(''); setMatches(found.shipments); setRemember(false);
+      const unknown = enhanced && !found.shipments.length && !found.product && result.kind !== 'sscc';
+      setNewCode(unknown);
       const pristine = !description.trim() && !notes.trim() && JSON.stringify(info)===JSON.stringify(blankInfo());
       if (found.shipments.length===1 && pristine) {await applyShipment(found.shipments[0]); return;}
       if (!description.trim()) setDescription(found.product?.description || result.description || '');
       if (pristine && found.product) setInfo(memoryInfo(found.product));
+      else if (unknown && !info.product_code) { setInfo({...info,product_code:result.reference}); setRemember(true); }
       else if (!info.product_code && result.kind==='gtin') setInfo({...info,product_code:result.reference});
       setScanHint(found.shipments.length ? 'Choose the expected delivery below, or keep your current entries.' : found.product ? 'Remembered product name loaded. Enter the details for this pallet.' : result.description ? result.hint : `${result.hint} No matching description found. Enter your warehouse’s product name and this pallet’s details.`);
     } finally {lookupLock.current=false;setLookupBusy(false);}
@@ -94,10 +99,26 @@ export function Receive() {
     return () => setLeaveGuard(null);
   }, [dirty, setLeaveGuard]);
 
+  // Opened from Incoming's Receive pallet: fill the form from that expected item, once.
+  const prefilled = useRef('');
+  useEffect(() => {
+    const id = route.name === 'receive' ? route.id : undefined;
+    if (!id || prefilled.current === id || created) return;
+    const row = backend.db.shipments[id];
+    if (!row) return;
+    prefilled.current = id;
+    if (row.pallet_id) { toast('That item was already received. Its pallet is linked from Incoming.', 'info'); return; }
+    void applyShipment(row).catch((e) => toast((e as Error).message, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.name, route.id, v]);
+
   const job = openJobs.find((j) => j.id === jobId) ?? null;
   const descErr = touched && !description.trim() ? 'Description is required.' : description.length > 160 ? 'Keep it to 160 characters.' : null;
   const jobErr = touched && jobId && !job ? 'Choose an open job, or remove the job.' : null;
 
+  const categories = useMemo(() => [...new Set([...Object.values(backend.db.products).map((p) => p.category ?? ''), ...Object.values(backend.db.shipments).map((r) => r.receiving.category ?? '')].filter(Boolean))].sort().slice(0, 50),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [v]);
   const recentDescs = useMemo(() => {
     const all = read((e, _a, ws) => Object.values(e.db.pallets).filter((p) => p.workspace_id === ws && p.job_id === jobId)) ?? [];
     return [...new Set(all.map((p) => p.description))].slice(0, 6);
@@ -158,7 +179,8 @@ export function Receive() {
     setCreated(null);
     if (!sameContents) setDescription('');
     setInfo(sameContents ? {...blankInfo(),product_code:info.product_code,unit:info.unit,fields:info.fields.map(f=>({name:f.name,value:''}))} : blankInfo());
-    setRemember(false);setShipmentId('');setMatches([]);
+    setRemember(false);setShipmentId('');setMatches([]);setNewCode(false);
+    if (route.name === 'receive' && route.id) go('receive');
     setSupplier('');
     setScanHint('');
     setNotes('');
@@ -266,8 +288,11 @@ export function Receive() {
     <div className="stack">
       <PageHead eyebrow="Warehouse" title="Receive a pallet" sub="Give the pallet an identity. Place it on a rack next." />
       <button className="btn big" type="button" disabled={locked} onClick={() => setScanning(true)}><Icon name="scanner" />Scan supplier barcode</button>
-      <p className="hint">Scan to match expected shipment data or a remembered product. Review the editable description and this pallet’s details. No supplier barcode? Enter them manually and print the new pallet label after saving.</p>
+      <p className="hint">Scan the pallet's barcode. If it's on your <button type="button" className="link" onClick={() => go('incoming')}>Incoming</button> list or a saved product, the details fill in. A barcode Wherehouse hasn't seen can be saved as a new product. No barcode? Pick the item from Incoming, or type the details.</p>
       {scanning && <BarcodeSheet title="Scan supplier barcode" onScan={captureSupplier} onClose={() => setScanning(false)} />}
+      {newCode && <Notice tone="info" icon="plus" title="New barcode">
+        {supplier} isn't on your Incoming list or saved as a product. Enter a name, and a category if you like. Keep "Save as a product" checked, and the next time this barcode is scanned everything fills in.
+      </Notice>}
       {!enhanced && <Notice tone="info">Product memory, shipment matching and pallet reminders will be available after the warehouse server update. Basic receiving is available now.</Notice>}
       {matches.length>0 && <section className="panel stack"><h2>Expected deliveries matching this barcode</h2><p>Choosing one fills the form with its details. Review them before saving.</p>{matches.map(row=><button type="button" className="btn" disabled={locked} key={row.id} onClick={async()=>{setLookupBusy(true);try{await applyShipment(row);}catch(e){toast((e as Error).message,'error');}finally{setLookupBusy(false);}}}>{row.description || 'Description needed'} · {row.receiving.quantity} {row.receiving.unit} · {row.receiving.destination || jobs.find(j=>j.id===row.job_id)?.code}</button>)}<button className="btn ghost" onClick={()=>setMatches([])}>Keep my entries instead</button></section>}
       <Explain refs="pages 9, 11, 25">
@@ -344,9 +369,13 @@ export function Receive() {
           </Field>
         </div>
         {enhanced && <>
-          <Field label="Reusable product barcode (optional)" htmlFor="rcv-product" hint="For a code shared by this product across deliveries. A supplier pallet SSCC identifies one pallet and must not be used here."><input id="rcv-product" className="input" value={info.product_code} onChange={e=>{setInfo({...info,product_code:e.target.value});setRemember(false);}} maxLength={80} disabled={locked}/></Field>
-          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Remember this description for this product barcode</label>
-          <p className="hint">Saving with this checked updates your warehouse’s preferred name, unit and custom field names for future scans. It does not copy quantities, custom values, destinations or reminders, or change older pallets.</p>
+          <div className="grid-2">
+            <Field label="Product barcode or code (optional)" htmlFor="rcv-product" hint="The code this product always carries, across deliveries. Not a one-pallet SSCC."><input id="rcv-product" className="input" value={info.product_code} onChange={e=>{setInfo({...info,product_code:e.target.value});setRemember(false);}} maxLength={80} disabled={locked}/></Field>
+            <Field label="Category (optional)" htmlFor="rcv-category" hint="Group products your way, like Hardwood or Kindling."><input id="rcv-category" className="input" value={info.category ?? ''} onChange={e=>setInfo({...info,category:e.target.value})} maxLength={60} disabled={locked} list="rcv-category-suggest"/>
+              <datalist id="rcv-category-suggest">{categories.map((c) => <option key={c} value={c} />)}</datalist></Field>
+          </div>
+          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Save as a product, so the next scan of this code fills in the name, unit and category</label>
+          <p className="hint">This doesn't copy quantities, destinations or reminders, and it doesn't change older pallets. Saved products are listed under Products.</p>
           <PalletFields value={info} onChange={setInfo} disabled={locked}/>
         </>}
         <Field label="Note (optional)" htmlFor="rcv-note" count={notes.length} max={1000}>

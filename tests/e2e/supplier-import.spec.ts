@@ -4,13 +4,25 @@ import { signInAs } from './helpers';
 const firewood = 'job_code,description,notes,supplier_ref\nFW-103,"Red oak, 16 in",Top rack,TC-1\nFW-104,Birch bundles,,TC-2\n';
 const supplier = 'PO #,Item Description,Qty,Customer\n4471,Cedar kindling,1,Hearth & Home\n4472,White ash,2,\n';
 
-test('pallets import adds jobs the warehouse does not have yet', async ({ page }) => {
+test('a goods list goes to Incoming and adds jobs the warehouse does not have yet', async ({ page }) => {
   await signInAs(page, 'owner');
   await page.goto('/?demo=1#import');
   await page.getByLabel('CSV text').fill(firewood);
-  await expect(page.getByRole('group', { name: 'What to import' }).getByRole('button', { name: 'Pallets' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'What to import' }).getByRole('button', { name: 'Incoming' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: /^Import 2/ }).click();
-  await expect(page.locator('#main')).toContainText('2 new jobs added');
+  await expect(page.locator('#main')).toContainText('2 items added to Incoming');
+  await page.getByRole('button', { name: 'Import another' }).click();
+  await expect(page.getByTestId('import-history')).toContainText('2 new jobs added');
+});
+
+test('pallets already on hand are still importable on purpose, with new jobs added', async ({ page }) => {
+  await signInAs(page, 'owner');
+  await page.goto('/?demo=1#import');
+  await page.getByLabel('CSV text').fill(firewood);
+  await page.getByRole('group', { name: 'What to import' }).getByRole('button', { name: 'Pallets on hand' }).click();
+  await expect(page.getByText('This adds pallets on hand right away')).toBeVisible();
+  await page.getByRole('button', { name: /^Import 2/ }).click();
+  await expect(page.locator('#main')).toContainText('Batch committed: 2 pallets created');
 });
 
 test('a supplier file is matched once, saved as a template and reused automatically', async ({ page }) => {

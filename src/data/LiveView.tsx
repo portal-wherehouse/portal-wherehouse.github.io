@@ -9,7 +9,7 @@ export function LiveView({children}:{children:ReactNode}){
  useEffect(()=>{let alive=true;if(backend instanceof FirebaseBackend)void backend.openView(route).then(()=>{if(alive)setReady(key);});return()=>{alive=false;};},[backend,key]);
  if(!(backend instanceof FirebaseBackend))return <>{children}</>;
  if(ready!==key||(backend.viewLoading&&route.name!=='find'))return <WarehouseLoading name={workspaceId ? backend.db.workspaces[workspaceId]?.name : undefined} />;
- const moreKeys=['records','history','activity','audit','imports','rack','children'].filter(k=>backend.pageMore(k));
+ const moreKeys=['records','history','activity','audit','imports','rack','children','incoming','products'].filter(k=>backend.pageMore(k));
  const run=async(fn:()=>Promise<void>)=>{setBusy(true);try{await fn();}catch(e){backend.viewError=(e as Error).message;}finally{setBusy(false);}};
  return <>{backend.viewError&&<p role="alert">{backend.viewError} <button className="btn small" onClick={()=>void run(()=>backend.refreshView())}>Retry</button></p>}{children}
  <div className="row" style={{marginTop:20}}>

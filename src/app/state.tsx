@@ -44,7 +44,9 @@ export type RouteName =
   | 'help'
   | 'scanners'
   | 'station'
-  | 'data';
+  | 'data'
+  | 'incoming'
+  | 'products';
 
 export interface Route {
   name: RouteName;
@@ -207,12 +209,14 @@ const ROUTE_TOKENS: RouteName[] = [
   'scanners',
   'station',
   'data',
+  'incoming',
+  'products',
 ];
 
 /** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them. */
-const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map'];
+const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive'];
 /** Screens whose query rides along in the link, e.g. #find?q=J-214 or #station?q=count. */
-const Q_TOKENS: RouteName[] = ['find', 'station', 'help'];
+const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products'];
 
 /** The address-bar hash for a route: '' for home, or for a screen that has no link of its own. */
 export function hashFor(r: Route): string {

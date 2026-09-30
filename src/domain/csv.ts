@@ -60,11 +60,14 @@ export type ImportKind = 'locations' | 'jobs' | 'pallets' | 'shipments';
 
 export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional: string[]; sample: string[][]; who: string; policy: string }> = {
   shipments: {
-    required: ['barcode', 'job_code'],
-    optional: ['description', 'product_code', 'quantity', 'unit', 'destination', 'remind_on', 'notes', 'details_json'],
-    sample: [['006141411234567890', 'J-214', 'White birch', '', '48', 'logs', 'Distribution center', '', '', '{"Grade":"A"}']],
+    required: ['description'],
+    optional: ['barcode', 'quantity', 'unit', 'product_code', 'category', 'job_code', 'job_name', 'destination', 'remind_on', 'notes', 'details_json', 'supplier_ref'],
+    sample: [
+      ['Seasoned white oak splits, 16 in', '006141411234567890', '1', 'pallet', '', 'Hardwood', '', '', '', '', '', '', ''],
+      ['Campfire bundles, 0.75 cu ft', '012345678905', '48', 'bundles', '012345678905', 'Bundles', '', '', '', '', '', '{"Grade":"A"}', ''],
+    ],
     who: 'Supervisors and owners',
-    policy: 'Expected deliveries only: no stock is received until staff scan, review and save each pallet. Barcode must be the exact decoded identifier (SSCC without the (00) prefix). Use details_json for custom fields, e.g. {"Grade":"A"}.',
+    policy: 'Adds items to Incoming. Nothing becomes stock yet: when the delivery arrives, scanning its barcode on Receive fills in these details, and saving creates the pallet. Rows without a barcode wait in Incoming, where you can find them and receive them by hand.',
   },
   locations: {
     required: ['warehouse_code', 'location_code', 'kind'],
@@ -95,7 +98,7 @@ export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional
       ['Stone veneer', 'J-221', 'Retail storefront', '', ''],
     ],
     who: 'Supervisors and owners',
-    policy: 'Creates pallets as RECEIVED and unassigned. A job code that doesn\'t exist yet is created as an open job (named by job_name, or its code). Staff confirm locations by placing them; history is never invented.',
+    policy: 'Only for pallets already sitting in your warehouse, such as when you start using Wherehouse. Each row becomes a pallet on hand right away, with a new label to print. For a delivery that hasn\'t arrived yet, use Incoming instead.',
   },
 };
 
@@ -118,8 +121,12 @@ export function detectImportKind(text: string, allowed: readonly ImportKind[] = 
   const header = new Set(parseCsv(text).header);
   if (!header.size) return null;
   const fits = allowed.filter((k) => IMPORT_TEMPLATES[k].required.every((c) => header.has(c)));
-  const exact = fits.find((k) => [...header].every((h) => !h || IMPORT_TEMPLATES[k].required.includes(h) || IMPORT_TEMPLATES[k].optional.includes(h)));
-  return exact ?? (fits.length === 1 ? fits[0] : null);
+  // A list of goods is what's coming in, not stock on hand, so Incoming wins over Pallets.
+  const order = (k: ImportKind) => (k === 'shipments' ? 0 : k === 'pallets' ? 2 : 1);
+  const exact = fits.filter((k) => [...header].every((h) => !h || IMPORT_TEMPLATES[k].required.includes(h) || IMPORT_TEMPLATES[k].optional.includes(h))).sort((a, b) => order(a) - order(b));
+  if (exact.length) return exact[0];
+  const loose = fits.filter((k) => k !== 'pallets' || !fits.includes('shipments'));
+  return loose.length === 1 ? loose[0] : null;
 }
 
 export function prepareImport(kind: ImportKind, text: string): ParsedImport {
@@ -159,13 +166,14 @@ const SYNONYMS: Record<string, string[]> = {
   location_code: ['location code', 'location', 'rack', 'bin', 'slot', 'area', 'spot'],
   kind: ['kind', 'type', 'location type'],
   destination_notes: ['destination notes', 'destination', 'deliver to', 'ship to'],
-  barcode: ['barcode', 'sscc', 'gtin', 'upc', 'ean'],
+  barcode: ['barcode', 'sscc', 'gtin', 'upc', 'ean', 'upc code', 'item barcode', 'scan code', 'supplier ref', 'supplier reference', 'tag', 'lpn'],
   product_code: ['product code', 'sku', 'item code', 'item number', 'part number'],
   quantity: ['quantity', 'qty', 'count', 'amount'],
   unit: ['unit', 'units', 'uom'],
   destination: ['destination', 'deliver to', 'ship to'],
   remind_on: ['remind on', 'due', 'due date', 'date'],
   details_json: ['details json', 'details'],
+  category: ['category', 'group', 'product type', 'class', 'department'],
 };
 const norm = (h: string) => h.toLowerCase().replace(/#/g, ' number').replace(/[_\-.:\/]+/g, ' ').replace(/\s+/g, ' ').trim();
 

@@ -86,3 +86,94 @@
   min-width: 0;
   flex: 1;
 }
+
+/* Product labels: landscape 4 x 2 in, a dark PRODUCT band and the product name first, so they are never
+   mistaken for a pallet label (portrait, big P-code). */
+.product-label-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(4in, 100%), 4in));
+  gap: 12px;
+}
+.product-label {
+  width: 4in;
+  height: 2in;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 0.04in solid #000;
+  border-radius: 0.14in;
+  background: #fff;
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+.product-label .pl-band {
+  background: #000;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.1in;
+  padding: 0.04in 0.14in;
+  font-weight: 800;
+  font-size: 0.13in;
+  letter-spacing: 0.18em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.product-label .pl-cat {
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.product-label .pl-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 0.22in;
+  align-items: center;
+  padding: 0.08in 0.14in 0.1in;
+}
+.product-label .pl-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.03in;
+}
+.product-label .pl-name {
+  font-weight: 800;
+  font-size: 0.2in;
+  line-height: 1.1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.product-label .pl-unit {
+  font-size: 0.11in;
+}
+.product-label .pl-bc {
+  margin-top: 0.05in;
+  width: 100%;
+}
+.product-label .pl-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.12in;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.product-label .pl-qr {
+  width: 1.05in;
+  height: 1.05in;
+  flex: none;
+}
+.product-label .pl-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

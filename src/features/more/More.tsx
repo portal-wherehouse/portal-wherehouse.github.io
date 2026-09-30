@@ -10,6 +10,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
     title: 'Floor',
     items: [
       { route: 'receive', label: 'Receive', icon: 'receive', hint: 'Record a delivery' },
+      { route: 'incoming', label: 'Incoming', icon: 'import', hint: 'Expected deliveries from imports' },
       { route: 'move', label: 'Move', icon: 'move', hint: 'Scan pallet, then rack' },
       { route: 'find', label: 'Find', icon: 'find', hint: 'Search anything' },
       { route: 'station', label: 'Scan station', icon: 'target', hint: 'Hands-free scanning' },
@@ -23,6 +24,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
       { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
       { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },
       { route: 'labels', label: 'Labels', icon: 'labels', hint: 'Print pallet and rack labels' },
+      { route: 'products', label: 'Products', icon: 'qr', hint: 'Saved products and your own barcodes' },
       { route: 'activity', label: 'Activity', icon: 'activity', hint: 'Every accepted change' },
     ],
   },
@@ -55,7 +57,7 @@ export function visibleNavGroups(role: Role | null, advanced: boolean, live = fa
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(role === 'VIEWER'
     ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
-    : ['receive', 'move', 'find', 'station', 'map', 'locations', 'labels', 'jobs', 'activity', 'scanners', 'help', 'settings']);
+    : ['receive', 'incoming', 'products', 'move', 'find', 'station', 'map', 'locations', 'labels', 'jobs', 'activity', 'scanners', 'help', 'settings']);
   if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
   if (live) allowed.add('sync');
   if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);

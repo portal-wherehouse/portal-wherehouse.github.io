@@ -30,6 +30,8 @@ import { Move } from '../features/move/Move';
 import { Overview } from '../features/overview/Overview';
 import { PalletRecord } from '../features/pallet/PalletRecord';
 import { Receive } from '../features/receive/Receive';
+import { Incoming } from '../features/receive/Incoming';
+import { Products } from '../features/receive/Products';
 import { Settings } from '../features/settings/Settings';
 import { Sync } from '../features/sync/Sync';
 import { Tour } from '../features/tour/Tour';
@@ -72,6 +74,8 @@ const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.
   scanners: Scanners,
   station: Station,
   data: DataStorage,
+  incoming: Incoming,
+  products: Products,
 };
 
 const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' | 'overview' }[] = [

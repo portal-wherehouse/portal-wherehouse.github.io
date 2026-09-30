@@ -12,7 +12,7 @@ import { useCommand } from '../../ui/useCommand';
 import { Notice, Sheet, Spinner, fmtAgo, fmtFull } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
 
-export const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets', shipments: 'Expected shipments' };
+export const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets on hand', shipments: 'Incoming' };
 
 export const batchName = (b: ImportBatch) => b.name || `${KIND_LABEL[b.kind]} import`;
 
@@ -140,6 +140,11 @@ function ImportDetail({ batch, onClose }: { batch: ImportBatch; onClose: () => v
           {pallets && batch.created_ids.length > 0 && (
             <button className="btn primary" onClick={() => setLabels(batch.created_ids)}>
               <Icon name="print" /> Print all {batch.created_ids.length} labels
+            </button>
+          )}
+          {batch.kind === 'shipments' && (
+            <button className="btn" onClick={() => go('incoming')}>
+              <Icon name="import" /> Open Incoming
             </button>
           )}
           {rows.length > 0 && canDownload() && (

@@ -22,10 +22,10 @@ for (const width of [375, 1280])
 await page.locator("#rcv-job").selectOption({ index: 1 });
     await page.getByLabel("Description", { exact: true }).fill("White birch");
     await page
-      .getByLabel("Reusable product barcode (optional)")
+      .getByLabel("Product barcode or code (optional)")
       .fill("BIRCH-WHITE");
     await page
-      .getByLabel("Remember this description for this product barcode")
+      .getByLabel("Save as a product, so the next scan of this code fills in the name, unit and category")
       .check();
     await page.getByLabel("Quantity (optional)", { exact: true }).fill("48");
     await page.getByLabel("Unit (optional)", { exact: true }).fill("logs");
@@ -123,7 +123,8 @@ test("expected shipment import prefills receiving; ambiguous matches require a c
   await signInAs(page, "owner");
   await page.goto("/?demo=1#import");
   await page
-    .getByRole("button", { name: "Expected shipments", exact: true })
+    .getByRole("group", { name: "What to import" })
+    .getByRole("button", { name: "Incoming", exact: true })
     .click();
   await page.getByLabel("CSV text").fill(
     toCsv([
@@ -147,7 +148,7 @@ test("expected shipment import prefills receiving; ambiguous matches require a c
   );
   await page.getByRole("button", { name: /Import 2 rows/ }).click();
   await expect(
-    page.getByText("Import committed:", { exact: false }).first(),
+    page.getByText("added to Incoming", { exact: false }).first(),
   ).toBeVisible();
   await page.goto("/?demo=1#receive");
   await scan(page, "BIRCH-INCOMING");

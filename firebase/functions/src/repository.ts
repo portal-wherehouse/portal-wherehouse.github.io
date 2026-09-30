@@ -242,6 +242,8 @@ export async function loadCommand(
   }
   if (k === "remove_photo") await one("attachments", p.attachment_id);
   if (k === "rename_import") await one("imports", p.import_id);
+  if (k === "save_product" && typeof p.code === "string")
+    await one("products", productKey(ws, p.code));
   if (k === "rotate_label")
     await query(
       "labels",
@@ -298,7 +300,7 @@ export async function loadCommand(
       if (!code) continue;
       await find(table, "code", code);
       // Pallet imports can add missing jobs, so they take the same uniqueness lock as job imports.
-      if (["jobs", "locations", "pallets"].includes(p.import_kind))
+      if (["jobs", "locations", "pallets", "shipments"].includes(p.import_kind))
         await tx.get(
           root
             .collection("codeLocks")

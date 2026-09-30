@@ -5,6 +5,7 @@ test('an import is named, found by search, reopened with its spreadsheet, rename
   await signInAs(page, 'owner');
   await page.goto('/?demo=1#import');
   await page.getByLabel('CSV text').fill('description,supplier_ref\nRed oak,TC-1\nWhite birch,TC-2\nCedar kindling,TC-3\n');
+  await page.getByRole('group', { name: 'What to import' }).getByRole('button', { name: 'Pallets on hand' }).click();
   await page.getByLabel('Name this import').fill('Timber Creek truck');
   await page.getByRole('button', { name: /^Import 3/ }).click();
   await page.getByRole('button', { name: 'Close', exact: true }).click();

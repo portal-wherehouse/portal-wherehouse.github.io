@@ -72,6 +72,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     file_name: text(200).optional(),
   }),
   rename_import: z.object({ import_id: id, name: text(80) }),
+  save_product: z.object({ code: text(80), description: text(160), unit: text(40).optional(), category: text(60).optional(), create: z.boolean().optional() }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];

@@ -361,6 +361,7 @@ export class Engine {
       case 'remove_member':
       case 'import_batch':
       case 'rename_import':
+      case 'save_product':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -548,7 +549,7 @@ export class Engine {
     const shipment = p.shipment_id ? this.db.shipments[p.shipment_id] : null;
     if (p.shipment_id && (!shipment || shipment.workspace_id !== cmd.workspace_id || shipment.warehouse_id !== wh.id)) return reject('NOT_FOUND', 'Expected shipment not found.');
     if (shipment && shipment.pallet_id) return reject('INVALID_STATE', 'That shipment was already received. Open the existing pallet instead.');
-    if (shipment && barcodeMatchKey(shipment.barcode) !== barcodeMatchKey(supplier)) return reject('INVALID_INPUT', 'The supplier barcode no longer matches the selected shipment. Scan it again.');
+    if (shipment && shipment.barcode && barcodeMatchKey(shipment.barcode) !== barcodeMatchKey(supplier)) return reject('INVALID_INPUT', 'The supplier barcode no longer matches the selected shipment. Scan it again.');
     if (p.remember_product) {
       if (!info.product_code) return reject('INVALID_INPUT', 'Enter a reusable product barcode to remember this description.');
       try { if (readSupplierBarcode(info.product_code).kind === 'sscc') return reject('INVALID_INPUT', 'An SSCC identifies one pallet. Use a separate reusable product code.'); } catch { return reject('INVALID_INPUT', 'Enter a valid reusable product barcode.'); }
@@ -579,7 +580,7 @@ export class Engine {
     if (shipment) tx.put('shipments', shipment.id, {...shipment, pallet_id:pallet.id, pending_barcode:null});
     if (p.remember_product) {
       const id = productKey(cmd.workspace_id, info.product_code);
-      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, field_names:info.fields.map(f=>f.name), updated_at:now});
+      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', field_names:info.fields.map(f=>f.name), updated_at:now});
     }
     tx.put('pallets', pallet.id, pallet);
     const token = this.newToken();
@@ -768,6 +769,24 @@ export class Engine {
       }
       case 'import_batch':
         return this.importBatch(tx, actorId, cmd, now, wh, reject);
+      case 'save_product': {
+        const code = (p.code ?? '').trim();
+        const description = (p.description ?? '').trim();
+        if (!code) return reject('INVALID_INPUT', 'Enter the product barcode or code.');
+        if (code.length > 80) return reject('INVALID_INPUT', 'Product codes are limited to 80 characters.');
+        try { if (readSupplierBarcode(code).kind === 'sscc') return reject('INVALID_INPUT', 'An SSCC identifies one pallet. Use a reusable product code.'); } catch (e) { return reject('INVALID_INPUT', (e as Error).message); }
+        if (!description) return reject('INVALID_INPUT', 'Give the product a name.');
+        if (description.length > 160) return reject('INVALID_INPUT', 'Product names are limited to 160 characters.');
+        const unit = (p.unit ?? '').trim(), category = (p.category ?? '').trim();
+        if (unit.length > 40 || category.length > 60) return reject('INVALID_INPUT', 'Unit is limited to 40 characters and category to 60.');
+        const key = productKey(ws, code);
+        const existing = this.db.products[key];
+        if (existing && (cmd.payload as { create?: boolean }).create) return reject('INVALID_INPUT', `${code} is already a saved product. Open it instead.`);
+        const product = { id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, field_names: existing?.field_names ?? [], updated_at: now };
+        tx.put('products', key, product);
+        const a = audit(key, existing ? { description: existing.description, unit: existing.unit, category: existing.category ?? '' } : null, { code, description, unit, category });
+        return this.accepted(cmd, now, a.id, null, key);
+      }
       case 'rename_import': {
         const batch = this.db.imports[p.import_id ?? ''];
         if (!batch || batch.workspace_id !== ws) return reject('NOT_FOUND', 'Import not found.');
@@ -813,26 +832,45 @@ export class Engine {
     if (p.import_kind === 'shipments') {
       if (!['OWNER','SUPERVISOR'].includes(member.role)) return reject('FORBIDDEN', 'Only supervisors and owners can import expected shipments.');
       const prepared: ExpectedShipment[] = [];
+      const jobsByCode = new Map(Object.values(this.db.jobs).filter((j) => j.workspace_id === ws).map((j) => [normalizeCode(j.code), j]));
+      // A job code the warehouse doesn't have yet becomes a new open job, as with pallet imports.
+      const newJobs = new Map<string, string>();
+      const rowJob: (string | null)[] = [];
       rows.forEach((r,i) => {
-        const job = Object.values(this.db.jobs).find(j=>j.workspace_id===ws && normalizeCode(j.code)===normalizeCode(get(r,'job_code')));
-        if (!job || job.status!=='OPEN') err(i,'job_code','Choose an existing open job.');
+        const code = normalizeCode(get(r,'job_code'));
+        const known = code ? jobsByCode.get(code) : undefined;
+        rowJob.push(code || null);
+        if (code && !known) {
+          if (code.length > 20) err(i,'job_code','Job code is limited to 20 characters.');
+          else if (get(r,'job_name').length > 120) err(i,'job_name','Job name is limited to 120 characters.');
+          else if (!newJobs.get(code)) newJobs.set(code, get(r,'job_name'));
+        } else if (known && known.status!=='OPEN') err(i,'job_code',`Job ${known.code} is closed.`);
         const description = get(r,'description');
         if (description.length>160) err(i,'description','Description is limited to 160 characters.');
         let barcode = '';
-        try { barcode = readSupplierBarcode(get(r,'barcode')).reference; } catch { err(i,'barcode','Enter a valid supplier barcode.'); }
+        // No barcode is fine: the item is found by searching Incoming and received by hand.
+        const code128 = get(r,'barcode') || get(r,'supplier_ref');
+        if (code128) try { barcode = readSupplierBarcode(code128).reference; } catch { err(i,'barcode','Enter a valid supplier barcode, or leave it empty.'); }
+        if (!description && !code128) err(i,'description','Give each row a description or a barcode, so it can be found when it arrives.');
         let fields: {name:string;value:string}[] = [];
         try {
           const raw = JSON.parse(get(r,'details_json') || '{}');
           if (!raw || Array.isArray(raw) || typeof raw!=='object' || Object.values(raw).some(v=>typeof v!=='string')) throw Error();
           fields = Object.entries(raw).map(([name,value])=>({name,value:value as string}));
         } catch { err(i,'details_json','Use a JSON object containing field names and text values.'); }
-        const info = receivingSchema.safeParse({product_code:get(r,'product_code'),quantity:get(r,'quantity'),unit:get(r,'unit'),destination:get(r,'destination'),remind_on:get(r,'remind_on'),fields});
+        const info = receivingSchema.safeParse({product_code:get(r,'product_code'),quantity:get(r,'quantity'),unit:get(r,'unit'),destination:get(r,'destination'),category:get(r,'category'),remind_on:get(r,'remind_on'),fields});
         if (!info.success) err(i,'details',info.error.issues[0].message);
         if (get(r,'notes').length>1000) err(i,'notes','Notes are limited to 1,000 characters.');
-        if (job && info.success) prepared.push({id:this.newId(),workspace_id:ws,warehouse_id:wh.id,barcode,pending_barcode:barcodeMatchKey(barcode),job_id:job.id,description,notes:get(r,'notes'),receiving:info.data,pallet_id:null,created_at:now});
+        if (info.success) prepared.push({id:this.newId(),workspace_id:ws,warehouse_id:wh.id,barcode,pending_barcode:barcode ? barcodeMatchKey(barcode) : null,job_id:'',description,notes:get(r,'notes'),receiving:info.data,pallet_id:null,created_at:now});
       });
       if (errors.length) return {...reject('INVALID_INPUT','Nothing was imported. Fix the listed rows.'),errors};
-      for (const row of prepared) {tx.put('shipments',row.id,row);created.push(row.id);}
+      for (const [code, name] of newJobs) {
+        const job: Job = { id: this.newId(), workspace_id: ws, code, name: name || code, destination_notes: null, status: 'OPEN', version: 1, created_at: now, updated_at: now };
+        tx.put('jobs', job.id, job);
+        jobsByCode.set(code, job);
+      }
+      jobsAdded = newJobs.size;
+      prepared.forEach((row, i) => { const code = rowJob[i]; row.job_id = code ? jobsByCode.get(code)?.id ?? '' : ''; tx.put('shipments',row.id,row); created.push(row.id); });
     } else if (p.import_kind === 'jobs') {
       const seen = new Map<string, number>();
       const existing = new Set(Object.values(this.db.jobs).filter((j) => j.workspace_id === ws).map((j) => normalizeCode(j.code)));
@@ -953,7 +991,7 @@ export class Engine {
         created.push(pallet.id);
       });
     }
-    const summary = `${created.length} ${p.import_kind} created${skipped ? `, ${skipped} already existed` : ''}${jobsAdded ? `, ${jobsAdded} new job${jobsAdded === 1 ? '' : 's'} added` : ''}`;
+    const summary = `${p.import_kind === 'shipments' ? `${created.length} incoming item${created.length === 1 ? '' : 's'} added` : `${created.length} ${p.import_kind} created`}${skipped ? `, ${skipped} already existed` : ''}${jobsAdded ? `, ${jobsAdded} new job${jobsAdded === 1 ? '' : 's'} added` : ''}`;
     const name = (p.name ?? '').trim().slice(0, 80) || (p.file_name ?? '').replace(/\.csv$/i, '').trim().slice(0, 80) || `${p.import_kind[0].toUpperCase()}${p.import_kind.slice(1)} import`;
     tx.put('imports', cmd.command_id, { id: cmd.command_id, workspace_id: ws, kind: p.import_kind, checksum: p.checksum, status: 'committed', summary, created_ids: created, actor_id: actorId, created_at: now, name, file_name: (p.file_name ?? '').trim().slice(0, 200) || null, rows: rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '').trim()]))) });
     tx.appendAudit({ id: this.newId(), workspace_id: ws, actor_id: actorId, action: 'import_batch', target_id: cmd.command_id, before: null, after: { kind: p.import_kind, summary }, reason: null, accepted_at: now, command_id: cmd.command_id });

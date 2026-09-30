@@ -947,7 +947,36 @@ export class FirebaseBackend extends Backend {
             true,
           ),
         ]);
-      else if (name === "import")
+      else if (name === "incoming") {
+        await this.page(
+          "incoming",
+          "shipments",
+          query(
+            this.col("shipments"),
+            orderBy("created_at", "desc"),
+            limit(PAGE_SIZE),
+          ),
+          true,
+        );
+        await Promise.all(
+          [...new Set(Object.values(this.db.shipments).map((r) => r.job_id))].map((j) => this.one("jobs", j)),
+        );
+      } else if (name === "products")
+        await this.page(
+          "products",
+          "products",
+          query(
+            this.col("products"),
+            orderBy("updated_at", "desc"),
+            limit(PAGE_SIZE),
+          ),
+          true,
+        );
+      else if (name === "receive" && id) {
+        await this.one("shipments", id, true);
+        const row = this.db.shipments[id];
+        if (row?.job_id) await this.one("jobs", row.job_id);
+      } else if (name === "import")
         await this.page(
           "imports",
           "imports",
@@ -1420,6 +1449,7 @@ export class FirebaseBackend extends Backend {
         // The import list shows a new or renamed batch without reloading the page.
         if (["import_batch", "rename_import"].includes(cmd.kind) && id)
           await this.one("imports", id, true);
+        if (cmd.kind === "save_product" && id) await this.one("products", id, true);
         if (["create_job", "close_job", "reopen_job"].includes(cmd.kind) && id)
           await this.one("jobs", id, true);
         if (

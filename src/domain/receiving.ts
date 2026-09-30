@@ -8,6 +8,7 @@ export const receivingSchema = z.object({
   quantity: short(40).default(""),
   unit: short(40).default(""),
   destination: short(300).default(""),
+  category: short(60).default(""),
   remind_on: z
     .string()
     .refine(
@@ -36,6 +37,7 @@ export const blankInfo = (): PalletInfo => ({
   quantity: "",
   unit: "",
   destination: "",
+  category: "",
   remind_on: "",
   fields: [],
 });
@@ -46,6 +48,8 @@ export interface ProductMemory {
   code: string;
   description: string;
   unit: string;
+  /** Optional grouping people choose, like "Hardwood" or "Kindling". */
+  category?: string;
   field_names: string[];
   updated_at: string;
 }

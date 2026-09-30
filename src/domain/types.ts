@@ -209,6 +209,7 @@ export const ADMIN_COMMANDS = [
   'remove_member',
   'import_batch',
   'rename_import',
+  'save_product',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 

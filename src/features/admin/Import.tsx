@@ -26,7 +26,9 @@ function storeTemplates(ws: string | null, list: SavedImportTemplate[]): boolean
 
 export function Import() {
   const { role, toast, backend, go, workspaceId, v } = useApp();
-  const [kind, setKind] = useState<ImportKind>('locations');
+  // Incoming is the everyday import: a supplier's list of what's on the truck.
+  const incomingOffered = !(backend instanceof FirebaseBackend) || backend.summary?.receiving_version === 1;
+  const [kind, setKind] = useState<ImportKind>(incomingOffered ? 'shipments' : 'locations');
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
   const [batchName, setBatchName] = useState('');
@@ -66,7 +68,7 @@ export function Import() {
     );
   }
 
-  const kinds = (Object.keys(IMPORT_TEMPLATES) as ImportKind[]).filter(k=>k!=='shipments'||!(backend instanceof FirebaseBackend)||backend.summary?.receiving_version===1);
+  const kinds = (['shipments', 'locations', 'jobs', 'pallets'] as ImportKind[]).filter((k) => k !== 'shipments' || incomingOffered);
   // A file whose header fits another template switches to it, instead of failing against the selected one.
   const adopt = (csv: string) => {
     const found = detectImportKind(csv, kinds);
@@ -131,7 +133,7 @@ export function Import() {
     const name = batchName.trim() || (fileName ?? '').replace(/\.csv$/i, '').trim();
     const r = await cmd.run('import_batch', { import_kind: kind, checksum, rows: parsed.rows, ...(name ? { name: name.slice(0, 80) } : {}), ...(fileName ? { file_name: fileName.slice(0, 200) } : {}) });
     if (r.phase === 'done') {
-      toast(`Import committed: ${r.accepted?.created_ids?.length ?? 0} created`);
+      toast(kind === 'shipments' ? `${r.accepted?.created_ids?.length ?? 0} items added to Incoming` : `Import committed: ${r.accepted?.created_ids?.length ?? 0} created`);
       if (kind === 'pallets' && r.accepted?.created_ids?.length) setLabels(r.accepted.created_ids);
     }
   };
@@ -140,10 +142,20 @@ export function Import() {
 
   return (
     <div className="stack">
-      <PageHead title="Import" sub="Bring in locations, jobs or already-received pallets from a spreadsheet saved as CSV." />
+      <PageHead title="Import" sub="Load a supplier's list of what's coming, or set up locations and jobs, from a spreadsheet saved as CSV." />
+      {kind === 'shipments' && (
+        <Notice tone="info" icon="receive" title="Importing a delivery list doesn't add stock">
+          Each row waits in <button className="link" onClick={() => go('incoming')}>Incoming</button> until the delivery arrives. Scan a pallet's barcode on Receive and Wherehouse fills in everything from this list. Check it and save, and only then is it a pallet on hand with its own label. Rows without a barcode can be found by searching Incoming and received with one tap.
+        </Notice>
+      )}
+      {kind === 'pallets' && (
+        <Notice tone="warn" title="This adds pallets on hand right away">
+          Use it only for pallets already in your building, like when you first set up Wherehouse. For a delivery that hasn't arrived yet, choose Incoming.
+        </Notice>
+      )}
       <Explain refs="page 27">
         <p>An import is one batch: every row goes in, or none do. Problems are reported by row and column so you can fix the file and try again. The batch has its own ID, so pressing Import twice, or losing the connection, never creates duplicates.</p>
-        <p>Imported pallets start as received with no location. The app never invents a rack for them. Staff confirm each one by placing it with a scan.</p>
+        <p>Incoming rows never count as stock. A pallet exists only once someone receives it, so your counts always match what's physically here. Pallets on hand imports start as received with no location, and staff confirm each one by placing it with a scan.</p>
       </Explain>
 
       <div className="seg" role="group" aria-label="What to import" data-tour="import-kind">
@@ -268,7 +280,7 @@ export function Import() {
           {done ? (
             <Notice
               tone="ok"
-              title={`Batch committed: ${cmd.state.accepted?.created_ids?.length ?? 0} ${kind} created`}
+              title={kind === 'shipments' ? `${cmd.state.accepted?.created_ids?.length ?? 0} items added to Incoming. No stock was added.` : `Batch committed: ${cmd.state.accepted?.created_ids?.length ?? 0} ${kind} created`}
               actions={
                 <>
                   {kind === 'pallets' && (
@@ -276,8 +288,8 @@ export function Import() {
                       <Icon name="print" /> Print labels
                     </button>
                   )}
-                  <button className="btn small" onClick={() => go(kind === 'pallets' ? 'reconcile' : kind === 'shipments' ? 'receive' : kind)}>
-                    Open {kind === 'pallets' ? 'reconcile' : KIND_LABEL[kind].toLowerCase()}
+                  <button className="btn small" onClick={() => go(kind === 'pallets' ? 'reconcile' : kind === 'shipments' ? 'incoming' : kind)}>
+                    Open {kind === 'pallets' ? 'reconcile' : kind === 'shipments' ? 'Incoming' : KIND_LABEL[kind].toLowerCase()}
                   </button>
                   <button className="btn small" onClick={reset}>
                     Import another
