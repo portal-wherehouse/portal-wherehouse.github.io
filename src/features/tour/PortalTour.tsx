@@ -508,12 +508,14 @@ function TourOverlay({ index, opened, stops }: { index: number; opened: RefObjec
 
   const view = geo?.view ?? readView();
   const spot = current && geo?.spot ? geo.spot : null;
-  const mode: Mode = geo?.mode ?? (view.compact ? 'sheet-bottom' : 'center');
   const wide = stop.kind === 'intro' || stop.kind === 'finish';
+  // Intro and finish grow independently of the previous anchored stop. Center them
+  // immediately, without a frame using that stop's old coordinates and height.
+  const mode: Mode = wide ? (view.compact ? 'sheet-bottom' : 'center') : geo?.mode ?? (view.compact ? 'sheet-bottom' : 'center');
   // Keep the last width while the next stop is being found, so the card does not jump.
   if (current) lastUnder.current = current.under;
   const under = !wide && mode === 'float' && lastUnder.current;
-  const cardStyle = geo && (mode === 'float' || mode === 'center') ? { top: geo.top, left: geo.left, width: geo.width } : undefined;
+  const cardStyle = wide && !view.compact ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' } : geo && (mode === 'float' || mode === 'center') ? { top: geo.top, left: geo.left, width: geo.width } : undefined;
   const total = stops.length;
   const body = copy(stop.body, view);
   const tip = copy(stop.tip, view);
