@@ -134,7 +134,7 @@ export function CapacitySheet({ loc, onClose }: { loc: Location; onClose: () => 
         }}
       >
         <CapacityFields draft={draft} onChange={setDraft} advanced={advanced} />
-        {!advanced && <p className="hint" style={{ margin: 0 }}>Weight and size limits appear when a supervisor turns on weight and size tracking in Settings.</p>}
+        {!advanced && <p className="hint" style={{ margin: 0 }}>Weight and size limits appear when a supervisor turns on weight and size tracking in Warehouse settings (the gear next to your warehouse name).</p>}
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
         <div className="row">
           <button className="btn primary" disabled={busy}>

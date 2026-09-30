@@ -1,6 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInAs, watchErrors } from './helpers';
 
+async function turnOnMeasurements(page: Page) {
+  await page.goto('/?demo=1#overview');
+  await page.getByRole('button', { name: 'Warehouse settings' }).click();
+  const box = page.getByTestId('measurements-setting').getByLabel('Advanced weight and dimensions logging');
+  await box.click();
+  await expect(box).toBeChecked();
+  await page.keyboard.press('Escape');
+}
+
 async function setCapacity(page: Page, index: number, spaces: string, weight?: string) {
   await page.goto('/?demo=1#locations');
   const row = page.locator('tbody tr.click').nth(index);
@@ -20,10 +29,7 @@ async function setCapacity(page: Page, index: number, spaces: string, weight?: s
 test('Move suggests the location with the most room, and a weight limit asks for the pallet weight', async ({ page }) => {
   const errors = watchErrors(page);
   await signInAs(page, 'owner');
-  await page.goto('/?demo=1#settings');
-  await page.getByTestId('measurements-setting').getByLabel('Advanced weight and dimensions logging').click();
-  await expect(page.getByTestId('measurements-setting').getByLabel('Advanced weight and dimensions logging')).toBeChecked();
-  await expect(page.getByTestId('measurements-setting').getByLabel('Advanced weight and dimensions logging')).toBeChecked();
+  await turnOnMeasurements(page);
 
   const roomy = await setCapacity(page, 0, '20');
   const heavy = await setCapacity(page, 2, '30', '1000');
@@ -48,9 +54,7 @@ test('Move suggests the location with the most room, and a weight limit asks for
 
 test('a pallet without a weight is stopped at a weight-limited location, with a fix', async ({ page }) => {
   await signInAs(page, 'owner');
-  await page.goto('/?demo=1#settings');
-  await page.getByTestId('measurements-setting').getByLabel('Advanced weight and dimensions logging').click();
-  await expect(page.getByTestId('measurements-setting').getByLabel('Advanced weight and dimensions logging')).toBeChecked();
+  await turnOnMeasurements(page);
   const heavy = await setCapacity(page, 2, '4', '5000');
   await page.goto('/?demo=1#move');
   await page.getByTestId('needs-placement').locator('.result').first().click();

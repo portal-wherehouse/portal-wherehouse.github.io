@@ -122,6 +122,7 @@ export function App() {
 }
 
 function Portal() {
+  const [folded, setFolded] = useFoldedNav();
   const app = useApp();
   const { route, actorId, workspaceId, role, backend, go, blockedNav, toast, read, accountsOpen: account, setAccountsOpen: setAccount } = app;
   const signedIn = !!actorId;
@@ -230,7 +231,10 @@ function Portal() {
             <button className="nav-item dashboard-nav" aria-current={route.name === 'overview' ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
             {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
               <div key={g.title} className="nav-group">
-                <details open={g.title === 'Floor' || g.items.some(i=>i.route === route.name)}>
+                <details
+                  open={!folded.includes(g.title)}
+                  onToggle={(e) => setFolded(g.title, !(e.currentTarget as HTMLDetailsElement).open)}
+                >
                 <summary>{g.title}</summary>
                 {g.items.filter(i => i.route !== 'overview').map((i) => {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
@@ -382,4 +386,28 @@ function RenewalNotice(){
   const {backend,role,go}=useApp();
   if(!(backend instanceof FirebaseBackend)||!backend.readOnly)return null;
   return <Notice tone="warn" title="Renewal due · read-only access"><p>You can find pallets, view photos and read history until {new Date(backend.graceEndsAt).toLocaleDateString()}. New changes and uploads are paused. Your records are preserved.</p><div className="row">{(role==='OWNER'||role==='SUPERVISOR')&&<button className="btn" onClick={()=>go('export')}>Export records</button>}<button className="btn" onClick={()=>go('signin')}>Renew warehouse</button></div></Notice>;
+}
+
+/** Sidebar groups stay open unless you fold them; the choice is kept in this browser across refreshes. */
+function useFoldedNav(): [string[], (title: string, fold: boolean) => void] {
+  const [folded, set] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('pl.navFolded') ?? '[]');
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const update = (title: string, fold: boolean) =>
+    set((cur) => {
+      if (fold === cur.includes(title)) return cur;
+      const next = fold ? [...cur, title] : cur.filter((t) => t !== title);
+      try {
+        localStorage.setItem('pl.navFolded', JSON.stringify(next));
+      } catch {
+        /* folding still works for this visit */
+      }
+      return next;
+    });
+  return [folded, update];
 }

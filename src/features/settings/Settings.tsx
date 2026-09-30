@@ -64,7 +64,6 @@ function DemoSettings() {
         sub="Display choices are saved on this device only."
       />
 
-      <MeasurementsSetting />
       <div className="panel stack" data-tour="settings-display">
         <div className="panel-title">Display</div>
         <Setting label="Theme">
@@ -328,7 +327,6 @@ function LiveSettings() {
         <span>{me?.email}</span>
         <span>{role ? ROLE_LABEL[role] : "Team member"}</span>
       </div>
-      <MeasurementsSetting />
       <div className="panel stack">
         <Setting label="Theme">
           <Seg<Prefs["theme"]>
@@ -366,7 +364,7 @@ function LiveSettings() {
 }
 
 /** Warehouse-wide: weight and size limits on locations, and weight and size on every pallet headed for one. */
-function MeasurementsSetting() {
+export function MeasurementsSetting() {
   const { backend, workspaceId, role, send } = useApp();
   const wh = Object.values(backend.db.warehouses).find(
     (w) => w.workspace_id === workspaceId && w.active,

@@ -843,7 +843,8 @@ export class Engine {
       case 'set_measurements': {
         const advanced = !!(cmd.payload as { advanced?: boolean }).advanced;
         if (!!wh.advanced_measurements === advanced) return reject('INVALID_INPUT', advanced ? 'Weight and size tracking is already on.' : 'Weight and size tracking is already off.');
-        tx.put('warehouses', wh.id, { ...wh, advanced_measurements: advanced, version: (wh.version ?? 1) + 1, updated_at: now });
+        // No version bump: this switch must not conflict with an open warehouse details form.
+        tx.put('warehouses', wh.id, { ...wh, advanced_measurements: advanced, updated_at: now });
         const a = audit(wh.id, { advanced_measurements: !!wh.advanced_measurements }, { advanced_measurements: advanced });
         return this.accepted(cmd, now, a.id, null, wh.id);
       }
