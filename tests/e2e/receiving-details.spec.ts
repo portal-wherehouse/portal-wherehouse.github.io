@@ -25,7 +25,7 @@ await page.locator("#rcv-job").selectOption({ index: 1 });
       .getByLabel("Product barcode or code (optional)")
       .fill("BIRCH-WHITE");
     await page
-      .getByLabel("Save as a product, so the next scan of this code fills in the name, unit and category")
+      .getByLabel("Save as a pallet type, so the next scan of this code fills in the name, unit, category and size")
       .check();
     await page.getByLabel("Quantity (optional)", { exact: true }).fill("48");
     await page.getByLabel("Unit (optional)", { exact: true }).fill("logs");

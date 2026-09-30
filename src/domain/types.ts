@@ -36,12 +36,26 @@ export interface Warehouse {
   receiving_notes?: string;
   version?: number;
   updated_at?: string;
+  /** Advanced weight and dimensions logging: locations can have weight and size limits that moves must respect. */
+  advanced_measurements?: boolean;
   id: string;
   workspace_id: string;
   code: string;
   name: string;
   timezone: string;
   active: boolean;
+}
+
+/** How much a location holds. Spaces are floor pallet positions; stacking multiplies them. */
+export interface LocationCapacity {
+  spaces: number;
+  stacking: number;
+  /** Advanced only: the most weight the location may carry, in pounds. */
+  max_weight_lb: number | null;
+  /** Advanced only: the size of one pallet space on one level, in inches. */
+  length_in: number | null;
+  width_in: number | null;
+  height_in: number | null;
 }
 
 export interface Location {
@@ -58,6 +72,10 @@ export interface Location {
   version: number;
   created_at: string;
   updated_at: string;
+  capacity?: LocationCapacity | null;
+  /** Kept up to date by every move: stored pallets here and their recorded weight. */
+  load_pallets?: number;
+  load_weight_lb?: number;
 }
 
 export interface Job {
@@ -239,6 +257,8 @@ export const ADMIN_COMMANDS = [
   'save_product',
   'report_issue',
   'update_issue',
+  'set_location_capacity',
+  'set_measurements',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 

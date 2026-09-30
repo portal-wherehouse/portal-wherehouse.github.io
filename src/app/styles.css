@@ -3311,3 +3311,31 @@ button.link {
   right: 2px;
   background: var(--surface);
 }
+
+.suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+}
+.suggest-row.best {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.suggest-row:hover {
+  border-color: var(--ink-3);
+}
+.suggest-row .grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.suggest-row .tag {
+  margin-left: 6px;
+}

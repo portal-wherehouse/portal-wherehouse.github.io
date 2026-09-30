@@ -1,4 +1,4 @@
-import { receivingSchema } from './receiving';
+import { blankInfo, receivingSchema } from './receiving';
 import { STATE_LABEL } from './display';
 // Pure transition checker (blueprint pages 7, 12, 14, 15, 21).
 // Given the locked, re-read server values, decide whether a command is allowed and what it changes.
@@ -45,6 +45,8 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   save_product: 'SUPERVISOR',
   report_issue: 'OPERATOR',
   update_issue: 'SUPERVISOR',
+  set_location_capacity: 'SUPERVISOR',
+  set_measurements: 'SUPERVISOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -91,6 +93,8 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   save_product: 'Product saved',
   report_issue: 'Issue reported',
   update_issue: 'Issue reviewed',
+  set_location_capacity: 'Location capacity set',
+  set_measurements: 'Weight and size tracking changed',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {
@@ -319,7 +323,12 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
         if (!parsed.success) return reject('INVALID_INPUT', parsed.error.issues[0].message);
         if (JSON.stringify(parsed.data) !== JSON.stringify(pallet.receiving)) {
           patch.receiving = parsed.data;
-          patch.label_needs_reprint = true;
+          // Weight and size aren't printed on the pallet label, so recording them needs no reprint.
+          const printed = (r: object | null | undefined) => {
+            const { weight_lb: _w, length_in: _l, width_in: _wi, height_in: _h, ...rest } = { ...blankInfo(), ...(r ?? {}) };
+            return JSON.stringify(rest);
+          };
+          if (printed(parsed.data) !== printed(pallet.receiving)) patch.label_needs_reprint = true;
           detail.pallet_details = JSON.stringify(parsed.data);
         }
       }

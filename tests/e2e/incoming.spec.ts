@@ -68,17 +68,26 @@ test('an unknown barcode becomes a saved product, and the next scan fills it in'
   await expect(page.getByTestId('product-list')).toContainText('Pine kindling, 1 cu ft');
 });
 
-test('your own product gets a made-up code and prints on a product label', async ({ page }) => {
+test('a pallet type gets a generated barcode, a size, and prints on a sticker', async ({ page }) => {
   await signInAs(page, 'owner');
-  await page.goto('/?demo=1#products');
-  await page.getByRole('button', { name: 'New product' }).click();
-  await page.getByLabel('Product name').fill('House blend firewood, 1/2 cord');
-  await page.getByRole('button', { name: 'Make a code' }).click();
-  await expect(page.locator('#prod-code')).toHaveValue(/^PR-[A-Z2-9]{6}$/);
-  await page.getByLabel('Category (optional)').fill('Firewood');
-  await page.getByRole('button', { name: 'Save and print labels' }).click();
+  await page.goto('/?demo=1#import');
+  await page.getByTestId('pallet-type-panel').getByRole('button', { name: 'New pallet type' }).click();
+  await page.getByLabel('Pallet type name').fill('Tire crate from Acme Supply');
+  await page.getByRole('button', { name: 'Generate barcode' }).click();
+  await expect(page.locator('#prod-code')).toHaveValue(/^PT-[A-Z2-9]{6}$/);
+  const code = await page.locator('#prod-code').inputValue();
+  await page.getByLabel('Length (in)').fill('48');
+  await page.getByLabel('Width (in)').fill('40');
+  await page.getByLabel('Height (in)').fill('60');
+  await page.getByLabel('Estimated weight (lb)').fill('900');
+  await page.getByRole('button', { name: 'Save and print now' }).click();
   await expect(page.getByRole('dialog').locator('.product-label')).toHaveCount(1);
+  await expect(page.getByRole('dialog').locator('.product-label')).toContainText('48 × 40 × 60 in, about 900 lb');
   await page.getByLabel('How many').fill('3');
   await expect(page.locator('#print-root .product-label')).toHaveCount(3);
-  await expect(page.locator('#print-root .product-label').first()).toContainText('PRODUCT');
+  await expect(page.locator('#print-root .product-label').first()).toContainText('PALLET TYPE');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.goto('/?demo=1#products');
+  await expect(page.getByTestId('product-list')).toContainText('Tire crate from Acme Supply');
+  await expect(page.getByTestId('product-list')).toContainText(code);
 });

@@ -9,6 +9,11 @@ export const receivingSchema = z.object({
   unit: short(40).default(""),
   destination: short(300).default(""),
   category: short(60).default(""),
+  /** Weight and size of this one pallet, in pounds and inches. Used by locations with limits. */
+  weight_lb: short(12).default(""),
+  length_in: short(8).default(""),
+  width_in: short(8).default(""),
+  height_in: short(8).default(""),
   remind_on: z
     .string()
     .refine(
@@ -38,6 +43,10 @@ export const blankInfo = (): PalletInfo => ({
   unit: "",
   destination: "",
   category: "",
+  weight_lb: "",
+  length_in: "",
+  width_in: "",
+  height_in: "",
   remind_on: "",
   fields: [],
 });
@@ -50,6 +59,11 @@ export interface ProductMemory {
   unit: string;
   /** Optional grouping people choose, like "Hardwood" or "Kindling". */
   category?: string;
+  /** General size of this pallet type, copied onto each pallet received with its barcode. */
+  length_in?: string;
+  width_in?: string;
+  height_in?: string;
+  weight_lb?: string;
   field_names: string[];
   updated_at: string;
 }

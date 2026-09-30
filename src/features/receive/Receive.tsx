@@ -58,7 +58,7 @@ export function Receive() {
     return {product:backend.db.products[productKey(workspaceId!,code)] ?? null,
       shipments:Object.values(backend.db.shipments).filter(r=>r.workspace_id===workspaceId && r.pending_barcode===barcodeMatchKey(code))};
   };
-  const memoryInfo = (product:ProductMemory) => ({...blankInfo(),product_code:product.code,unit:product.unit,category:product.category ?? '',fields:product.field_names.map(name=>({name,value:''}))});
+  const memoryInfo = (product:ProductMemory) => ({...blankInfo(),product_code:product.code,unit:product.unit,category:product.category ?? '',weight_lb:product.weight_lb ?? '',length_in:product.length_in ?? '',width_in:product.width_in ?? '',height_in:product.height_in ?? '',fields:product.field_names.map(name=>({name,value:''}))});
   const applyShipment = async (row:ExpectedShipment) => {
     const product = row.receiving.product_code ? (await lookup(row.receiving.product_code)).product : null;
     setShipmentId(row.id); setJobId(row.job_id); if (row.job_id) setShowJob(true); setSupplier(row.barcode); setNewCode(false);
@@ -178,7 +178,7 @@ export function Receive() {
   const another = (sameContents = false) => {
     setCreated(null);
     if (!sameContents) setDescription('');
-    setInfo(sameContents ? {...blankInfo(),product_code:info.product_code,unit:info.unit,fields:info.fields.map(f=>({name:f.name,value:''}))} : blankInfo());
+    setInfo(sameContents ? {...blankInfo(),product_code:info.product_code,unit:info.unit,category:info.category,weight_lb:info.weight_lb,length_in:info.length_in,width_in:info.width_in,height_in:info.height_in,fields:info.fields.map(f=>({name:f.name,value:''}))} : blankInfo());
     setRemember(false);setShipmentId('');setMatches([]);setNewCode(false);
     if (route.name === 'receive' && route.id) go('receive');
     setSupplier('');
@@ -288,10 +288,10 @@ export function Receive() {
     <div className="stack">
       <PageHead eyebrow="Warehouse" title="Receive a pallet" sub="Give the pallet an identity. Place it on a rack next." />
       <button className="btn big" type="button" disabled={locked} onClick={() => setScanning(true)}><Icon name="scanner" />Scan supplier barcode</button>
-      <p className="hint">Scan the pallet's barcode. If it's on your <button type="button" className="link" onClick={() => go('incoming')}>Incoming</button> list or a saved product, the details fill in. A barcode Wherehouse hasn't seen can be saved as a new product. No barcode? Pick the item from Incoming, or type the details.</p>
+      <p className="hint">Scan the pallet's barcode. If it's on your <button type="button" className="link" onClick={() => go('incoming')}>Incoming</button> list or a saved pallet type, the details fill in. A barcode Wherehouse hasn't seen can be saved as a new pallet type. No barcode? Pick the item from Incoming, or type the details.</p>
       {scanning && <BarcodeSheet title="Scan supplier barcode" onScan={captureSupplier} onClose={() => setScanning(false)} />}
       {newCode && <Notice tone="info" icon="plus" title="New barcode">
-        {supplier} isn't on your Incoming list or saved as a product. Enter a name, and a category if you like. Keep "Save as a product" checked, and the next time this barcode is scanned everything fills in.
+        {supplier} isn't on your Incoming list or saved as a pallet type. Enter a name, and a category if you like. Keep "Save as a pallet type" checked, and the next time this barcode is scanned everything fills in.
       </Notice>}
       {!enhanced && <Notice tone="info">Product memory, shipment matching and pallet reminders will be available after the warehouse server update. Basic receiving is available now.</Notice>}
       {matches.length>0 && <section className="panel stack"><h2>Expected deliveries matching this barcode</h2><p>Choosing one fills the form with its details. Review them before saving.</p>{matches.map(row=><button type="button" className="btn" disabled={locked} key={row.id} onClick={async()=>{setLookupBusy(true);try{await applyShipment(row);}catch(e){toast((e as Error).message,'error');}finally{setLookupBusy(false);}}}>{row.description || 'Description needed'} · {row.receiving.quantity} {row.receiving.unit} · {row.receiving.destination || jobs.find(j=>j.id===row.job_id)?.code}</button>)}<button className="btn ghost" onClick={()=>setMatches([])}>Keep my entries instead</button></section>}
@@ -374,8 +374,8 @@ export function Receive() {
             <Field label="Category (optional)" htmlFor="rcv-category" hint="Group products your way, like Hardwood or Kindling."><input id="rcv-category" className="input" value={info.category ?? ''} onChange={e=>setInfo({...info,category:e.target.value})} maxLength={60} disabled={locked} list="rcv-category-suggest"/>
               <datalist id="rcv-category-suggest">{categories.map((c) => <option key={c} value={c} />)}</datalist></Field>
           </div>
-          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Save as a product, so the next scan of this code fills in the name, unit and category</label>
-          <p className="hint">This doesn't copy quantities, destinations or reminders, and it doesn't change older pallets. Saved products are listed under Products.</p>
+          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Save as a pallet type, so the next scan of this code fills in the name, unit, category and size</label>
+          <p className="hint">This doesn't copy quantities, destinations or reminders, and it doesn't change older pallets. Saved ones are listed under Pallet types.</p>
           <PalletFields value={info} onChange={setInfo} disabled={locked}/>
         </>}
         <Field label="Note (optional)" htmlFor="rcv-note" count={notes.length} max={1000}>

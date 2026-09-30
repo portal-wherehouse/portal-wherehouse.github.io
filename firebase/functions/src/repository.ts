@@ -243,6 +243,15 @@ export async function loadCommand(
   if (k === "remove_photo") await one("attachments", p.attachment_id);
   if (k === "rename_import") await one("imports", p.import_id);
   if (k === "update_issue") await one("issues", p.issue_id);
+  // Setting a capacity recounts what is stored there now.
+  if (k === "set_location_capacity")
+    await query(
+      "pallets",
+      root
+        .collection("pallets")
+        .where("current_location_id", "==", p.location_id)
+        .limit(500),
+    );
   if (k === "report_issue") {
     await one("issues", cmd.command_id);
     for (const id of (p.pallet_ids || []).slice(0, 50)) await one("pallets", id);

@@ -16,6 +16,8 @@ import { asSentence, isDoubleRead } from '../station/logic';
 import { initialMove, moveReducer, type MoveState } from './machine';
 import { ResultRow } from '../find/Find';
 import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
+import { fitCheck, fmtLb, palletSize, palletWeight, suggestLocations, type FitProblem } from '../../domain/capacity';
+import { blankInfo } from '../../domain/receiving';
 
 const INTENT_VERB = { place: 'Place', move: 'Move', verify_location: 'Confirm still here' } as const;
 
@@ -188,6 +190,9 @@ export function Move() {
   };
 
   const stageIndex = s.stage === 'EXPECT_PALLET' ? 0 : s.stage === 'EXPECT_LOCATION' ? 1 : 2;
+  const advanced = !!(workspaceId && backend.reader.activeWarehouse(workspaceId)?.advanced_measurements);
+  // Checked before Confirm, so a full or weight-limited location is caught while you still stand at the pallet.
+  const fit = s.pallet && s.destination && s.intent !== 'verify_location' ? fitCheck(s.pallet, backend.db.locations[s.destination.id] ?? s.destination, advanced) : null;
   const offline = backend.network === 'offline';
 
   return (
@@ -271,6 +276,13 @@ export function Move() {
                   }}
                   onError={(text, raw) => dispatch({ type: 'SCAN_ERROR', text, raw, at: Date.now() })}
                 />
+                {s.pallet && (
+                  <Suggestions
+                    pallet={s.pallet}
+                    onPick={(loc) => dispatch({ type: 'SCAN_LOCATION', location: loc, raw: `pick:${loc.id}:${Date.now()}`, at: Date.now() })}
+                    onUpdated={(pallet) => dispatch({ type: 'UPDATE_PALLET', pallet })}
+                  />
+                )}
               </>
             )}
             {stageIndex > 1 && s.destination && (
@@ -287,7 +299,15 @@ export function Move() {
           <div className="stack" style={{ gap: 12 }}>
             <div className="step-label">Confirm</div>
             {stageIndex < 2 && <p className="muted">Review appears here after both scans.</p>}
-            {(s.stage === 'REVIEW' || s.stage === 'SUBMITTING' || s.stage === 'UNKNOWN') && s.pallet && s.destination && s.intent && (
+            {s.stage === 'REVIEW' && s.pallet && s.destination && fit && (
+              <FitProblemPanel
+                pallet={s.pallet}
+                problem={fit}
+                onUpdated={(pallet) => dispatch({ type: 'UPDATE_PALLET', pallet })}
+                onOther={() => dispatch({ type: 'CANCEL_REVIEW' })}
+              />
+            )}
+            {(s.stage === 'REVIEW' || s.stage === 'SUBMITTING' || s.stage === 'UNKNOWN') && !(s.stage === 'REVIEW' && fit) && s.pallet && s.destination && s.intent && (
               <Review
                 s={s}
                 from={locById(s.pallet.current_location_id)}
@@ -370,6 +390,132 @@ export function Move() {
       </div>
       {(s.stage === 'EXPECT_PALLET' || s.stage === 'RESULT' || s.stage === 'QUEUED') && <NeedsPlacement />}
     </div>
+  );
+}
+
+/** Where this pallet fits, most room first. Scanning a rack label still works; tapping one is the same. */
+function Suggestions({ pallet, onPick, onUpdated }: { pallet: Pallet; onPick: (l: Location) => void; onUpdated: (p: Pallet) => void }) {
+  const { backend, workspaceId, v, go } = useApp();
+  const [all, setAll] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const advanced = !!(workspaceId && backend.reader.activeWarehouse(workspaceId)?.advanced_measurements);
+  const locs = useMemo(
+    () => Object.values(backend.db.locations).filter((l) => l.workspace_id === workspaceId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [v, workspaceId],
+  );
+  const { suggestions, needWeight } = useMemo(() => suggestLocations(pallet, locs, Object.values(backend.db.pallets), advanced), [pallet, locs, advanced, backend.db.pallets]);
+  if (!locs.some((l) => l.capacity && l.active))
+    return (
+      <p className="hint" style={{ margin: 0 }}>
+        Tip: give your locations a pallet capacity (<button type="button" className="link" onClick={() => go('locations')}>Locations</button>, open one, Set capacity) and Wherehouse suggests where each pallet fits.
+      </p>
+    );
+  const shown = all ? suggestions : suggestions.slice(0, 3);
+  return (
+    <div className="stack" style={{ gap: 6 }} data-testid="move-suggestions">
+      <div className="eyebrow">Suggested spots</div>
+      {suggestions.length === 0 && <p className="muted" style={{ margin: 0 }}>No location with a set capacity has room for this pallet. Scan any location, or give more locations a capacity.</p>}
+      {shown.map((sg, i) => (
+        <button key={sg.location.id} type="button" className={`suggest-row${i === 0 ? ' best' : ''}`} onClick={() => onPick(sg.location)}>
+          <Plate code={sg.location.code} size="sm" />
+          <span className="grow">
+            {sg.left} pallet{sg.left === 1 ? '' : 's'} of space left{sg.weightLeft !== null ? ` · ${fmtLb(sg.weightLeft)} left` : ''}
+            {sg.sameProduct && <span className="tag ok">Same type here</span>}
+            {i === 0 && !sg.sameProduct && <span className="tag accent">Most room</span>}
+          </span>
+        </button>
+      ))}
+      {!all && suggestions.length > 3 && (
+        <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setAll(true)}>
+          Show all {suggestions.length}
+        </button>
+      )}
+      {advanced && needWeight > 0 && palletWeight(pallet) === null && !adding && (
+        <p className="hint" style={{ margin: 0 }}>
+          Move this pallet to a weight-restricted zone? <button type="button" className="link" onClick={() => setAdding(true)}>Add est. weight</button> and {needWeight} more location{needWeight === 1 ? '' : 's'} with a weight limit {needWeight === 1 ? 'shows' : 'show'} up here.
+        </p>
+      )}
+      {adding && <MeasureForm pallet={pallet} need="NO_WEIGHT" onSaved={(p) => (setAdding(false), onUpdated(p))} onCancel={() => setAdding(false)} />}
+    </div>
+  );
+}
+
+/** A location that can't take this pallet: say why, and offer the fix or another spot. */
+function FitProblemPanel({ pallet, problem, onUpdated, onOther }: { pallet: Pallet; problem: { problem: FitProblem; message: string }; onUpdated: (p: Pallet) => void; onOther: () => void }) {
+  const [adding, setAdding] = useState(false);
+  const fixable = problem.problem === 'NO_WEIGHT' || problem.problem === 'NO_SIZE';
+  return (
+    <div className="stack" data-testid="fit-problem">
+      <Notice tone="error" title="This pallet can't go there">
+        {problem.message}
+      </Notice>
+      {adding ? (
+        <MeasureForm pallet={pallet} need={problem.problem} onSaved={(p) => (setAdding(false), onUpdated(p))} onCancel={() => setAdding(false)} />
+      ) : (
+        <div className="row">
+          {fixable && (
+            <button type="button" className="btn primary" onClick={() => setAdding(true)}>
+              <Icon name="edit" /> {problem.problem === 'NO_WEIGHT' ? 'Add pallet weight' : 'Add pallet size'}
+            </button>
+          )}
+          <button type="button" className="btn" onClick={onOther}>
+            Choose another location
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Record a pallet's weight (and size) without leaving the move. */
+function MeasureForm({ pallet, need, onSaved, onCancel }: { pallet: Pallet; need: FitProblem; onSaved: (p: Pallet) => void; onCancel: () => void }) {
+  const { send, backend } = useApp();
+  const info = { ...blankInfo(), ...(pallet.receiving ?? {}) };
+  const [w, setW] = useState(info.weight_lb);
+  const size = palletSize(pallet);
+  const [dims, setDims] = useState({ l: size ? String(size.length) : info.length_in, wd: size ? String(size.width) : info.width_in, h: size ? String(size.height) : info.height_in });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const withSize = need === 'NO_SIZE' || need === 'TOO_BIG';
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    const current = backend.db.pallets[pallet.id] ?? pallet;
+    const receiving = { ...blankInfo(), ...(current.receiving ?? {}), weight_lb: w.trim(), ...(withSize ? { length_in: dims.l.trim(), width_in: dims.wd.trim(), height_in: dims.h.trim() } : {}) };
+    const o = await send('edit_details', { receiving, reason: withSize ? 'Size recorded for a sized location' : 'Weight recorded for a weight-limited location' }, current, { commandId: uuid() });
+    setBusy(false);
+    if (o.status === 'result' && o.result.ok && o.result.current_state) onSaved(o.result.current_state);
+    else setError(o.status === 'result' && !o.result.ok ? o.result.message : o.status === 'offline' ? o.message : 'No answer from the server. Open the pallet to check.');
+  };
+  return (
+    <form
+      className="panel stack"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
+      <div className="row nowrap">
+        <input aria-label="Estimated weight (lb)" className="input" inputMode="decimal" value={w} onChange={(e) => setW(e.target.value)} placeholder="Estimated weight, lb" autoFocus />
+        {withSize && (
+          <>
+            <input aria-label="Length (in)" className="input" inputMode="decimal" value={dims.l} onChange={(e) => setDims({ ...dims, l: e.target.value })} placeholder="L in" />
+            <input aria-label="Width (in)" className="input" inputMode="decimal" value={dims.wd} onChange={(e) => setDims({ ...dims, wd: e.target.value })} placeholder="W in" />
+            <input aria-label="Height (in)" className="input" inputMode="decimal" value={dims.h} onChange={(e) => setDims({ ...dims, h: e.target.value })} placeholder="H in" />
+          </>
+        )}
+      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      <div className="row">
+        <button className="btn primary" disabled={busy || !(Number(w.replace(/,/g, '')) > 0) || (withSize && !(Number(dims.l) > 0 && Number(dims.wd) > 0 && Number(dims.h) > 0))}>
+          {busy ? <Spinner /> : <Icon name="check" />} Save to {pallet.code}
+        </button>
+        <button type="button" className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 

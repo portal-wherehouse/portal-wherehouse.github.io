@@ -1,5 +1,6 @@
-// Products: what a barcode means in this warehouse. Scanning a saved product's code on Receive fills in
-// its name, unit and category. Your own products can get a code here, printed on a product label.
+// Pallet types: what a barcode means in this warehouse. Scanning a saved type's barcode on Receive fills in
+// its name, unit, category and size; each pallet received still gets its own record and its own P-code.
+// A pallet that arrives without a label gets a generated barcode here, printed on a pallet type sticker.
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../../app/state';
@@ -14,12 +15,12 @@ import { Barcode128 } from '../labels/Barcode128';
 import { Qr } from '../labels/LabelCard';
 import { PrintPortal } from '../labels/LabelSheet';
 
-/** A short code for a product that has none: PR- plus six characters that are hard to misread. */
+/** A short code for a pallet type that has none: PT- plus six characters that are hard to misread. */
 export function newProductCode(taken: (code: string) => boolean): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   for (;;) {
     const bytes = crypto.getRandomValues(new Uint8Array(6));
-    const code = 'PR-' + [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
+    const code = 'PT-' + [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
     if (!taken(code)) return code;
   }
 }
@@ -36,14 +37,16 @@ export function Products() {
   );
   const needle = q.trim().toLowerCase();
   const hits = products.filter((p) => !needle || needle.split(/\s+/).every((w) => [p.description, p.code, p.category ?? '', p.unit].join('\n').toLowerCase().includes(w)));
+  const [created, setCreated] = useState<ProductMemory | null>(null);
   const canEdit = roleAllows(role, 'save_product');
 
   return (
     <div className="stack">
-      <PageHead eyebrow="Warehouse" title="Products" sub="What each barcode means here. Scan a saved product's code on Receive and its details fill in." />
-      <Explain title="Products and your own labels">
-        <p>A product is something you receive again and again, like a bundle size or a type of wood. Wherehouse remembers it by its barcode: the UPC on the box, a supplier's code, or a code Wherehouse makes for you.</p>
-        <p>Selling or storing your own products? Tap New product, let Wherehouse make a code, and print product labels to put on them. Product labels look different from pallet labels on purpose: a pallet label names one pallet, and a product label names what's inside.</p>
+      <PageHead eyebrow="Warehouse" title="Pallet types" sub="Every saved pallet and its barcode. Print a sticker any time." />
+      <Explain title="How pallet types work">
+        <p>A pallet type is something you get again and again, like "Tire crate from Acme Supply" or "Birch wood, 1 face cord". It has one barcode. Every pallet of that type carries the same sticker, so scanning it on Receive fills in the name, size and details.</p>
+        <p>Each pallet you receive still gets its own record and its own Wherehouse label, so three birch pallets are three pallets, even when they sit in the same spot.</p>
+        <p>Pallet coming from somewhere that doesn't label it? Tap New pallet type, generate a barcode, and print its sticker.</p>
       </Explain>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <div className="search-bar" style={{ flex: '1 1 280px' }}>
@@ -51,16 +54,16 @@ export function Products() {
           <label htmlFor="products-q" className="sr-only">
             Search products
           </label>
-          <input id="products-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code or category" autoComplete="off" />
+          <input id="products-q" className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, barcode or category" autoComplete="off" />
         </div>
         {canEdit && (
           <button className="btn primary" onClick={() => setEditing('new')}>
-            <Icon name="plus" /> New product
+            <Icon name="plus" /> New pallet type
           </button>
         )}
       </div>
       {products.length === 0 ? (
-        <p className="muted">No saved products yet. They're added when someone receives a new barcode with "Save as a product" checked, or here with New product.</p>
+        <p className="muted">No pallet types yet. They're added here with New pallet type, or when someone receives a new barcode with "Save as a pallet type" checked.</p>
       ) : hits.length === 0 ? (
         <p className="muted">Nothing matches “{q.trim()}”.</p>
       ) : (
@@ -71,10 +74,11 @@ export function Products() {
               <span className="grow">
                 <strong>{p.description}</strong>
                 {p.unit && <span className="muted"> · {p.unit}</span>}
+                {sizeLine(p) && <span className="muted"> · {sizeLine(p)}</span>}
               </span>
               <span className="muted mono">{p.code}</span>
-              <button className="btn small" onClick={() => setPrinting(p)} aria-label={`Print labels for ${p.description}`}>
-                <Icon name="print" /> Labels
+              <button className="btn small" onClick={() => setPrinting(p)} aria-label={`Print stickers for ${p.description}`}>
+                <Icon name="print" /> Print
               </button>
               {canEdit && (
                 <button className="btn small ghost" onClick={() => setEditing(p)} aria-label={`Edit ${p.description}`}>
@@ -89,61 +93,89 @@ export function Products() {
         <ProductForm
           product={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
-          onSaved={(p) => {
+          onSaved={(p, print) => {
             setEditing(null);
-            setPrinting(p);
+            if (print) setPrinting(p);
+            else setCreated(p);
           }}
         />
+      )}
+      {created && (
+        <Notice tone="ok" title={`Saved ${created.description}`} actions={<button className="btn small" onClick={() => (setPrinting(created), setCreated(null))}><Icon name="print" /> Print now</button>}>
+          Barcode {created.code}. You can print its sticker from this list any time.
+        </Notice>
       )}
       {printing && <ProductLabelSheet product={printing} onClose={() => setPrinting(null)} />}
     </div>
   );
 }
 
-function ProductForm({ product, onClose, onSaved }: { product: ProductMemory | null; onClose: () => void; onSaved: (p: ProductMemory) => void }) {
+export function sizeLine(p: { length_in?: string; width_in?: string; height_in?: string; weight_lb?: string }): string {
+  const dims = [p.length_in, p.width_in, p.height_in].every((x) => x && x.trim()) ? `${p.length_in} × ${p.width_in} × ${p.height_in} in` : '';
+  const w = p.weight_lb?.trim() ? `about ${Number(p.weight_lb.replace(/,/g, '')).toLocaleString('en-US')} lb` : '';
+  return [dims, w].filter(Boolean).join(', ');
+}
+
+/** New or edit a pallet type. New ones must have a barcode: scan the supplier's, or generate one. */
+export function ProductForm({ product, onClose, onSaved }: { product: ProductMemory | null; onClose: () => void; onSaved: (p: ProductMemory, print: boolean) => void }) {
   const { backend, workspaceId } = useApp();
   const taken = (code: string) => Object.values(backend.db.products).some((p) => p.workspace_id === workspaceId && p.code.toUpperCase() === code.toUpperCase());
   const [code, setCode] = useState(product?.code ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [unit, setUnit] = useState(product?.unit ?? '');
   const [category, setCategory] = useState(product?.category ?? '');
+  const [size, setSize] = useState({ length_in: product?.length_in ?? '', width_in: product?.width_in ?? '', height_in: product?.height_in ?? '', weight_lb: product?.weight_lb ?? '' });
+  const [print, setPrint] = useState(false);
   const cmd = useCommand();
   const categories = [...new Set(Object.values(backend.db.products).map((p) => p.category ?? '').filter(Boolean))].sort();
-  const save = async () => {
-    const r = await cmd.run('save_product', { code: code.trim(), description: description.trim(), unit: unit.trim(), category: category.trim(), ...(product ? {} : { create: true }) });
+  const save = async (andPrint: boolean) => {
+    setPrint(andPrint);
+    const fields = { code: code.trim(), description: description.trim(), unit: unit.trim(), category: category.trim(), length_in: size.length_in.trim(), width_in: size.width_in.trim(), height_in: size.height_in.trim(), weight_lb: size.weight_lb.trim() };
+    const r = await cmd.run('save_product', { ...fields, ...(product ? {} : { create: true }) });
     if (r.phase === 'done') {
       const id = r.accepted?.target_id ?? '';
-      onSaved(backend.db.products[id] ?? { id, workspace_id: workspaceId!, warehouse_id: '', code: code.trim(), description: description.trim(), unit: unit.trim(), category: category.trim(), field_names: [], updated_at: new Date().toISOString() });
+      onSaved(backend.db.products[id] ?? { id, workspace_id: workspaceId!, warehouse_id: '', ...fields, field_names: [], updated_at: new Date().toISOString() }, andPrint);
     }
   };
+  const ready = !!code.trim() && !!description.trim() && !cmd.busy && backend.network !== 'offline';
   return (
-    <Sheet title={product ? `Edit ${product.description}` : 'New product'} onClose={onClose}>
+    <Sheet title={product ? `Edit ${product.description}` : 'New pallet type'} onClose={onClose}>
       <form
         className="stack"
         onSubmit={(e) => {
           e.preventDefault();
-          void save();
+          if (ready) void save(false);
         }}
       >
-        <Field label="Product name" htmlFor="prod-name" count={description.length} max={160}>
-          <input id="prod-name" className="input" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={160} placeholder="e.g. Campfire bundle, 0.75 cu ft" autoFocus />
+        <Field label="Pallet type name" htmlFor="prod-name" count={description.length} max={160}>
+          <input id="prod-name" className="input" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={160} placeholder="e.g. Tire crate from Acme Supply" autoFocus />
         </Field>
-        <Field label="Barcode or code" htmlFor="prod-code" hint={product ? "The code is how Wherehouse recognizes this product, so it can't change. Make a new product for a new code." : 'Type or scan the UPC or supplier code, or let Wherehouse make one for your own products.'}>
+        <Field label="Barcode" htmlFor="prod-code" hint={product ? "The barcode is how Wherehouse recognizes this pallet type, so it can't change. Make a new pallet type for a new barcode." : "Scan or type the barcode it already has. No barcode? Tap Generate barcode, and every sticker you print for this type carries the same one."}>
           <div className="row nowrap">
-            <input id="prod-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value)} maxLength={80} disabled={!!product} placeholder="012345678905 or PR-…" />
+            <input id="prod-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value)} maxLength={80} disabled={!!product} placeholder="012345678905 or PT-…" />
             {!product && (
               <button type="button" className="btn" onClick={() => setCode(newProductCode(taken))}>
-                Make a code
+                <Icon name="barcode" /> Generate barcode
               </button>
             )}
           </div>
         </Field>
+        <div className="field">
+          <span className="label">General size (optional)</span>
+          <div className="row nowrap">
+            <input aria-label="Length (in)" className="input" inputMode="decimal" value={size.length_in} onChange={(e) => setSize({ ...size, length_in: e.target.value })} placeholder="L 48 in" maxLength={8} />
+            <input aria-label="Width (in)" className="input" inputMode="decimal" value={size.width_in} onChange={(e) => setSize({ ...size, width_in: e.target.value })} placeholder="W 40 in" maxLength={8} />
+            <input aria-label="Height (in)" className="input" inputMode="decimal" value={size.height_in} onChange={(e) => setSize({ ...size, height_in: e.target.value })} placeholder="H 50 in" maxLength={8} />
+            <input aria-label="Estimated weight (lb)" className="input" inputMode="decimal" value={size.weight_lb} onChange={(e) => setSize({ ...size, weight_lb: e.target.value })} placeholder="lb" maxLength={12} />
+          </div>
+          <span className="hint">Printed on the sticker and filled in on each pallet received with this barcode, so locations with limits know whether it fits.</span>
+        </div>
         <div className="grid-2">
           <Field label="Unit (optional)" htmlFor="prod-unit">
-            <input id="prod-unit" className="input" value={unit} onChange={(e) => setUnit(e.target.value)} maxLength={40} placeholder="bundles, bags, cases…" />
+            <input id="prod-unit" className="input" value={unit} onChange={(e) => setUnit(e.target.value)} maxLength={40} placeholder="tires, bundles, cases…" />
           </Field>
           <Field label="Category (optional)" htmlFor="prod-category">
-            <input id="prod-category" className="input" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={60} placeholder="Hardwood, Kindling…" list="prod-category-suggest" />
+            <input id="prod-category" className="input" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={60} placeholder="Tires, Hardwood…" list="prod-category-suggest" />
             <datalist id="prod-category-suggest">
               {categories.map((c) => (
                 <option key={c} value={c} />
@@ -152,9 +184,14 @@ function ProductForm({ product, onClose, onSaved }: { product: ProductMemory | n
           </Field>
         </div>
         <CommandFeedback state={cmd.state} onRecover={() => void cmd.recover()} />
-        <button className="btn primary big" disabled={!code.trim() || !description.trim() || cmd.busy || backend.network === 'offline'}>
-          {cmd.busy ? <Spinner /> : <Icon name="check" />} {product ? 'Save changes' : 'Save and print labels'}
-        </button>
+        <div className="row">
+          <button type="button" className="btn primary big" disabled={!ready} onClick={() => void save(true)}>
+            {cmd.busy && print ? <Spinner /> : <Icon name="print" />} Save and print now
+          </button>
+          <button className="btn big" disabled={!ready}>
+            {cmd.busy && !print ? <Spinner /> : <Icon name="check" />} {product ? 'Save changes' : 'Save'}
+          </button>
+        </div>
       </form>
     </Sheet>
   );
@@ -168,7 +205,7 @@ export function ProductLabelSheet({ product, onClose }: { product: ProductMemory
   const n = Math.max(1, Math.min(100, copies || 1));
   const labels = Array.from({ length: n }, (_, i) => <ProductLabel key={i} product={product} />);
   return (
-    <Sheet title={`Product label: ${product.description}`} onClose={onClose} wide>
+    <Sheet title={`Sticker: ${product.description}`} onClose={onClose} wide>
       <div className="stack">
         <div className="seg" role="group" aria-label="Label size">
           <button aria-pressed={format === '4x2'} onClick={() => setFormat('4x2')}>
@@ -178,14 +215,14 @@ export function ProductLabelSheet({ product, onClose }: { product: ProductMemory
             Letter sheet, 10 per page
           </button>
         </div>
-        <Field label="How many" htmlFor="prod-copies" hint="One label per box, bag or bundle.">
+        <Field label="How many" htmlFor="prod-copies" hint="One sticker per pallet of this type. They all carry the same barcode.">
           <input id="prod-copies" className="input" type="number" min={1} max={100} value={copies} onChange={(e) => setCopies(Number(e.target.value))} style={{ maxWidth: 120 }} />
         </Field>
         <div className="product-label-grid">
           <ProductLabel product={product} />
         </div>
         <p className="muted" style={{ fontSize: 13.5, margin: 0 }}>
-          Both codes hold {product.code}. Scanning either one on Receive fills in this product. Product labels name what's inside, so they never replace a pallet's own Wherehouse label.
+          Both codes hold {product.code}. Scanning either one on Receive fills in this pallet type. Receiving then prints the pallet's own Wherehouse label, which tracks that one pallet.
         </p>
       </div>
       <div className="sheet-foot">
@@ -210,18 +247,18 @@ export function ProductLabelSheet({ product, onClose }: { product: ProductMemory
   );
 }
 
-/** Deliberately unlike a pallet label: landscape, a dark "PRODUCT" band, the name first and no P-code. */
+/** Deliberately unlike a pallet's own label: landscape, a dark "PALLET TYPE" band, the name first and no P-code. */
 export function ProductLabel({ product }: { product: ProductMemory }) {
   return (
     <div className="product-label">
       <div className="pl-band">
-        <span>PRODUCT</span>
+        <span>PALLET TYPE</span>
         {product.category && <span className="pl-cat">{product.category}</span>}
       </div>
       <div className="pl-body">
         <div className="pl-text">
           <div className="pl-name">{product.description}</div>
-          {product.unit && <div className="pl-unit">Sold by: {product.unit}</div>}
+          {(sizeLine(product) || product.unit) && <div className="pl-unit">{[sizeLine(product), product.unit].filter(Boolean).join(' · ')}</div>}
           <Barcode128 value={product.code} className="pl-bc" height="0.42in" />
           <div className="pl-code">{product.code}</div>
         </div>

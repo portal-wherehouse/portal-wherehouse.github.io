@@ -58,6 +58,50 @@ export function PalletFields({
           placeholder="Distribution center, customer or next stop"
         />
       </Field>
+      <div className="field">
+        <span className="label">Weight and size (optional)</span>
+        <div className="row nowrap">
+          <input
+            aria-label="Weight (lb)"
+            className="input"
+            inputMode="decimal"
+            maxLength={12}
+            value={value.weight_lb ?? ""}
+            onChange={(e) => update("weight_lb", e.target.value)}
+            placeholder="lb"
+          />
+          <input
+            aria-label="Length (in)"
+            className="input"
+            inputMode="decimal"
+            maxLength={8}
+            value={value.length_in ?? ""}
+            onChange={(e) => update("length_in", e.target.value)}
+            placeholder="L in"
+          />
+          <input
+            aria-label="Width (in)"
+            className="input"
+            inputMode="decimal"
+            maxLength={8}
+            value={value.width_in ?? ""}
+            onChange={(e) => update("width_in", e.target.value)}
+            placeholder="W in"
+          />
+          <input
+            aria-label="Height (in)"
+            className="input"
+            inputMode="decimal"
+            maxLength={8}
+            value={value.height_in ?? ""}
+            onChange={(e) => update("height_in", e.target.value)}
+            placeholder="H in"
+          />
+        </div>
+        <span className="hint">
+          Needed only for locations with a weight or size limit. An estimate is fine.
+        </span>
+      </div>
       <Field
         label="Remind me if still here on (optional)"
         htmlFor="pallet-reminder"

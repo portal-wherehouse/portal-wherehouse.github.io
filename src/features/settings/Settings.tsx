@@ -5,6 +5,7 @@ import type { FixtureName } from "../../demo/seed";
 import { useApp, type Prefs } from "../../app/state";
 import { formatBytes } from "../../device/photos";
 import { Icon } from "../../ui/icons";
+import { uuid } from "../../domain/codes";
 import {
   Explain,
   Notice,
@@ -63,6 +64,7 @@ function DemoSettings() {
         sub="Display choices are saved on this device only."
       />
 
+      <MeasurementsSetting />
       <div className="panel stack" data-tour="settings-display">
         <div className="panel-title">Display</div>
         <Setting label="Theme">
@@ -326,6 +328,7 @@ function LiveSettings() {
         <span>{me?.email}</span>
         <span>{role ? ROLE_LABEL[role] : "Team member"}</span>
       </div>
+      <MeasurementsSetting />
       <div className="panel stack">
         <Setting label="Theme">
           <Seg<Prefs["theme"]>
@@ -358,6 +361,58 @@ function LiveSettings() {
           Log out
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Warehouse-wide: weight and size limits on locations, and weight and size on every pallet headed for one. */
+function MeasurementsSetting() {
+  const { backend, workspaceId, role, send } = useApp();
+  const wh = Object.values(backend.db.warehouses).find(
+    (w) => w.workspace_id === workspaceId && w.active,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!wh) return null;
+  const on = !!wh.advanced_measurements;
+  const canChange = role === "OWNER" || role === "SUPERVISOR";
+  const toggle = async () => {
+    setBusy(true);
+    setError("");
+    const o = await send("set_measurements", { advanced: !on }, null, {
+      commandId: uuid(),
+    });
+    setBusy(false);
+    if (!(o.status === "result" && o.result.ok))
+      setError(
+        o.status === "result" && !o.result.ok
+          ? o.result.message
+          : o.status === "offline"
+            ? o.message
+            : "No answer from the server. Reload to check.",
+      );
+  };
+  return (
+    <div className="panel stack" data-testid="measurements-setting">
+      <div className="panel-title">Weight and size tracking</div>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={!canChange || busy || backend.network === "offline"}
+          onChange={() => void toggle()}
+        />
+        <span>Advanced weight and dimensions logging</span>
+      </label>
+      <p className="hint" style={{ margin: 0 }}>
+        Turning this on lets locations have a weight limit and a space size, and
+        requires a measured weight (and, for sized spaces, length, width and
+        height) for every pallet moved to a location with one of those limits.
+        Off, locations count standard pallet spaces only. The setting applies
+        to everyone in this warehouse.
+        {!canChange && " A supervisor or owner can change it."}
+      </p>
+      {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
 }

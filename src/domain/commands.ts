@@ -79,7 +79,17 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     attachment_ids: z.array(id).max(6).optional(),
   }),
   update_issue: z.object({ issue_id: id, status: z.enum(['NEW', 'APPROVED', 'FILED', 'DISMISSED']), note: text(1000).optional() }),
-  save_product: z.object({ code: text(80), description: text(160), unit: text(40).optional(), category: text(60).optional(), create: z.boolean().optional() }),
+  save_product: z.object({ code: text(80), description: text(160), unit: text(40).optional(), category: text(60).optional(), length_in: text(8).optional(), width_in: text(8).optional(), height_in: text(8).optional(), weight_lb: text(12).optional(), create: z.boolean().optional() }),
+  set_location_capacity: z.object({
+    location_id: id,
+    spaces: z.number().int().min(0).max(10000),
+    stacking: z.number().int().min(1).max(20),
+    max_weight_lb: z.number().nonnegative().max(10_000_000).nullable(),
+    length_in: z.number().nonnegative().max(10_000).nullable(),
+    width_in: z.number().nonnegative().max(10_000).nullable(),
+    height_in: z.number().nonnegative().max(10_000).nullable(),
+  }),
+  set_measurements: z.object({ advanced: z.boolean() }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];

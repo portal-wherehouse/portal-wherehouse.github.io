@@ -24,7 +24,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
       { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
       { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },
       { route: 'labels', label: 'Labels', icon: 'labels', hint: 'Print pallet and rack labels' },
-      { route: 'products', label: 'Products', icon: 'qr', hint: 'Saved products and your own barcodes' },
+      { route: 'products', label: 'Pallet types', icon: 'barcode', hint: 'Saved pallets and their barcodes' },
       { route: 'activity', label: 'Activity', icon: 'activity', hint: 'Every accepted change' },
     ],
   },

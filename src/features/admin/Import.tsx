@@ -13,6 +13,8 @@ import { useCommand } from '../../ui/useCommand';
 import { Explain, Notice, PageHead, PermissionDenied, Spinner, fmtAgo } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
 import { ImportHistory, KIND_LABEL } from './ImportHistory';
+import { ProductForm, ProductLabelSheet } from '../receive/Products';
+import type { ProductMemory } from '../../domain/receiving';
 
 
 // Saved column layouts live in this browser, per warehouse.
@@ -29,6 +31,8 @@ export function Import() {
   // Incoming is the everyday import: a supplier's list of what's on the truck.
   const incomingOffered = !(backend instanceof FirebaseBackend) || backend.summary?.receiving_version === 1;
   const [kind, setKind] = useState<ImportKind>(incomingOffered ? 'shipments' : 'locations');
+  const [newType, setNewType] = useState(false);
+  const [typeLabel, setTypeLabel] = useState<ProductMemory | null>(null);
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
   const [batchName, setBatchName] = useState('');
@@ -142,7 +146,34 @@ export function Import() {
 
   return (
     <div className="stack">
-      <PageHead title="Import" sub="Load a supplier's list of what's coming, or set up locations and jobs, from a spreadsheet saved as CSV." />
+      <PageHead title="Import" sub="Two ways to get pallets into your system before they arrive: a delivery list from your supplier, or a pallet type you make yourself." />
+      <div className="panel stack" data-testid="pallet-type-panel">
+        <div className="panel-title">
+          <Icon name="barcode" width={16} height={16} /> Pallet types
+        </div>
+        <p style={{ margin: 0 }}>Pallet coming from somewhere that doesn't label it? Make a pallet type, generate a barcode for it, and print its sticker. Every pallet of that type is recognized when it's scanned in.</p>
+        <div className="row" style={{ flexWrap: 'wrap' }}>
+          <button className="btn primary" onClick={() => setNewType(true)} disabled={backend.network === 'offline'}>
+            <Icon name="plus" /> New pallet type
+          </button>
+          <button className="btn" onClick={() => go('products')}>
+            See all pallet types
+          </button>
+        </div>
+      </div>
+      {newType && (
+        <ProductForm
+          product={null}
+          onClose={() => setNewType(false)}
+          onSaved={(p, print) => {
+            setNewType(false);
+            if (print) setTypeLabel(p);
+            else toast(`Saved ${p.description} with barcode ${p.code}. Print its sticker from Pallet types any time.`);
+          }}
+        />
+      )}
+      {typeLabel && <ProductLabelSheet product={typeLabel} onClose={() => setTypeLabel(null)} />}
+      <h2 className="panel-title" style={{ marginBottom: 0 }}>Delivery list (CSV)</h2>
       {kind === 'shipments' && (
         <Notice tone="info" icon="barcode" title="Each row loads a pallet's barcode info into your system">
           So when that pallet arrives and you scan it on Receive, Wherehouse already knows what it is: the description, quantity, job and everything else in the file. It's counted as stock once it's scanned in. Rows with no barcode wait in <button className="link" onClick={() => go('incoming')}>Incoming</button>, where you can receive them by hand.

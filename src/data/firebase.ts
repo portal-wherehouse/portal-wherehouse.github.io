@@ -1497,6 +1497,7 @@ export class FirebaseBackend extends Backend {
             "rename_location",
             "deactivate_location",
             "reactivate_location",
+            "set_location_capacity",
           ].includes(cmd.kind) &&
           id
         )

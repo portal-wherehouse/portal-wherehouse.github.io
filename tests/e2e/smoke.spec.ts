@@ -17,7 +17,7 @@ const PORTAL: [hash: string, h1: string | RegExp][] = [
   ['labels', 'Labels'],
   ['import', 'Import'],
   ['incoming', 'Incoming'],
-  ['products', 'Products'],
+  ['products', 'Pallet types'],
   ['export', 'Export'],
   ['people', 'Manager dashboard'],
   ['sync', 'Sync and offline'],

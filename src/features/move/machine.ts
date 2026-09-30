@@ -39,6 +39,7 @@ export const initialMove: MoveState = {
 export type MoveEvent =
   | { type: 'SCAN_PALLET'; pallet: Pallet; raw: string; at: number }
   | { type: 'SCAN_LOCATION'; location: Location; raw: string; at: number }
+  | { type: 'UPDATE_PALLET'; pallet: Pallet }
   | { type: 'SCAN_ERROR'; text: string; raw?: string; at?: number }
   | { type: 'CONFIRM'; commandId: string }
   | { type: 'ACCEPTED'; result: CommandResult }
@@ -123,6 +124,9 @@ export function moveReducer(s: MoveState, e: MoveEvent): MoveState {
     case 'REFRESH_PALLET':
       // After a conflict the user makes a fresh decision against the newer state.
       return { ...initialMove, stage: 'EXPECT_LOCATION', pallet: e.pallet, message: { tone: 'info', text: `Refreshed ${e.pallet.code}. Scan the destination again to decide.` } };
+    case 'UPDATE_PALLET':
+      // The same pallet with new details (a weight added mid-move); the move itself carries on.
+      return s.pallet && s.pallet.id === e.pallet.id ? { ...s, pallet: e.pallet, message: null } : s;
     case 'RESET':
       return { ...initialMove };
   }

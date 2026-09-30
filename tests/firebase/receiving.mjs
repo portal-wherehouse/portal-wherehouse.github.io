@@ -201,4 +201,23 @@ export async function testReceiving({
     "FILED",
   );
   console.log("PASS flagged issues: reported, manager-only reads, reviewed");
+  const cap = await send(owner, "set_location_capacity", {
+    location_id: location.target_id,
+    spaces: 50,
+    stacking: 2,
+    max_weight_lb: null,
+    length_in: null,
+    width_in: null,
+    height_in: null,
+  });
+  assert.equal(cap.ok, true, JSON.stringify(cap));
+  const locRef = doc(owner.db, "workspaces", ws, "locations", location.target_id);
+  const before = (await getDoc(locRef)).get("load_pallets");
+  assert.equal(typeof before, "number");
+  const extra = await send(owner, "receive", { description: "Counted pallet" });
+  const placedExtra = await send(owner, "place", { location_id: location.target_id }, { pallet_id: extra.current_state.id, expected_version: extra.current_state.version });
+  assert.equal(placedExtra.ok, true, JSON.stringify(placedExtra));
+  assert.equal((await getDoc(locRef)).get("load_pallets"), before + 1);
+  assert.equal((await getDoc(locRef)).get("capacity.spaces"), 50);
+  console.log("PASS location capacity recounts and counts down on placement");
 }

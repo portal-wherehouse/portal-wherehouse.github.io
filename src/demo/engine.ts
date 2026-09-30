@@ -18,6 +18,7 @@ import { canonicalJson, formatPalletCode, generateToken, hashString, normalizeCo
 import { validateEnvelope } from '../domain/commands';
 import { searchRows, type SearchFilters, type SearchRow } from '../domain/search';
 import { checkTransition, roleAllows } from '../domain/transitions';
+import { fitCheck, palletWeight } from '../domain/capacity';
 import type {
   AdminAudit,
   Attachment,
@@ -367,6 +368,8 @@ export class Engine {
       case 'save_product':
       case 'report_issue':
       case 'update_issue':
+      case 'set_location_capacity':
+      case 'set_measurements':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -464,6 +467,7 @@ export class Engine {
           label_needs_reprint: false,
         };
         tx.put('pallets', child.id, child);
+        this.adjustLoad(tx, null, child);
         const token = this.newToken();
         tx.put('labels', token, { workspace_id: ws, token, kind: 'P', target_id: child.id, created_at: now, revoked_at: null });
         tx.lineage({ workspace_id: ws, parent_id: pallet.id, child_id: child.id, split_command_id: cmd.command_id, created_at: now });
@@ -497,7 +501,17 @@ export class Engine {
 
     const before = this.snapshot(pallet);
     const next: Pallet = { ...pallet, ...outcome.patch, version: pallet.version + 1, updated_at: now };
+    // Locations with limits: a pallet only goes where it fits (count, and with advanced tracking, weight and size).
+    if (next.state === 'STORED' && next.current_location_id && next.current_location_id !== pallet.current_location_id) {
+      const dest = this.db.locations[next.current_location_id];
+      const f = dest ? fitCheck({ ...next, current_location_id: pallet.current_location_id }, dest, !!this.activeWarehouse(ws)?.advanced_measurements) : null;
+      if (f) {
+        tx.rollback();
+        return reject('INVALID_INPUT', f.message);
+      }
+    }
     tx.put('pallets', next.id, next);
+    this.adjustLoad(tx, pallet, next);
     if (this.faults.failEventInsert) throw new Error('forced event insert failure');
     const event: PalletEvent = {
       id: this.newId(),
@@ -519,6 +533,26 @@ export class Engine {
     const res = this.accepted(cmd, now, event.id, next);
     if (createdIds) res.created_ids = createdIds;
     return res;
+  }
+
+  /** Keep each location's pallet count and recorded weight current as pallets arrive, leave or change weight. */
+  private adjustLoad(tx: Tx, before: Pallet | null, after: Pallet | null) {
+    const at = (p: Pallet | null) => (p && p.state === 'STORED' && p.current_location_id ? p.current_location_id : null);
+    const from = at(before),
+      to = at(after);
+    const wBefore = before ? (palletWeight(before) ?? 0) : 0,
+      wAfter = after ? (palletWeight(after) ?? 0) : 0;
+    if (from === to && wBefore === wAfter) return;
+    const bump = (id: string | null, n: number, w: number) => {
+      const loc = id ? this.db.locations[id] : undefined;
+      if (!loc) return;
+      tx.put('locations', loc.id, { ...loc, load_pallets: Math.max(0, (loc.load_pallets ?? 0) + n), load_weight_lb: Math.max(0, (loc.load_weight_lb ?? 0) + w) });
+    };
+    if (from === to) bump(to, 0, wAfter - wBefore);
+    else {
+      bump(from, -1, -wBefore);
+      bump(to, 1, wAfter);
+    }
   }
 
   private accepted(cmd: CommandEnvelope, now: string, eventId: string | null, pallet: Pallet | null, targetId: string | null = null): CommandAccepted {
@@ -585,7 +619,7 @@ export class Engine {
     if (shipment) tx.put('shipments', shipment.id, {...shipment, pallet_id:pallet.id, pending_barcode:null});
     if (p.remember_product) {
       const id = productKey(cmd.workspace_id, info.product_code);
-      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', field_names:info.fields.map(f=>f.name), updated_at:now});
+      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', length_in:info.length_in ?? '', width_in:info.width_in ?? '', height_in:info.height_in ?? '', weight_lb:info.weight_lb ?? '', field_names:info.fields.map(f=>f.name), updated_at:now});
     }
     tx.put('pallets', pallet.id, pallet);
     const token = this.newToken();
@@ -786,11 +820,32 @@ export class Engine {
         if (unit.length > 40 || category.length > 60) return reject('INVALID_INPUT', 'Unit is limited to 40 characters and category to 60.');
         const key = productKey(ws, code);
         const existing = this.db.products[key];
-        if (existing && (cmd.payload as { create?: boolean }).create) return reject('INVALID_INPUT', `${code} is already a saved product. Open it instead.`);
-        const product = { id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, field_names: existing?.field_names ?? [], updated_at: now };
+        if (existing && (cmd.payload as { create?: boolean }).create) return reject('INVALID_INPUT', `${code} is already a saved pallet type. Open it instead.`);
+        const size = Object.fromEntries((['length_in', 'width_in', 'height_in', 'weight_lb'] as const).map((k) => [k, String(p[k] ?? '').trim()]));
+        if (Object.values(size).some((v) => v && !(Number(v.replace(/,/g, '')) > 0))) return reject('INVALID_INPUT', 'Size and weight must be numbers, like 48 or 1450.');
+        const product = { id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, ...size, field_names: existing?.field_names ?? [], updated_at: now };
         tx.put('products', key, product);
         const a = audit(key, existing ? { description: existing.description, unit: existing.unit, category: existing.category ?? '' } : null, { code, description, unit, category });
         return this.accepted(cmd, now, a.id, null, key);
+      }
+      case 'set_location_capacity': {
+        const loc = findLoc();
+        if (!loc) return reject('NOT_FOUND', 'Location not found.');
+        const q = cmd.payload as unknown as { spaces: number; stacking: number; max_weight_lb: number | null; length_in: number | null; width_in: number | null; height_in: number | null };
+        const capacity = q.spaces > 0 ? { spaces: q.spaces, stacking: Math.max(1, q.stacking), max_weight_lb: q.max_weight_lb || null, length_in: q.length_in || null, width_in: q.width_in || null, height_in: q.height_in || null } : null;
+        // Recount what is here now, so the countdown starts from the truth.
+        const here = Object.values(this.db.pallets).filter((x) => x.workspace_id === ws && x.state === 'STORED' && x.current_location_id === loc.id);
+        const next = { ...loc, capacity, load_pallets: here.length, load_weight_lb: here.reduce((n, x) => n + (palletWeight(x) ?? 0), 0), version: loc.version + 1, updated_at: now };
+        tx.put('locations', loc.id, next);
+        const a = audit(loc.id, { capacity: loc.capacity ?? null }, { capacity });
+        return this.accepted(cmd, now, a.id, null, loc.id);
+      }
+      case 'set_measurements': {
+        const advanced = !!(cmd.payload as { advanced?: boolean }).advanced;
+        if (!!wh.advanced_measurements === advanced) return reject('INVALID_INPUT', advanced ? 'Weight and size tracking is already on.' : 'Weight and size tracking is already off.');
+        tx.put('warehouses', wh.id, { ...wh, advanced_measurements: advanced, version: (wh.version ?? 1) + 1, updated_at: now });
+        const a = audit(wh.id, { advanced_measurements: !!wh.advanced_measurements }, { advanced_measurements: advanced });
+        return this.accepted(cmd, now, a.id, null, wh.id);
       }
       case 'report_issue': {
         const q = cmd.payload as { issue_kind: IssueKind; description: string; pallet_ids: string[]; attachment_ids?: string[] };

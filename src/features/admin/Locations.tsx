@@ -10,6 +10,8 @@ import { Empty, Explain, Field, Notice, PageHead, Plate, fmtAgo } from '../../ui
 import { ResultRow } from '../find/Find';
 import { LabelSheet } from '../labels/LabelSheet';
 import { AdminSheet } from './AdminSheet';
+import { CapacityFields, CapacitySheet, capacityLine, capacityPayload, draftFrom } from './Capacity';
+import { uuid } from '../../domain/codes';
 
 const KIND_LABEL: Record<LocationKind, string> = { RACK: 'Rack', RECEIVING: 'Receiving', QUARANTINE: 'Quarantine', STAGING: 'Staging', FLOOR: 'Floor area' };
 const KIND_HELP: Record<LocationKind, string> = {
@@ -83,6 +85,7 @@ export function Locations() {
                 <th>Code</th>
                 <th>Kind</th>
                 <th className="n">Recorded pallets</th>
+                <th>Space</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -95,6 +98,9 @@ export function Locations() {
                   <td>{KIND_LABEL[l.kind]}</td>
                   <td className="n" data-label="Recorded pallets">
                     {data.occ[l.id] ?? 0}
+                  </td>
+                  <td data-label="Space" className={l.capacity && (l.load_pallets ?? 0) >= l.capacity.spaces * l.capacity.stacking ? 'bad' : ''}>
+                    {capacityLine(l, !!data.ctx.warehouse?.advanced_measurements)}
                   </td>
                   <td>{l.active ? <span className="tag ok">Active</span> : <span className="tag">Inactive</span>}</td>
                 </tr>
@@ -110,7 +116,9 @@ export function Locations() {
 }
 
 function CreateLocation({ onClose }: { onClose: () => void }) {
-  const { go } = useApp();
+  const { go, send, backend, workspaceId } = useApp();
+  const advanced = !!Object.values(backend.db.warehouses).find((w) => w.workspace_id === workspaceId && w.active)?.advanced_measurements;
+  const [cap, setCap] = useState(draftFrom(null));
   const [code, setCode] = useState('');
   const [kind, setKind] = useState<LocationKind>('RACK');
   const n = normalizeCode(code);
@@ -124,7 +132,13 @@ function CreateLocation({ onClose }: { onClose: () => void }) {
       intro="A new QR label is issued with the location. Print it and fix it to the rack before using it."
       valid={!!n && n.length <= 30}
       payload={() => ({ code, kind })}
-      onDone={(id) => id && go({ name: 'location', id })}
+      onDone={(id) => {
+        if (!id) return;
+        const c = capacityPayload(cap, advanced);
+        // The capacity is a second step on the new location; the location exists either way.
+        if (c.spaces > 0) void send('set_location_capacity', { location_id: id, ...c }, null, { commandId: uuid() });
+        go({ name: 'location', id });
+      }}
       onClose={onClose}
     >
       <Field label="Code" htmlFor="loc-code" hint={n ? (f.zone ? `Saved as ${n} · zone ${f.zone}, aisle ${f.aisle}, bay ${f.bay}${f.level ? `, level ${f.level}` : ''}` : `Saved as ${n}`) : 'For example A-04-01 or STAGING-02'} count={n.length} max={30}>
@@ -139,13 +153,14 @@ function CreateLocation({ onClose }: { onClose: () => void }) {
           ))}
         </select>
       </Field>
+      <CapacityFields draft={cap} onChange={setCap} advanced={advanced} />
     </AdminSheet>
   );
 }
 
 export function LocationDetail() {
   const { read, go, route, role, backend, v } = useApp();
-  const [sheet, setSheet] = useState<'rename' | 'toggle' | null>(null);
+  const [sheet, setSheet] = useState<'rename' | 'toggle' | 'capacity' | null>(null);
   const [printing, setPrinting] = useState(false);
   const [newCode, setNewCode] = useState('');
   const data = useMemo(
@@ -187,6 +202,26 @@ export function LocationDetail() {
         }
       />
       {!loc.active && <Notice tone="warn">This location is inactive. Pallets cannot be placed, moved or found here until a supervisor reactivates it.</Notice>}
+      <div className="panel row" style={{ justifyContent: 'space-between' }} data-testid="location-capacity">
+        <div>
+          <div className="panel-title" style={{ margin: 0 }}>
+            Space
+          </div>
+          <div>{capacityLine(loc, !!data.wh?.advanced_measurements)}</div>
+          {loc.capacity && (
+            <div className="muted" style={{ fontSize: 13.5 }}>
+              {loc.capacity.spaces} space{loc.capacity.spaces === 1 ? '' : 's'} × {loc.capacity.stacking} high
+              {data.wh?.advanced_measurements && loc.capacity.max_weight_lb ? ` · ${loc.capacity.max_weight_lb.toLocaleString('en-US')} lb limit` : ''}
+              {data.wh?.advanced_measurements && loc.capacity.length_in ? ` · ${loc.capacity.length_in} × ${loc.capacity.width_in} × ${loc.capacity.height_in} in spaces` : ''}
+            </div>
+          )}
+        </div>
+        {canAdmin && (
+          <button className="btn" onClick={() => setSheet('capacity')} disabled={offline}>
+            <Icon name="edit" /> {loc.capacity ? 'Change capacity' : 'Set capacity'}
+          </button>
+        )}
+      </div>
       <div className="panel stack">
         <div className="panel-title">Recorded here</div>
         {data.pallets.length === 0 ? (
@@ -264,6 +299,7 @@ export function LocationDetail() {
           onClose={() => setSheet(null)}
         />
       )}
+      {sheet === 'capacity' && <CapacitySheet loc={loc} onClose={() => setSheet(null)} />}
       {printing && <LabelSheet locationIds={[loc.id]} onClose={() => setPrinting(false)} />}
     </div>
   );
@@ -273,5 +309,9 @@ function auditLine(before: Record<string, unknown> | null, after: Record<string,
   if (!before && after) return `created as ${String(after.code ?? '')} (${String(after.kind ?? '')})`;
   if (before && after && 'code' in after) return `renamed ${String(before.code)} → ${String(after.code)}`;
   if (after && 'active' in after) return after.active ? 'reactivated' : 'deactivated';
+  if (after && 'capacity' in after) {
+    const c = after.capacity as { spaces: number; stacking: number } | null;
+    return c ? `capacity set to ${c.spaces * c.stacking} pallets` : 'capacity limit removed';
+  }
   return 'changed';
 }
