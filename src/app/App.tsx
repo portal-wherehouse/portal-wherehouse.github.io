@@ -231,11 +231,16 @@ function Portal() {
             <button className="nav-item dashboard-nav" aria-current={route.name === 'overview' ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
             {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase').map((g) => (
               <div key={g.title} className="nav-group">
-                <details
-                  open={!folded.includes(g.title)}
-                  onToggle={(e) => setFolded(g.title, !(e.currentTarget as HTMLDetailsElement).open)}
+                <details open={!folded.includes(g.title)}>
+                {/* Handled on click (not the async toggle event) so the choice is saved before any refresh. */}
+                <summary
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setFolded(g.title, !folded.includes(g.title));
+                  }}
                 >
-                <summary>{g.title}</summary>
+                  {g.title}
+                </summary>
                 {g.items.filter(i => i.route !== 'overview').map((i) => {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
                   const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
