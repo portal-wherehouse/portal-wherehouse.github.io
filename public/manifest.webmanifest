@@ -1,17 +1,50 @@
 {
+  "id": "./",
   "name": "Wherehouse",
   "short_name": "Wherehouse",
   "description": "Know where everything is. Created by John Henry Mims.",
-  "start_url": "./",
+  "start_url": "./#overview",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#eef0ec",
   "theme_color": "#14171a",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Scan station",
+      "short_name": "Scan",
+      "description": "Scan labels hands-free",
+      "url": "./#station",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Find",
+      "short_name": "Find",
+      "description": "Find a pallet or product",
+      "url": "./#find",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Receive",
+      "short_name": "Receive",
+      "description": "Receive a delivery",
+      "url": "./#receive",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Move",
+      "short_name": "Move",
+      "description": "Move a pallet to a new spot",
+      "url": "./#move",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

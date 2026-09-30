@@ -5,7 +5,7 @@ import { FirebaseBackend } from '../../data/firebase';
 import { useEffect, useRef, useState } from 'react';
 import type { Location, Pallet } from '../../domain/types';
 import { ReadError } from '../../demo/engine';
-import { cameraSupported, decodeImageFile, startCamera, type CameraSession } from '../../device/scanner';
+import { buzz, cameraSupported, decodeImageFile, startCamera, type CameraSession } from '../../device/scanner';
 import { parseScanCommand } from '../../device/scanCommands';
 import { stripScanPrefix, useScanRouter, useScanTarget, type ScanSource } from '../../device/scanRouter';
 import { useSerialStatus } from '../../device/serial';
@@ -59,12 +59,13 @@ export function ScanPanel({
   placeholder?: string;
   autoFocusInput?: boolean;
 }) {
-  const { backend, actorId, workspaceId, go } = useApp();
+  const { backend, actorId, workspaceId, go, prefs } = useApp();
   const { settings, beep } = useScanRouter();
   const serial = useSerialStatus();
   const [camOn, setCamOn] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
   const [decoder, setDecoder] = useState<string | null>(null);
+  const [torch, setTorch] = useState<'none' | 'off' | 'on'>('none');
   const [code, setCode] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
   const [last, setLastState] = useState<LastScan | null>(() => (lastPanelScan && lastPanelScan.scope === `${actorId}:${workspaceId}` && Date.now() - lastPanelScan.at < LAST_SCAN_SHOWN_MS ? lastPanelScan : null));
@@ -102,7 +103,10 @@ export function ScanPanel({
     const seen = camSeen.current;
     camSeen.current = { text: t, at: now };
     if (seen && seen.text === t && now - seen.at < 2500) { if(backend.mode==='demo')resolve(t, 'camera', true); }
-    else resolveOwn(t, 'camera');
+    else {
+      if (prefs.haptics) buzz(20);
+      resolveOwn(t, 'camera');
+    }
   };
 
   // Hardware scanners reach this panel through the scan router while it is on screen.
@@ -130,14 +134,27 @@ export function ScanPanel({
       else {
         session.current = s;
         setDecoder(s?.decoder ?? null);
+        setTorch(s?.torchSupported ? 'off' : 'none');
       }
     });
     return () => {
       cancelled = true;
       session.current?.stop();
       session.current = null;
+      setTorch('none');
     };
   }, [camOn]);
+
+  const switchCamera = async () => {
+    const s = session.current;
+    if (!s) return;
+    await s.switchCamera();
+    if (session.current === s) setTorch(s.torchSupported ? 'off' : 'none');
+  };
+  const toggleTorch = async () => {
+    const s = session.current;
+    if (s) setTorch((await s.setTorch(!s.torchOn)) ? 'on' : 'off');
+  };
 
   const onPhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -163,7 +180,12 @@ export function ScanPanel({
           <video ref={video} playsInline muted />
           <div className="reticle" />
           <div className="vf-controls">
-            <button type="button" onClick={() => void session.current?.switchCamera()}>
+            {torch !== 'none' && (
+              <button type="button" className="vf-light" aria-pressed={torch === 'on'} onClick={() => void toggleTorch()}>
+                <Icon name="bolt" width={16} height={16} /> Light
+              </button>
+            )}
+            <button type="button" onClick={() => void switchCamera()}>
               Switch
             </button>
             <button type="button" onClick={() => setCamOn(false)}>

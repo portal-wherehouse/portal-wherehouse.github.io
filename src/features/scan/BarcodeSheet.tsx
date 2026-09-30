@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  buzz,
   cameraSupported,
   decodeImageFile,
   startCamera,
@@ -12,6 +13,7 @@ import {
 } from "../../device/scanRouter";
 import { Sheet, Notice } from "../../ui/ui";
 import { Icon } from "../../ui/icons";
+import { useApp } from "../../app/state";
 import "../scanners/scanners.css";
 
 /** Capture raw labels without assuming they already exist in this warehouse. */
@@ -34,8 +36,12 @@ export function BarcodeSheet({
   const alive = useRef(true);
   const last = useRef({ text: "", at: 0 });
   const { beep, settings } = useScanRouter();
-  const accept = useRef<(text: string) => Promise<void>>(async () => {});
-  accept.current = (text) => {
+  const { prefs } = useApp();
+  const [torch, setTorch] = useState<"none" | "off" | "on">("none");
+  const accept = useRef<(text: string, fromCamera?: boolean) => Promise<void>>(
+    async () => {},
+  );
+  accept.current = (text, fromCamera = false) => {
     if (!text.trim() || pending.current || !alive.current)
       return Promise.resolve();
     if (last.current.text === text && Date.now() - last.current.at < 2500)
@@ -51,6 +57,7 @@ export function BarcodeSheet({
       .then(() => {
         if (alive.current) {
           beep("good");
+          if (fromCamera && prefs.haptics) buzz(20);
           session.current?.stop();
           onClose();
         }
@@ -92,7 +99,7 @@ export function BarcodeSheet({
     void startCamera(
       video.current,
       (text) => {
-        if (!cancelled) accept.current(text);
+        if (!cancelled) void accept.current(text, true);
       },
       (_kind, message) => {
         if (!cancelled) {
@@ -102,14 +109,28 @@ export function BarcodeSheet({
       },
     ).then((value) => {
       if (cancelled) value?.stop();
-      else session.current = value;
+      else {
+        session.current = value;
+        setTorch(value?.torchSupported ? "off" : "none");
+      }
     });
     return () => {
       cancelled = true;
       session.current?.stop();
       session.current = null;
+      setTorch("none");
     };
   }, [camera]);
+  const switchCamera = async () => {
+    const s = session.current;
+    if (!s) return;
+    await s.switchCamera();
+    if (session.current === s) setTorch(s.torchSupported ? "off" : "none");
+  };
+  const toggleTorch = async () => {
+    const s = session.current;
+    if (s) setTorch((await s.setTorch(!s.torchOn)) ? "on" : "off");
+  };
   const photo = async (file?: File) => {
     if (!file || pending.current) return;
     setBusy(true);
@@ -144,10 +165,17 @@ export function BarcodeSheet({
             <video ref={video} playsInline muted />
             <div className="reticle" />
             <div className="vf-controls">
-              <button
-                type="button"
-                onClick={() => void session.current?.switchCamera()}
-              >
+              {torch !== "none" && (
+                <button
+                  type="button"
+                  className="vf-light"
+                  aria-pressed={torch === "on"}
+                  onClick={() => void toggleTorch()}
+                >
+                  <Icon name="bolt" width={16} height={16} /> Light
+                </button>
+              )}
+              <button type="button" onClick={() => void switchCamera()}>
                 Switch
               </button>
               <button type="button" onClick={() => setCamera(false)}>
@@ -155,7 +183,7 @@ export function BarcodeSheet({
               </button>
             </div>
             <div className="vf-label">
-              Keep the entire barcode inside the camera view
+              Fit the whole barcode inside the box
             </div>
           </div>
         )}
