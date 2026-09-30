@@ -91,7 +91,7 @@ function DemoSettings() {
         </Setting>
         <Setting
           label="Start page"
-          hint="Dashboard opens when you sign in or refresh the warehouse."
+          hint="Dashboard opens when you sign in, or when you come back after 2 hours away. A quick refresh keeps your place."
         >
           <span>Dashboard</span>
         </Setting>

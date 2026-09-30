@@ -76,6 +76,22 @@ function readLocal<T>(key: string, fallback: T): T {
   }
 }
 
+/** After this long without use, reopening or refreshing the portal starts again on the Dashboard. */
+export const IDLE_RESET_MS = 2 * 60 * 60 * 1000;
+const LAST_ACTIVE = 'pl.lastActive';
+const LAST_ROUTE = 'pl.lastRoute';
+
+/** True when this page load should open the Dashboard instead of the screen in the address. */
+function awayTooLong(hash: string): boolean {
+  const linked = parseHash(hash);
+  if (!linked || isSiteRoute(linked.name) || linked.name === 'overview') return false;
+  const last = Number(readLocalRaw(LAST_ACTIVE));
+  if (!last || Date.now() - last < IDLE_RESET_MS) return false;
+  // A link to some other screen (a shared link, a bookmark) still opens that screen.
+  const type = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type;
+  return type === 'reload' || type === 'back_forward' || readLocalRaw(LAST_ROUTE) === hash;
+}
+
 function readLocalRaw(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -258,9 +274,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   const [demoActorId, setActor] = useState<string | null>(() => readLocalRaw('pl.actor'));
   const actorId = backend.mode === 'firebase' ? backend.authUid : demoActorId;
   const [workspaceId, setWs] = useState<string | null>(() => readLocalRaw('pl.workspace'));
-  const refreshToDashboard = useRef(typeof location !== 'undefined' &&
-    (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload' &&
-    !!parseHash(location.hash) && !isSiteRoute(parseHash(location.hash)!.name));
+  const refreshToDashboard = useRef(typeof location !== 'undefined' && awayTooLong(location.hash));
   const [stack, setStack] = useState<Route[]>(() => {
     if (typeof location === 'undefined') return [{ name: 'home' }];
     const linked = parseHash(location.hash);
@@ -410,6 +424,35 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Remember when the portal was last used and on which screen, for the two-hour Dashboard reset.
+  const lastWrite = useRef(0);
+  const touch = useCallback((force = false) => {
+    if (!force && Date.now() - lastWrite.current < 30_000) return;
+    lastWrite.current = Date.now();
+    try {
+      localStorage.setItem(LAST_ACTIVE, String(lastWrite.current));
+      localStorage.setItem(LAST_ROUTE, location.hash);
+    } catch {
+      /* storage off: every load keeps its place */
+    }
+  }, []);
+  useEffect(() => touch(true), [stack, touch]);
+  useEffect(() => {
+    // Clicks and typing count as use. Not pointerdown (a pull-to-refresh starts with one) and not the
+    // reload keys or leaving the page, so a refresh after hours away still sees the old time.
+    const onUse = () => touch();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F5' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'r')) return;
+      touch();
+    };
+    window.addEventListener('click', onUse, true);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('click', onUse, true);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [touch]);
 
   const go = useCallback(
     (r: Route | RouteName) => {

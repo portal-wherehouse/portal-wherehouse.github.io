@@ -107,10 +107,7 @@ await page.locator("#rcv-job").selectOption({ index: 1 });
     await expect(page.getByRole("dialog")).toBeHidden();
     const savedUrl = page.url();
     await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Dashboard", exact: true }),
-    ).toBeVisible();
-    await page.goto(savedUrl);
+    await expect(page).toHaveURL(savedUrl);
     await expect(page.locator('[data-tour="pallet-details"]')).toContainText(
       "47 logs",
     );

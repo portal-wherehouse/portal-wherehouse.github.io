@@ -22,7 +22,7 @@ export async function testOfflineWarehouse(page, db, uid, ws) {
   });
   await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
   // An online reload attaches the installed shell worker before the dead-zone test.
-  await page.reload();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
+  await page.evaluate(()=>localStorage.setItem('pl.lastActive',String(Date.now()-3*60*60*1000)));await page.reload();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
   await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
   await page.locator('.warehouse-actions').getByRole('button',{name:'Move',exact:true}).click();
   await page.context().setOffline(true);
@@ -34,7 +34,7 @@ export async function testOfflineWarehouse(page, db, uid, ws) {
   const queued=await page.evaluate(()=>window.__wherehouseBackend.outbox.entries[0]);
   assert.equal((await db.doc(`workspaces/${ws}/pallets/${fixture.id}`).get()).get('version'),fixture.version);
   // A full offline reload must retain the account-scoped queue and cached records.
-  await page.reload();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
+  await page.evaluate(()=>localStorage.setItem('pl.lastActive',String(Date.now()-3*60*60*1000)));await page.reload();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>window.__wherehouseBackend.outbox.entries[0].command.command_id),queued.command.command_id);
   assert.equal(await page.evaluate((id)=>window.__wherehouseBackend.db.pallets[id]?.current_location_id,fixture.id),fixture.a);
   // Original request IDs are retained when reconnecting, so exactly one history row is added.

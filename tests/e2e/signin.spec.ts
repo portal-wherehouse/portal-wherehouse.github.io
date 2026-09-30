@@ -57,7 +57,7 @@ for (const [view, width] of [['management',1280],['employee',390]] as const) {
 }
 
 for(const width of [1280,375]){
- test(`Dashboard is first and refresh leaves Move (${width}px)`,async({page})=>{
+ test(`Dashboard is first; refresh keeps Move until two hours away (${width}px)`,async({page})=>{
   await page.setViewportSize({width,height:900});
   await page.addInitScript(()=>localStorage.setItem('pl.prefs',JSON.stringify({startTab:'move'})));
   await page.goto('/?demo=1#signin');await page.getByRole('button',{name:'View a management dashboard'}).click();
@@ -66,6 +66,11 @@ for(const width of [1280,375]){
   await expect(page.getByRole('region',{name:'Warehouse analytics'})).toBeVisible();
   await page.locator('.warehouse-actions').getByRole('button',{name:'Move',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Move pallet',exact:true})).toBeVisible();
+  // A quick refresh keeps your place.
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Move pallet',exact:true})).toBeVisible();
+  // After two hours away, a refresh starts on the Dashboard.
+  await page.evaluate(()=>localStorage.setItem('pl.lastActive',String(Date.now()-3*60*60*1000)));
   await page.reload();
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   await expect(page).toHaveURL(/#overview$/);

@@ -147,8 +147,6 @@ test('contact form: validates, then keeps the request on this device with a refe
   await expect(mine.locator('.help-mine-ref')).toHaveText([ref]);
   await expect(mine).toContainText('Blocking work');
   await page.reload();
-  await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
-  await page.goto('/#help');
   await expect(page.locator('.help-mine .help-mine-ref')).toHaveText([ref]);
 
   // Remove it from this device.
