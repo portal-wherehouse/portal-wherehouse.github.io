@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { BRAND } from '../brand';
-import { useApp, type SiteRouteName } from '../app/state';
+import type { SiteRouteName } from '../app/state';
+import { useSite } from './routing';
 import { Icon, type IconName } from '../ui/icons';
 import './site.css';
 
@@ -11,7 +12,7 @@ import './site.css';
  * "Open Wherehouse Portal" button. `variant` changes the size to suit where it sits.
  */
 export function PortalCTA({ variant = 'hero', note = '' }: { variant?: 'hero' | 'nav' | 'band' | 'inline'; note?: ReactNode }) {
-  const { go } = useApp();
+  const { go } = useSite();
   return (
     <div className={`portal-cta portal-cta-${variant}`}>
       {note && <span className="portal-cta-note">{note}</span>}
@@ -25,7 +26,7 @@ export function PortalCTA({ variant = 'hero', note = '' }: { variant?: 'hero' | 
 
 /** A text-style button that moves to another website page. */
 export function SiteLink({ to, children, className = 'site-link', hash }: { to: SiteRouteName; children: ReactNode; className?: string; hash?: string }) {
-  const { go } = useApp();
+  const { go } = useSite();
   return (
     <button
       className={className}
@@ -101,7 +102,7 @@ export function Placeholder({ label = 'Placeholder', children, minHeight }: { la
 
 /** The closing band on most pages: a sales ask for new visitors and the portal button for customers. */
 export function CtaBand({ title = BRAND.tagline, body = 'Remote setup, training and ongoing support are included.' }: { title?: ReactNode; body?: ReactNode }) {
-  const { go } = useApp();
+  const { go } = useSite();
   return (
     <section className="site-section tone-ink cta-band">
       <div className="site-inner cta-band-inner">

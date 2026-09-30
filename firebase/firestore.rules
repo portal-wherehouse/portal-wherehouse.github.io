@@ -15,7 +15,7 @@ service cloud.firestore {
     function licensed(ws) {
       return exists(/databases/$(database)/documents/licenses/$(ws))
         && get(/databases/$(database)/documents/licenses/$(ws)).data.active == true
-        && get(/databases/$(database)/documents/licenses/$(ws)).data.expires_at > request.time;
+        && get(/databases/$(database)/documents/licenses/$(ws)).data.expires_at + duration.value(14, 'd') > request.time;
     }
 
     match /licenses/{ws} {
@@ -23,7 +23,7 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
-    // An active member of a licensed warehouse.
+    // Existing members can read/export for 14 days after expiry. Revocation has no grace.
     function isMember(ws) {
       return signedIn() && licensed(ws)
         && exists(memberPath(ws))

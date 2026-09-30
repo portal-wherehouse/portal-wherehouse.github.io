@@ -1,3 +1,4 @@
+import {testOfflineWarehouse} from './offline-browser.mjs';
 import {signupToken} from './signup.mjs';
 import './local-only.mjs';
 import {issueKey,licenseStore} from './keys.mjs';
@@ -13,7 +14,9 @@ if(!getApps().length)initializeApp({projectId:'demo-wherehouse'});
 const email=`browser-${Date.now()}@example.com`,password='Warehouse-test-123!';
 await getAuth().createUser({email,password,emailVerified:true,displayName:'Browser owner'});
 const usageKey=await issueKey(email);
-const vite=spawn('node',['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4175'],{stdio:'ignore',env:{...process.env,VITE_FIREBASE_EMULATORS:'true',VITE_FIREBASE_CONFIG:JSON.stringify({apiKey:'demo-key',projectId:'demo-wherehouse',authDomain:'demo-wherehouse.firebaseapp.com',storageBucket:'demo-wherehouse.appspot.com',appId:'demo-app'})}});
+const browserEnv={...process.env,VITE_FIREBASE_EMULATORS:'true',VITE_FIREBASE_CONFIG:JSON.stringify({apiKey:'demo-key',projectId:'demo-wherehouse',authDomain:'demo-wherehouse.firebaseapp.com',storageBucket:'demo-wherehouse.appspot.com',appId:'demo-app'})};
+await new Promise((resolve,reject)=>{const build=spawn('node',['node_modules/vite/bin/vite.js','build','--mode','emulator','--outDir','dist-emulator'],{stdio:'inherit',env:browserEnv});build.on('exit',code=>code===0?resolve():reject(Error('Emulator browser build failed.')));});
+const vite=spawn('node',['node_modules/vite/bin/vite.js','preview','--outDir','dist-emulator','--host','127.0.0.1','--port','4175'],{stdio:'ignore',env:browserEnv});
 let browser;
 try {
  for(let i=0;i<50;i++){try{if((await fetch('http://127.0.0.1:4175')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
@@ -52,6 +55,8 @@ try {
  await page.getByRole('heading',{name:'Welcome to Wherehouse.',exact:true}).waitFor();await page.getByText('Loading Browser warehouse…',{exact:true}).waitFor();await page.screenshot({path:'test-results/warehouse-welcome-mobile.png',animations:'disabled'});
  await page.getByRole('heading',{name:'Welcome, Browser owner.',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(0,4000));throw e;});assert.equal(await page.locator('.demo-strip').count(),0);assert.equal(await page.getByRole('button',{name:'Practice shift',exact:true}).count(),0);
  await expect(page.locator('.warehouse-identity')).toContainText('Owner');await expect(page.getByRole('region',{name:'Warehouse analytics'})).toBeVisible();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'test-results/warehouse-home-mobile.png',animations:'disabled'});await page.setViewportSize({width:1280,height:900});await expect(page.locator('.sidebar .nav-item').first()).toHaveText('Dashboard');await page.locator('.warehouse-actions').getByRole('button',{name:'Move',exact:true}).click();await page.getByRole('heading',{name:'Move pallet',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();await expect(page).toHaveURL(/#overview$/);await page.screenshot({path:'test-results/warehouse-home-desktop.png',animations:'disabled'});console.log('PASS activation welcome, named loading, personal dashboard, analytics and mobile layout');
+ for(const width of [1280,375]){await page.setViewportSize({width,height:900});await page.getByRole('button',{name:/^Account:/}).click();await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByRole('heading',{name:'Account settings',exact:true}).waitFor();await page.getByRole('button',{name:/^Account:/}).click();await page.getByRole('button',{name:'Log out',exact:true}).last().waitFor();await page.screenshot({path:`test-results/account-menu-${width}.png`,animations:'disabled'});await page.keyboard.press('Escape');}
+ await page.setViewportSize({width:1280,height:900});
  await page.goto('http://127.0.0.1:4175/#jobs');await page.getByRole('button',{name:'New job',exact:true}).click();
  await page.locator('#job-code').fill('J-LIVE');await page.locator('#job-name').fill('Live browser delivery');await page.getByRole('button',{name:'Create job',exact:true}).click();
  await page.getByRole('heading',{name:'Live browser delivery',exact:true}).waitFor().catch(async e=>{console.log((await page.locator('body').innerText()).slice(-4000));throw e;});
@@ -71,7 +76,7 @@ try {
 
  await page.goto('http://127.0.0.1:4175/#overview');await page.getByRole('heading',{name:'Welcome, Browser owner.',exact:true}).waitFor();await page.getByText('Pallets on hand',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);
  await page.goto('http://127.0.0.1:4175/#activity');await page.getByRole('heading',{name:'Activity',exact:true}).waitFor();await page.locator('.t tbody tr').first().waitFor();await page.getByLabel('Kind of change').selectOption('movement');await page.locator('.t tbody tr').first().waitFor();assert.equal(await page.getByRole('alert').count(),0);console.log('PASS bounded overview counts and filtered shared activity');
- await second.goto('http://127.0.0.1:4175/#settings');await second.getByRole('button',{name:'Sign out',exact:true}).click();await second.goto('http://127.0.0.1:4175/#find');await second.getByLabel('Email',{exact:true}).waitFor();assert.equal(await second.locator('.result').count(),0);
+ await second.goto('http://127.0.0.1:4175/#settings');await second.getByRole('button',{name:'Log out',exact:true}).click();await second.goto('http://127.0.0.1:4175/#find');await second.getByLabel('Email',{exact:true}).waitFor();assert.equal(await second.locator('.result').count(),0);
  await page.goto('http://127.0.0.1:4175/#help');await page.getByRole('button',{name:'Take the tour',exact:true}).click();
  const tour=page.locator('.ptour-card');await tour.waitFor();await tour.getByRole('button',{name:'Start the tour',exact:true}).click();
  await tour.getByRole('heading',{name:'The top bar',exact:true}).waitFor();assert.ok((await tour.innerText()).includes('verified account'));
@@ -79,7 +84,7 @@ try {
  assert.equal(await page.getByRole('link',{name:'Open sample warehouse',exact:true}).count(),1);console.log('PASS customer Help tour opens and practice stays separate from customer records');
  await page.goto('http://127.0.0.1:4175/#people');await page.getByRole('heading',{name:'Manager dashboard',exact:true}).waitFor();await page.screenshot({path:'test-results/manager-dashboard.png'});
  await page.goto('http://127.0.0.1:4175/#find');await page.locator('#find-q').fill('Shared browser pallet');await page.locator('.result').waitFor();await page.screenshot({path:'test-results/live-warehouse.png'});
- const {db}=licenseStore();const ownerUser=await getAuth().getUserByEmail(email);const profile=await db.doc(`users/${ownerUser.uid}`).get();await db.doc(`licenses/${profile.get('owned_workspace')}`).update({active:false});
+ const {db}=licenseStore();const ownerUser=await getAuth().getUserByEmail(email);const profile=await db.doc(`users/${ownerUser.uid}`).get();await testOfflineWarehouse(page,db,ownerUser.uid,profile.get('owned_workspace'));await db.doc(`licenses/${profile.get('owned_workspace')}`).update({active:false});
  await page.getByText('Activate my warehouse with a usage key',{exact:true}).waitFor();assert.equal(await page.locator('.result').count(),0);console.log('PASS live app clears warehouse data after license revocation');
 
  assert.deepEqual(errors,[]);console.log('PASS live sign-in, warehouse creation, live-only interface, receiving, second-device records, reload and sign-out');

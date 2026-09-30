@@ -4,7 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { uuid } from '../domain/codes';
 import type { CommandEnvelope, CommandKind, Pallet, Role } from '../domain/types';
 import type { Backend, Outcome } from '../data/backend';
-import { ReadError, type Engine } from '../demo/engine';
+import type { Engine } from '../demo/engine';
+import { ReadError } from '../domain/readError';
 
 /** Public website pages (no account needed). */
 export const SITE_ROUTES = ['home', 'why', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security'] as const;

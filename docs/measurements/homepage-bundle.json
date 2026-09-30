@@ -1,0 +1,20 @@
+{
+  "baseline": {
+    "url": "https://portal-wherehouse.github.io/",
+    "asset": "./assets/index-BoPHstSu.js",
+    "javascriptBytes": 1758614,
+    "gzipBytes": 525663
+  },
+  "localBuild": {
+    "asset": "./assets/index-BypyfUs2.js",
+    "javascriptBytes": 328755,
+    "gzipBytes": 103751
+  },
+  "javascriptReductionPercent": 81.31,
+  "notes": [
+    "Static files only; no live Firebase test.",
+    "gzipBytes is locally compressed file size, not an observed network transfer or latency measurement.",
+    "Public homepage defers WarehouseApp and Firebase until portal entry. CSS, fonts and media are separate.",
+    "Playwright asserts initial script bytes below 400000 and no warehouse/Firebase chunks before sign-in."
+  ]
+}

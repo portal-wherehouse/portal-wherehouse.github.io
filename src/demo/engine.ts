@@ -103,14 +103,8 @@ export interface EngineOptions {
   faults?: Faults;
 }
 
-export class ReadError extends Error {
-  constructor(
-    public code: ErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { ReadError } from '../domain/readError';
+import { ReadError } from '../domain/readError';
 
 type Undo = () => void;
 

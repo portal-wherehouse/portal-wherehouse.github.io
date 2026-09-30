@@ -33,7 +33,12 @@ export function watchErrors(page: Page): string[] {
 }
 
 /** The portal sidebar (desktop width). */
-export const nav = (page: Page, name: string) => page.locator('.sidebar').getByRole('button', { name, exact: true }).click();
+export const nav = async (page: Page, name: string) => {
+  const button=page.locator('.sidebar').getByRole('button',{name,exact:true,includeHidden:true});
+  const group=button.locator('xpath=ancestor::details');
+  if(await group.count() && !(await group.getAttribute('open')) && !await button.isVisible())await group.locator('summary').click();
+  await button.click();
+};
 
 /** Type a code into the Move/Receive scan panel's manual box, like a person would. */
 export async function typeCode(page: Page, code: string) {

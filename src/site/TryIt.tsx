@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BRAND } from '../brand';
-import { useApp } from '../app/state';
+import { useSite } from './routing';
 import { useScanRouter, useScanTarget } from '../device/scanRouter';
 import { makeLabelPayload } from '../domain/codes';
 import type { Location, Pallet } from '../domain/types';
@@ -99,7 +99,7 @@ export function TryIt() {
 }
 
 function Tour({ restarted, onRestart }: { restarted: boolean; onRestart: () => void }) {
-  const { go } = useApp();
+  const { go } = useSite();
   const { settings } = useScanRouter();
 
   // The practice warehouse: built once per mount. "Start over" remounts this component.

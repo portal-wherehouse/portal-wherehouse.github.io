@@ -3,7 +3,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { BRAND, CREATOR } from '../brand';
-import { useApp, type SiteRouteName } from '../app/state';
+import type { SiteRouteName } from '../app/state';
+import { useSite } from './routing';
 import { copyText, IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
 import { PortalCTA } from './kit';
@@ -20,7 +21,7 @@ const FOOTER_COLUMNS: { title: string; routes: SiteRouteName[]; portal?: boolean
 ];
 
 export function SiteShell({ children }: { children: ReactNode }) {
-  const { route, go } = useApp();
+  const { route, go } = useSite();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -207,7 +208,7 @@ function SiteMenu({ current, onGo, onClose }: { current: SiteRouteName; onGo: (r
 }
 
 function SiteFooter({ onGo }: { onGo: (r: SiteRouteName) => void }) {
-  const { toast } = useApp();
+  const { toast } = useSite();
   const emailRef = useRef<HTMLSpanElement>(null);
 
   const copyEmail = async () => {
