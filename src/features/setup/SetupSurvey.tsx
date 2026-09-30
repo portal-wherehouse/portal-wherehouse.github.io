@@ -783,8 +783,14 @@ function PlanChoice({ answers }: { answers: SurveyAnswers }) {
             <span className="survey-badge">Recommended</span>
           </div>
           <h3>Have a Wherehouse tech set it up</h3>
-          <p className="survey-price">{money(pick.setupFee)} one time</p>
-          <p>A tech comes to you, builds your zones and spots, hangs the labels, loads your inventory and trains your crew. You start on day one with everything working. No free trial with this option.</p>
+          <p className="survey-price">{money(pick.setupFee)} one time, first month included</p>
+          <p>A tech comes to you, builds your zones and spots, hangs the labels, loads your inventory and trains your crew. You start on day one with everything working.</p>
+          <p className="survey-billing">
+            <Icon name="calendar" />
+            <span>
+              Your first month of {pick.plan.name} is included in the setup fee. After that, billing continues at <b>{money(pick.monthly)}/month</b> until you cancel. No free trial with this option.
+            </span>
+          </p>
           {pick.techAvailable ? (
             <>
               <p className="survey-ok">

@@ -430,3 +430,5 @@ a.survey-ghost, a.survey-go { text-decoration: none; }
 .survey-next-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
 .survey-next-list li { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--sv-line); background: var(--sv-card); line-height: 1.4; }
 .survey-next-list svg { color: var(--sv-accent); margin-top: 1px; }
+.survey-billing { display: flex; gap: 8px; align-items: flex-start; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--sv-accent) 9%, transparent); color: var(--sv-ink) !important; }
+.survey-billing svg { flex: none; color: var(--sv-accent); margin-top: 2px; }
