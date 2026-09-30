@@ -254,7 +254,8 @@ export async function loadCommand(
     );
   if (k === "report_issue") {
     await one("issues", cmd.command_id);
-    for (const id of (p.pallet_ids || []).slice(0, 50)) await one("pallets", id);
+    for (const id of (p.pallet_ids || []).slice(0, 50))
+      await one("pallets", id);
     for (const id of (p.attachment_ids || []).slice(0, 6))
       await one("attachments", id);
   }
