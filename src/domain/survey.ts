@@ -29,9 +29,13 @@ export interface SurveyAnswers {
   printer: PrinterModel | null;
   scanner: Scanner | null;
   limits: 'yes' | 'no' | null;
+  /** Photos and paperwork saved online, or paper only. */
+  files: 'cloud' | 'paper' | null;
+  /** For on-site setup: a tech can come out only within about an hour of Charleston. */
+  zip: string;
 }
 
-export const BLANK_ANSWERS: SurveyAnswers = { store: null, word: '', count: null, places: [], zones: {}, perSpot: null, people: null, group: null, groupWord: '', hasPrinter: null, printer: null, scanner: null, limits: null };
+export const BLANK_ANSWERS: SurveyAnswers = { store: null, word: '', count: null, places: [], zones: {}, perSpot: null, people: null, group: null, groupWord: '', hasPrinter: null, printer: null, scanner: null, limits: null, files: null, zip: '' };
 
 export type Verdict = 'works' | 'maybe' | 'no' | 'none';
 

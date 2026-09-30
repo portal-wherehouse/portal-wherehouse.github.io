@@ -43,6 +43,7 @@ import { Scanners } from '../features/scanners/Scanners';
 import { Station } from '../features/station/Station';
 import { DataStorage } from '../features/data/DataStorage';
 import { LiveSignIn } from '../portal/LiveSignIn';
+import { SETUP_ROUTES, SetupNav, SetupPending, SetupWizard } from '../features/onboarding/SetupWizard';
 import { SignIn } from '../portal/SignIn';
 import { SitePage } from '../site/SitePage';
 import { SiteRouting } from '../site/routing';
@@ -145,6 +146,10 @@ function Portal() {
   }, [offline, actorId, workspaceId, backend, toast]);
 
   const ctx = read((e, a, ws) => e.context(a, ws));
+  // A new self-serve warehouse is locked to the setup wizard until a manager finishes it.
+  const setupLocked = ctx?.warehouse?.onboarding?.state === 'pending';
+  const manager = role === 'OWNER' || role === 'SUPERVISOR';
+  const setupOpen = (r: string) => manager && SETUP_ROUTES.includes(r);
   const counts = read((e, a, ws) => {
     const r = e.reconciliation(a, ws);
     return { reconcile: r.unplaced.length + r.missing.length + r.holds.length + r.reprint.length };
@@ -231,7 +236,8 @@ function Portal() {
       <div className={signedIn ? 'body' : 'body no-side'}>
         {signedIn && (
           <nav className="sidebar" aria-label="Main">
-            <button className="nav-item dashboard-nav" aria-current={route.name === 'overview' ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
+            {setupLocked && manager && <SetupNav />}
+            <button className={`nav-item dashboard-nav${setupLocked ? ' locked' : ''}`} aria-current={route.name === 'overview' && !setupLocked ? 'page' : undefined} onClick={() => go('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
             {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on).map((g) => (
               <div key={g.title} className="nav-group">
                 <details open={!folded.includes(g.title)}>
@@ -248,7 +254,7 @@ function Portal() {
                   const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
                   const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
                   return (
-                    <button key={i.route} className="nav-item" aria-current={current ? 'page' : undefined} onClick={() => go(i.route)} data-tour={`nav-${i.route}`}>
+                    <button key={i.route} className={`nav-item${setupLocked && !setupOpen(i.route) ? ' locked' : ''}`} aria-disabled={setupLocked && !setupOpen(i.route) ? true : undefined} title={setupLocked && !setupOpen(i.route) ? 'Finish setting up your warehouse first' : undefined} aria-current={current ? 'page' : undefined} onClick={() => go(i.route)} data-tour={`nav-${i.route}`}>
                       <Icon name={i.icon} />
                       {i.label}
                       {!!count && <span className={`count ${i.route === 'sync' && needsDecision ? 'alert' : ''}`}>{count}</span>}
@@ -263,7 +269,7 @@ function Portal() {
         <main key={`${route.name}:${route.id ?? ''}`} className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
           {!backend.storageOk && <Notice tone="error" title="Changes cannot be saved on this device">Local storage is unavailable. New changes are blocked until storage works again. Keep this tab open and export a backup from Settings → Data and storage if needed.</Notice>}
           {backend.mode === 'firebase' && <>{backend.storageOk&&backend.storageError&&<Notice tone="warn" title="Offline saving needs attention">{backend.storageError}</Notice>}<RenewalNotice/><PendingCloudRequests /></>}
-          {removed ? <RemovedAccess /> : signedIn ? <LiveView><Screen key={`${route.name}:${route.id ?? ''}`} /></LiveView> : <Screen />}
+          {removed ? <RemovedAccess /> : signedIn && setupLocked && !setupOpen(route.name) ? (manager ? <SetupWizard /> : route.name === 'help' ? <Screen /> : <SetupPending />) : signedIn ? <LiveView>{setupLocked && <div className="setup-back"><span>You’re setting up your warehouse.</span><button className="btn small primary" onClick={() => go('overview')}><Icon name="chevronLeft" /> Back to setup</button></div>}<Screen key={`${route.name}:${route.id ?? ''}`} /></LiveView> : <Screen />}
         </main>
       </div>
 

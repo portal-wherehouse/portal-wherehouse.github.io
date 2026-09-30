@@ -45,7 +45,7 @@ import type {
   Warehouse,
   Workspace,
 } from '../domain/types';
-import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type WarehouseSetup } from '../domain/types';
+import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type Onboarding, type WarehouseSetup } from '../domain/types';
 
 export const DB_SCHEMA_VERSION = 2;
 
@@ -242,11 +242,11 @@ export class Engine {
   // ---------------------------------------------------------------- setup (fixtures only)
 
   /** Create a workspace and its initial owner in one operation (page 27). Used by fixtures. */
-  createWorkspace(owner: User, name: string, warehouse: { code: string; name: string; timezone: string }): { workspace: Workspace; warehouse: Warehouse } {
+  createWorkspace(owner: User, name: string, warehouse: { code: string; name: string; timezone: string; onboarding?: boolean }): { workspace: Workspace; warehouse: Warehouse } {
     const tx = new Tx(this.db);
     const now = this.clock();
     const ws: Workspace = { id: this.newId(), name, created_at: now };
-    const wh: Warehouse = { id: this.newId(), workspace_id: ws.id, code: warehouse.code, name: warehouse.name, timezone: warehouse.timezone, active: true };
+    const wh: Warehouse = { id: this.newId(), workspace_id: ws.id, code: warehouse.code, name: warehouse.name, timezone: warehouse.timezone, active: true, ...(warehouse.onboarding ? { onboarding: { state: 'pending', done: [], zones: [], leave: null, files: null, barcodes: null } } : {}) };
     tx.put('users', owner.id, owner);
     tx.put('workspaces', ws.id, ws);
     tx.put('warehouses', wh.id, wh);
@@ -371,6 +371,7 @@ export class Engine {
       case 'set_location_capacity':
       case 'set_measurements':
       case 'set_setup':
+      case 'set_onboarding':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -865,6 +866,16 @@ export class Engine {
         // No version bump, like set_measurements: it must not conflict with an open warehouse details form.
         tx.put('warehouses', wh.id, { ...wh, setup: next, advanced_measurements: advanced, updated_at: now });
         const a = audit(wh.id, { setup: wh.setup ?? null, advanced_measurements: !!wh.advanced_measurements }, { setup: next, advanced_measurements: advanced });
+        return this.accepted(cmd, now, a.id, null, wh.id);
+      }
+      case 'set_onboarding': {
+        const q = cmd.payload as unknown as Onboarding;
+        const letters = q.zones.map((z) => z.letter);
+        if (new Set(letters).size !== letters.length) return reject('INVALID_INPUT', 'Give each zone its own letter.');
+        const next: Onboarding = { state: q.state, done: [...new Set(q.done)], zones: q.zones.map((z) => ({ letter: z.letter, name: z.name.trim(), kind: z.kind })), leave: q.leave, files: q.files, barcodes: q.barcodes };
+        // No version bump, like set_setup: progress must not conflict with an open warehouse details form.
+        tx.put('warehouses', wh.id, { ...wh, onboarding: next, updated_at: now });
+        const a = audit(wh.id, { onboarding: wh.onboarding ?? null }, { onboarding: next });
         return this.accepted(cmd, now, a.id, null, wh.id);
       }
       case 'report_issue': {

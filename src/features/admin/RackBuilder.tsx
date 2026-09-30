@@ -12,7 +12,8 @@ import { CapacityFields, capacityPayload, draftFrom } from './Capacity';
 
 const KIND_NAME: Record<LocationKind, string> = { RACK: 'Rack or shelving', FLOOR: 'Floor area or yard', RECEIVING: 'Receiving area', STAGING: 'Staging area', QUARANTINE: 'Quarantine area' };
 export const MAX_BUILD = 600;
-const BATCH = 200;
+// The live server takes up to 80 import rows per request.
+const BATCH = 80;
 
 const int = (s: string, min: number, max: number) => {
   const n = Math.floor(Number(s));

@@ -100,6 +100,22 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     jobs_on: z.boolean(),
     advanced: z.boolean().optional(),
   }),
+  set_onboarding: z.object({
+    state: z.enum(['pending', 'done']),
+    done: z.array(z.string().max(24)).max(20),
+    zones: z
+      .array(
+        z.object({
+          letter: z.string().trim().regex(/^[A-Z]{1,3}$/),
+          name: z.string().trim().min(1).max(40),
+          kind: z.enum(['RACK', 'RECEIVING', 'QUARANTINE', 'STAGING', 'FLOOR']),
+        }),
+      )
+      .max(26),
+    leave: z.enum(['dispatch', 'retire']).nullable(),
+    files: z.enum(['cloud', 'paper']).nullable(),
+    barcodes: z.enum(['import', 'scan', 'print']).nullable(),
+  }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];

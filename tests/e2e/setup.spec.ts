@@ -34,7 +34,7 @@ test('the website survey checks the printer, recommends a setup and leads to the
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?demo=1#start');
   const s = page.getByTestId('setup-survey');
-  await s.getByRole('button', { name: 'Start' }).click();
+  await s.getByRole('button', { name: 'Start', exact: true }).click();
   await s.getByRole('radio', { name: /Parts and boxes on shelves/ }).click();
   await s.getByRole('radio', { name: /100 to 1,000/ }).click();
   await expect(s).toContainText('We need to know this to create your storage zones');
@@ -50,7 +50,10 @@ test('the website survey checks the printer, recommends a setup and leads to the
   await expect(s.getByTestId('printer-verdict')).toContainText('Not a fit');
   await s.getByRole('button', { name: 'Continue' }).click();
   await s.getByRole('radio', { name: /Phone camera/ }).click();
+  await s.getByRole('radio', { name: /No, paper is fine/ }).click();
   await s.getByRole('radio', { name: /^No$/ }).click();
+  await s.getByRole('textbox').fill('29403');
+  await s.getByRole('button', { name: 'Continue' }).click();
   const results = s.getByTestId('survey-results');
   await expect(results).toContainText('Items');
   await expect(results).toContainText('Avery 5160');
@@ -69,7 +72,7 @@ test('a manager can retake the survey in the portal and apply it', async ({ page
   await page.getByRole('button', { name: 'Warehouse settings' }).click();
   await page.getByRole('button', { name: 'Retake the setup survey' }).click();
   const s = page.getByTestId('setup-survey');
-  await s.getByRole('button', { name: 'Start' }).click();
+  await s.getByRole('button', { name: 'Start', exact: true }).click();
   await s.getByRole('radio', { name: /Long goods/ }).click();
   await s.getByRole('radio', { name: /Under 100/ }).click();
   await s.getByRole('checkbox', { name: /Long-goods racks/ }).click();
@@ -85,4 +88,39 @@ test('a manager can retake the survey in the portal and apply it', async ({ page
   await s.getByTestId('survey-results').getByRole('button', { name: /Use this setup/ }).click();
   await expect(s).toHaveCount(0);
   await expect(page.getByTestId('setup-setting')).toContainText('Bundles');
+});
+
+test('the plan survey recommends a plan, checks the zip for a tech visit and offers the trial', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const answer = async (zip: string) => {
+    await page.goto('about:blank');
+    await page.goto('/?demo=1#start');
+    const s = page.getByTestId('setup-survey');
+    await s.getByRole('button', { name: 'Start', exact: true }).click();
+    await s.getByRole('radio', { name: /Big single items/ }).click();
+    await s.getByRole('radio', { name: /Under 100/ }).click();
+    await s.getByRole('checkbox', { name: /Floor space/ }).click();
+    await s.getByRole('button', { name: 'Continue' }).click();
+    await s.getByRole('radio', { name: 'Floor space: 1' }).click();
+    await s.getByRole('button', { name: 'Continue' }).click();
+    await s.getByRole('radio', { name: /One thing per spot/ }).click();
+    await s.getByRole('radio', { name: /6 to 20/ }).click();
+    await s.getByRole('radio', { name: /^No/ }).first().click();
+    await s.getByRole('radio', { name: /No, not yet/ }).click();
+    await s.getByRole('radio', { name: /Phone camera/ }).click();
+    await s.getByRole('radio', { name: /Yes, save them online/ }).click();
+    await s.getByRole('radio', { name: /^No$/ }).click();
+    await s.getByRole('textbox').fill(zip);
+    await s.getByRole('button', { name: 'Continue' }).click();
+    return s.getByTestId('plan-choice');
+  };
+  let plan = await answer('29464');
+  await expect(plan).toContainText('Plus');
+  await expect(plan.getByTestId('way-tech')).toContainText('We cover 29464');
+  await plan.getByRole('button', { name: /Pay now/ }).click();
+  await expect(plan).toContainText('Online payment isn’t switched on yet');
+  await expect(plan.getByTestId('way-diy')).toContainText('difficult process');
+  plan = await answer('90210');
+  await expect(plan.getByTestId('way-tech')).toContainText('isn’t available in 90210');
+  await expect(plan.getByTestId('way-tech').getByRole('link', { name: /Contact us/ })).toHaveAttribute('href', /^mailto:/);
 });

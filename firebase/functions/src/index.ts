@@ -138,6 +138,7 @@ export const createWarehouse = onCall(options, async (request) => {
         code: "WH",
         name: warehouseName,
         timezone,
+        onboarding: true,
       });
       persist(tx, workspace.id, new Map(), db);
       tx.create(firestore.doc(`licenses/${workspace.id}`), {
@@ -158,6 +159,23 @@ export const createWarehouse = onCall(options, async (request) => {
         },
         { merge: true },
       );
+      // A new self-serve customer: kept for John to follow up, with their plan survey answers if they took it.
+      const survey = request.data?.survey;
+      tx.create(firestore.doc(`leads/${workspace.id}`), {
+        kind: "trial",
+        uid: user.id,
+        email: user.email,
+        name: user.name,
+        warehouse: warehouseName,
+        timezone,
+        survey:
+          survey &&
+          typeof survey === "object" &&
+          JSON.stringify(survey).length <= 4000
+            ? clean(survey)
+            : null,
+        created_at: Timestamp.now(),
+      });
       return { workspaceId: workspace.id, trialDays: TRIAL_DAYS };
     }
     if (!/^WH-[a-f0-9]{48}$/.test(key))

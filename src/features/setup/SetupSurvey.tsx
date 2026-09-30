@@ -7,12 +7,14 @@ import { useSite } from '../../site/routing';
 import { uuid } from '../../domain/codes';
 import { BLANK_ANSWERS, PLACE_NAME, PRINTERS, recommend, saveSurvey, type Place, type Recommendation, type SurveyAnswers, type ZoneCount } from '../../domain/survey';
 import { PRESETS } from '../../domain/terms';
+import { cleanZip, recommendPlan } from '../../domain/plans';
+import { TRIAL_DAYS } from '../../domain/license';
 import { BRAND } from '../../brand';
 import { Icon, type IconName } from '../../ui/icons';
 import './survey.css';
 
 type Opt = { id: string; title: string; sub?: string; icon: IconName };
-type Step = { id: keyof SurveyAnswers; q: string; why: string; hint?: string; kind: 'one' | 'many' | 'text' | 'zones'; options?: Opt[]; placeholder?: string; show?: (a: SurveyAnswers) => boolean };
+type Step = { id: keyof SurveyAnswers; q: string; why: string; hint?: string; kind: 'one' | 'many' | 'text' | 'zones'; options?: Opt[]; placeholder?: string; show?: (a: SurveyAnswers) => boolean; site?: boolean; numeric?: boolean; valid?: (v: string) => boolean };
 
 const STORE_ICON: Record<string, IconName> = { pallets: 'pallet', items: 'box', shelves: 'grid', long: 'layers', equipment: 'hardhat', custom: 'sparkle' };
 const PLACE_ICON: Record<Place, IconName> = { racks: 'layers', shelves: 'grid', floor: 'map', yard: 'truck', long: 'list' };
@@ -104,6 +106,17 @@ const STEPS: Step[] = [
     ],
   },
   {
+    id: 'files',
+    q: 'Do you want photos and paperwork saved online?',
+    why: 'Online saving keeps photos, delivery papers and records in the cloud. Paper-only is cheaper: you print what you need and nothing extra is stored.',
+    kind: 'one',
+    site: true,
+    options: [
+      { id: 'cloud', title: 'Yes, save them online', sub: 'Photos and documents on every record', icon: 'cloud' },
+      { id: 'paper', title: 'No, paper is fine', sub: 'Print records; costs less', icon: 'print' },
+    ],
+  },
+  {
     id: 'limits',
     q: 'Do you need to watch weight or space limits?',
     why: 'If yes, we turn on weight and size tracking, and Move warns before a spot is overloaded.',
@@ -113,9 +126,10 @@ const STEPS: Step[] = [
       { id: 'yes', title: 'Yes', icon: 'target' },
     ],
   },
+  { id: 'zip', q: 'What’s your zip code?', why: 'We use it to check whether a Wherehouse tech can come set everything up for you in person.', kind: 'text', placeholder: '29403', site: true, numeric: true, valid: (v) => /^\d{5}$/.test(v.trim()) },
 ];
 
-const CURATE = ['Choosing your words', 'Planning your storage zones', 'Checking your printer', 'Picking your labels', 'Writing your next steps'];
+const CURATE = ['Finding your plan', 'Planning your storage zones', 'Checking your printer', 'Picking your labels', 'Writing your next steps'];
 const VERDICT: Record<string, { label: string; tone: string; icon: IconName }> = {
   works: { label: 'Works', tone: 'ok', icon: 'checkCircle' },
   maybe: { label: 'Check the model', tone: 'warn', icon: 'alertCircle' },
@@ -129,7 +143,8 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
   const [phase, setPhase] = useState<'ask' | 'curate' | 'result'>('ask');
   const timer = useRef<number | undefined>(undefined);
-  const steps = STEPS.filter((s) => !s.show || s.show(a));
+  const visible = (x: SurveyAnswers) => STEPS.filter((s) => (!s.site || mode === 'site') && (!s.show || s.show(x)));
+  const steps = visible(a);
   const step = i >= 0 ? steps[i] : null;
   const rec = useMemo(() => recommend(a), [a]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -142,7 +157,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
   const next = (answers = a) => {
     window.clearTimeout(timer.current);
     setDir('fwd');
-    const list = STEPS.filter((s) => !s.show || s.show(answers));
+    const list = visible(answers);
     if (i + 1 < list.length) return setI(i + 1);
     setPhase('curate');
     timer.current = window.setTimeout(() => setPhase('result'), matchMedia('(prefers-reduced-motion: reduce)').matches ? 300 : 2600);
@@ -163,7 +178,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
     // The printer answer shows its verdict first; everything else moves on by itself.
     if (s.id !== 'printer') timer.current = window.setTimeout(() => next(answers), 320);
   };
-  const answered = (s: Step) => (s.kind === 'many' ? a.places.length > 0 : s.kind === 'zones' ? a.places.every((p) => a.zones[p]) : s.kind === 'text' ? String(a[s.id]).trim().length > 0 : a[s.id] !== null);
+  const answered = (s: Step) => (s.kind === 'many' ? a.places.length > 0 : s.kind === 'zones' ? a.places.every((p) => a.zones[p]) : s.kind === 'text' ? (s.valid ? s.valid(String(a[s.id])) : String(a[s.id]).trim().length > 0) : a[s.id] !== null);
   const progress = phase === 'ask' ? Math.max(0, i) / steps.length : 1;
 
   return (
@@ -189,9 +204,9 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
           <Results rec={rec} mode={mode} onBack={back} onClose={onClose} onApplied={onApplied} answers={a} />
         ) : !step ? (
           <Card k="intro" dir={dir}>
-            <p className="survey-eyebrow">Setting up your warehouse · about 2 minutes</p>
-            <h1 className="survey-q">Let’s put your warehouse in Wherehouse.</h1>
-            <p className="survey-hint">Answer a few quick questions about what you store, where you keep it and what equipment you have. We’ll recommend your storage zones, labels, printer and words, then you can start.</p>
+            <p className="survey-eyebrow">{mode === 'site' ? 'Find your plan' : 'Setting up your warehouse'} · about 2 minutes</p>
+            <h1 className="survey-q">{mode === 'site' ? 'Let’s find the right plan for your warehouse.' : 'Let’s put your warehouse in Wherehouse.'}</h1>
+            <p className="survey-hint">Answer a few quick questions about what you store, where you keep it and what equipment you have. {mode === 'site' ? 'We’ll recommend a plan, your storage zones, labels and printer, and show you how to get set up.' : 'We’ll recommend your storage zones, labels, printer and words.'}</p>
             <ul className="survey-intro-list">
               <li><span className="survey-bubble"><Icon name="box" /></span>What you store</li>
               <li><span className="survey-bubble"><Icon name="locations" /></span>Where you keep it</li>
@@ -204,7 +219,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
         ) : (
           <Card k={step.id} dir={dir}>
             <p className="survey-eyebrow">
-              Setting up your warehouse · Question {i + 1} of {steps.length}
+              {mode === 'site' ? 'Find your plan' : 'Setting up your warehouse'} · Question {i + 1} of {steps.length}
             </p>
             <p className="survey-why">
               <Icon name="info" /> {step.why}
@@ -219,7 +234,7 @@ export function SetupSurvey({ mode, onClose, onApplied }: { mode: 'site' | 'port
                   if (answered(step)) next();
                 }}
               >
-                <input className="input big" autoFocus maxLength={24} placeholder={step.placeholder} value={String(a[step.id])} onChange={(e) => setA({ ...a, [step.id]: e.target.value })} />
+                <input className="input big" autoFocus maxLength={step.numeric ? 5 : 24} inputMode={step.numeric ? 'numeric' : undefined} autoComplete={step.numeric ? 'postal-code' : 'off'} aria-label={step.q} placeholder={step.placeholder} value={String(a[step.id])} onChange={(e) => setA({ ...a, [step.id]: step.numeric ? e.target.value.replace(/\D/g, '') : e.target.value })} />
               </form>
             ) : step.kind === 'zones' ? (
               <div className="survey-zones">
@@ -327,7 +342,9 @@ function Results({ rec, mode, answers, onBack, onClose, onApplied }: { rec: Reco
   return (
     <section className="survey-card survey-results enter-fwd" data-testid="survey-results">
       <p className="survey-eyebrow">Your recommendation</p>
-      <h1 className="survey-q">Here’s your starting setup.</h1>
+      <h1 className="survey-q">{mode === 'site' ? 'Here’s your plan.' : 'Here’s your starting setup.'}</h1>
+      {mode === 'site' && <PlanChoice answers={answers} />}
+      {mode === 'site' && <h2 className="survey-sub">Your setup details</h2>}
       <div className="survey-grid">
         <Tile n={0} icon="text" title="Your words">
           <p>
@@ -360,32 +377,125 @@ function Results({ rec, mode, answers, onBack, onClose, onApplied }: { rec: Reco
           <b>This is a starting point, not a finished setup.</b> You still need to create your own zones and spots, print and hang labels, load what you have and add your crew. The setup checklist walks you through it, and you can change any of this later in Warehouse settings.
         </p>
       </div>
-      {mode === 'site' ? <SiteActions answers={answers} onBack={onBack} /> : <PortalActions rec={rec} onBack={onBack} onClose={onClose} onApplied={onApplied} />}
+      {mode === 'site' ? <SiteActions onBack={onBack} answers={answers} /> : <PortalActions rec={rec} onBack={onBack} onClose={onClose} onApplied={onApplied} />}
     </section>
   );
 }
 
 function SiteActions({ answers, onBack }: { answers: SurveyAnswers; onBack: () => void }) {
-  const { go } = useSite();
   return (
     <div className="survey-nav">
       <button type="button" className="survey-back" onClick={onBack}>
         <Icon name="chevronLeft" /> Change answers
       </button>
-      <div className="survey-ctas">
-        <button type="button" className="survey-ghost" onClick={() => go('contact')}>
-          Book a walkthrough
-        </button>
-        <button
-          type="button"
-          className="survey-go"
-          onClick={() => {
-            saveSurvey(answers);
-            go('signin');
-          }}
-        >
-          Start your free trial <Icon name="arrowRight" />
-        </button>
+      <a className="survey-ghost" href={mailto('Question about Wherehouse', answers)}>
+        <Icon name="mail" /> More questions? Contact us
+      </a>
+    </div>
+  );
+}
+
+/** A prefilled email to John with the survey answers, so a question or setup request needs no retyping. */
+function mailto(subject: string, a: SurveyAnswers, extra = '') {
+  const pick = recommendPlan(a);
+  const lines = [
+    extra,
+    'My survey answers:',
+    `- Storing: ${PRESETS.find((p) => p.id === a.store)?.title ?? 'not answered'}${a.word ? ` (${a.word})` : ''}`,
+    `- How many: ${a.count ?? 'not answered'}`,
+    `- Where: ${a.places.map((p) => `${PLACE_NAME[p]} (${a.zones[p] ?? '?'})`).join(', ') || 'not answered'}`,
+    `- People: ${a.people ?? 'not answered'}`,
+    `- Printer: ${a.hasPrinter === 'yes' ? (PRINTERS.find((p) => p.id === a.printer)?.title ?? 'yes') : 'none yet'}`,
+    `- Files: ${a.files ?? 'not answered'}`,
+    `- Zip: ${a.zip || 'not given'}`,
+    `- Recommended plan: ${pick.plan.name}`,
+  ].filter((x) => x !== '');
+  return `mailto:${BRAND.supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+function PlanChoice({ answers }: { answers: SurveyAnswers }) {
+  const { go } = useSite();
+  const pick = recommendPlan(answers);
+  const [payNote, setPayNote] = useState(false);
+  const zip = cleanZip(answers.zip);
+  return (
+    <div className="survey-plan" data-testid="plan-choice">
+      <article className="survey-plan-card" style={{ ['--n' as string]: 0 }}>
+        <span className="survey-badge">Recommended plan</span>
+        <h2>
+          {pick.plan.name} <span>${pick.plan.monthly}/month</span>
+        </h2>
+        <p>{pick.why}</p>
+        <ul>
+          {pick.plan.features.map((f) => (
+            <li key={f}>
+              <Icon name="check" /> {f}
+            </li>
+          ))}
+        </ul>
+      </article>
+      <h2 className="survey-sub">How do you want to get set up?</h2>
+      <div className="survey-ways">
+        <article className="survey-way recommended" style={{ ['--n' as string]: 1 }} data-testid="way-tech">
+          <span className="survey-badge">Recommended</span>
+          <span className="survey-bubble">
+            <Icon name="hardhat" />
+          </span>
+          <h3>Have a Wherehouse tech set it up</h3>
+          <p className="survey-price">${pick.setupFee} one time</p>
+          <p>A tech comes to you, builds your zones and spots, hangs the labels, loads your items and trains your crew. You start on day one with everything working. No free trial with this option.</p>
+          {pick.techAvailable ? (
+            <>
+              <p className="survey-ok">
+                <Icon name="checkCircle" /> We cover {zip}.
+              </p>
+              <div className="survey-ctas">
+                <button type="button" className="survey-go" onClick={() => setPayNote(true)}>
+                  Pay now <Icon name="arrowRight" />
+                </button>
+                <a className="survey-ghost" href={mailto('Wherehouse setup question', answers)}>
+                  Ask a question
+                </a>
+              </div>
+              {payNote && (
+                <p className="survey-note" role="status">
+                  Online payment isn’t switched on yet. <a href={mailto('Book a Wherehouse tech setup', answers, `I’d like a tech to set up my warehouse ($${pick.setupFee}).`)}>Send us a setup request</a> and we’ll invoice you and book a day.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="survey-note">
+                <Icon name="info" /> On-site setup isn’t available{zip ? ` in ${zip}` : ''} yet. It covers about an hour around Charleston, SC. Contact us and we’ll work something out.
+              </p>
+              <a className="survey-go" href={mailto('Setup outside the Charleston area', answers, 'I’m outside the on-site area but interested in help setting up.')}>
+                <Icon name="mail" /> Contact us
+              </a>
+            </>
+          )}
+        </article>
+        <article className="survey-way" style={{ ['--n' as string]: 2 }} data-testid="way-diy">
+          <span className="survey-badge soft">Free trial available</span>
+          <span className="survey-bubble">
+            <Icon name="user" />
+          </span>
+          <h3>Set it up yourself</h3>
+          <p className="survey-price">Free for {TRIAL_DAYS} days, then ${pick.plan.monthly}/month</p>
+          <p>A step-by-step setup wizard walks you through your zones, spots, labels and items before you start.</p>
+          <p className="survey-warn">
+            <Icon name="alert" /> Heads up: this can be a difficult process. You’ll create every zone and spot, print and hang every label, and load your items yourself. Plan on a few hours.
+          </p>
+          <button
+            type="button"
+            className="survey-go"
+            onClick={() => {
+              saveSurvey(answers);
+              go('signin');
+            }}
+          >
+            Start your free trial <Icon name="arrowRight" />
+          </button>
+        </article>
       </div>
     </div>
   );

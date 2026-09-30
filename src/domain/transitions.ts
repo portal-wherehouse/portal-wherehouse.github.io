@@ -48,6 +48,7 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   set_location_capacity: 'SUPERVISOR',
   set_measurements: 'SUPERVISOR',
   set_setup: 'SUPERVISOR',
+  set_onboarding: 'SUPERVISOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -97,6 +98,7 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   set_location_capacity: 'Location capacity set',
   set_measurements: 'Weight and size tracking changed',
   set_setup: 'Warehouse setup changed',
+  set_onboarding: 'Setup checklist updated',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {

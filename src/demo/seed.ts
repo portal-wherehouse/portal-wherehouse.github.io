@@ -11,7 +11,7 @@ import { Engine, emptyDb, type Db } from './engine';
 export const DEFAULT_SEED = 214;
 export const FIXTURE_SCHEMA_VERSION = 1;
 
-export type FixtureName = 'tiny' | 'scenario';
+export type FixtureName = 'tiny' | 'scenario' | 'fresh';
 
 export interface FixtureInfo {
   name: FixtureName;
@@ -324,7 +324,18 @@ export function fixtureInfo(db: Db, name: FixtureName): FixtureInfo {
 }
 
 export function seedFixture(name: FixtureName, opts: { now?: number; seed?: number } = {}): Db {
-  return name === 'scenario' ? seedScenario(opts) : seedTiny(opts);
+  return name === 'scenario' ? seedScenario(opts) : name === 'fresh' ? seedFresh() : seedTiny(opts);
+}
+
+/** A brand-new self-serve warehouse, locked to the setup wizard, for practicing setup in the sample. */
+export function seedFresh(): Db {
+  const db = emptyDb();
+  const engine = new Engine(db);
+  const [owner, manager, employee] = DEMO_USERS;
+  const { workspace } = engine.createWorkspace(owner, 'My new warehouse', { code: 'WH-01', name: 'My new warehouse', timezone: 'America/New_York', onboarding: true });
+  engine.addMember(workspace.id, manager, 'SUPERVISOR');
+  engine.addMember(workspace.id, employee, 'OPERATOR');
+  return db;
 }
 
 /** The public sample is deliberately small; stress fixtures remain available to development tests. */

@@ -40,12 +40,33 @@ export interface Warehouse {
   advanced_measurements?: boolean;
   /** What this warehouse calls the things it tracks and how it groups work; see domain/terms.ts. */
   setup?: WarehouseSetup;
+  /** A new self-serve warehouse is locked to the setup wizard until this is done; see features/onboarding. */
+  onboarding?: Onboarding;
   id: string;
   workspace_id: string;
   code: string;
   name: string;
   timezone: string;
   active: boolean;
+}
+
+export interface OnboardingZone {
+  letter: string;
+  name: string;
+  kind: LocationKind;
+}
+
+export interface Onboarding {
+  state: 'pending' | 'done';
+  /** Wizard steps finished, by id. */
+  done: string[];
+  zones: OnboardingZone[];
+  /** What happens to a record when the thing leaves: kept as sent out, or retired off the list. */
+  leave: 'dispatch' | 'retire' | null;
+  /** Photos and paperwork saved online, or printed on paper only. */
+  files: 'cloud' | 'paper' | null;
+  /** How things get their barcodes. */
+  barcodes: 'import' | 'scan' | 'print' | null;
 }
 
 export interface WarehouseSetup {
@@ -273,6 +294,7 @@ export const ADMIN_COMMANDS = [
   'set_location_capacity',
   'set_measurements',
   'set_setup',
+  'set_onboarding',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 
