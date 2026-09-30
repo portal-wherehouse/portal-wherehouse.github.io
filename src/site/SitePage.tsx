@@ -18,22 +18,31 @@ import { FitPage } from "./fit/FitPage";
 import { FounderPage } from "./pages/Founder";
 import { ContactPage } from "./pages/Contact";
 import { SecurityPage } from "./pages/Security";
+import { firebaseConfig, sampleMode } from "../data/firebaseConfig";
 
 const SetupSurvey = lazy(() =>
   import("../features/setup/SetupSurvey").then((m) => ({
     default: m.SetupSurvey,
   })),
 );
+const AccountGate = lazy(() => import("./AccountGate"));
 
-/** #start: the setup survey that leads into the free trial. Full screen, without the site's header. */
+/** #start: the setup survey that leads into the free trial. Full screen, without the site's header.
+ * On a live site the visitor creates an account (or signs in) and verifies their email first. */
 function StartPage() {
   const { go } = useSite();
   useEffect(() => {
     document.title = `Set up your warehouse · ${BRAND.name}`;
   }, []);
+  const survey = <SetupSurvey mode="site" onClose={() => go("home")} />;
   return (
     <Suspense fallback={<p role="status">Loading…</p>}>
-      <SetupSurvey mode="site" onClose={() => go("home")} />
+      {/* Live sites need a verified account first. The sample and unconfigured builds do not. */}
+      {sampleMode() || !firebaseConfig() ? (
+        survey
+      ) : (
+        <AccountGate>{survey}</AccountGate>
+      )}
     </Suspense>
   );
 }

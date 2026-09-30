@@ -159,6 +159,15 @@ service cloud.firestore {
       }
     }
 
+    // Email verification codes (salted hashes) and outgoing mail for the Trigger Email extension.
+    // Only the functions and the extension (Admin SDK) use them; no client may read or write.
+    match /emailCodes/{uid} {
+      allow read, write: if false;
+    }
+    match /mail/{id} {
+      allow read, write: if false;
+    }
+
     // Everything not listed above is denied.
     match /{document=**} {
       allow read, write: if false;

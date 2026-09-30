@@ -1,0 +1,44 @@
+import './local-only.mjs';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {doc,getDoc,setDoc,collection,getDocs,query,limit} from 'firebase/firestore';
+const require=createRequire(new URL('../../firebase/functions/package.json',import.meta.url));
+const {getFirestore,Timestamp}=require('firebase-admin/firestore');
+const {getAuth}=require('firebase-admin/auth');
+// Email verification by a typed code. devCode comes back only because the harness runs as an emulator.
+export async function testEmailCodes({client,ok}){
+ const db=getFirestore();
+ const noSession=await fetch('http://127.0.0.1:5001/demo-wherehouse/us-east1/sendEmailCode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{}})});
+ assert.equal(noSession.status,401);ok('sending a code requires a signed-in account');
+ const person=await client('coded',false);const uid=person.user.uid,email=person.user.email.toLowerCase();
+ const sent=await person.call('sendEmailCode',{});assert.equal(sent.sent,true);assert.match(sent.devCode,/^\d{6}$/);assert.equal(sent.expiresInSeconds,600);
+ const mail=(await db.collection('mail').where('to','==',email).get()).docs.map(d=>d.data());assert.equal(mail.length,1);
+ assert.equal(mail[0].message.subject,`Your Wherehouse code: ${sent.devCode}`);assert.match(mail[0].message.text,/expires in 10 minutes/);assert.match(mail[0].message.text,/only emails you sign-in and verification codes/);assert.match(mail[0].message.html,new RegExp(sent.devCode));
+ const stored=(await db.doc(`emailCodes/${uid}`).get()).data();assert.ok(!JSON.stringify(stored).includes(sent.devCode));assert.match(stored.hash,/^[0-9a-f]{64}$/);assert.ok(Math.abs(stored.expires_at.toMillis()-Date.now()-600000)<60000);
+ ok('a code is emailed through the mail collection and stored only as a salted hash with a 10-minute expiry');
+ await assert.rejects(getDoc(doc(person.db,'emailCodes',uid)));await assert.rejects(setDoc(doc(person.db,'emailCodes',uid),{hash:'x'}));await assert.rejects(getDocs(query(collection(person.db,'mail'),limit(5))));await assert.rejects(setDoc(doc(person.db,'mail','x'),{to:'someone@example.com',message:{subject:'spam'}}));
+ ok('clients cannot read or write codes or send mail directly');
+ await assert.rejects(person.call('sendEmailCode',{}),e=>e.code==='functions/resource-exhausted'&&/Wait \d+ seconds/.test(e.message));ok('a second code within a minute is refused');
+ const wrong=sent.devCode==='000000'?'111111':'000000';
+ await assert.rejects(person.call('verifyEmailCode',{code:'12ab'}),e=>e.code==='functions/invalid-argument');
+ for(let left=4;left>0;left--)await assert.rejects(person.call('verifyEmailCode',{code:wrong}),e=>e.code==='functions/invalid-argument'&&e.message.includes(`${left} tr`));
+ await assert.rejects(person.call('verifyEmailCode',{code:wrong}),e=>e.code==='functions/resource-exhausted');
+ await assert.rejects(person.call('verifyEmailCode',{code:sent.devCode}),e=>e.code==='functions/resource-exhausted');
+ assert.equal((await getAuth().getUser(uid)).emailVerified,false);ok('five wrong codes lock that code, even against the right one');
+ const resend=async()=>{await db.doc(`emailCodes/${uid}`).update({sent_at:Timestamp.fromMillis(Date.now()-61000)});return person.call('sendEmailCode',{});};
+ const expiring=await resend();await db.doc(`emailCodes/${uid}`).update({expires_at:Timestamp.fromMillis(Date.now()-1000)});
+ await assert.rejects(person.call('verifyEmailCode',{code:expiring.devCode}),e=>e.code==='functions/deadline-exceeded');ok('an expired code is refused');
+ const fresh=await resend();assert.notEqual(fresh.devCode,undefined);
+ assert.deepEqual(await person.call('verifyEmailCode',{code:` ${fresh.devCode.slice(0,3)} ${fresh.devCode.slice(3)} `}),{verified:true});
+ assert.equal((await getAuth().getUser(uid)).emailVerified,true);await person.auth.currentUser.reload();assert.equal((await person.auth.currentUser.getIdTokenResult(true)).claims.email_verified,true);
+ assert.equal((await db.doc(`emailCodes/${uid}`).get()).get('hash'),null);ok('the right code verifies the account, and the code cannot be reused');
+ assert.equal((await person.call('createWarehouse',{name:'Coded trial',trial:true})).workspaceId.length>0,true);ok('a code-verified account can start its trial');
+ const before=(await db.collection('mail').where('to','==',email).get()).size;
+ assert.deepEqual(await person.call('sendEmailCode',{}),{verified:true});assert.deepEqual(await person.call('verifyEmailCode',{code:'123456'}),{verified:true});
+ const google=await client('google');assert.deepEqual(await google.call('sendEmailCode',{}),{verified:true});
+ assert.equal((await db.collection('mail').where('to','==',email).get()).size,before);assert.equal((await db.collection('mail').where('to','==',google.user.email.toLowerCase()).get()).size,0);
+ ok('already-verified accounts (Google sign-in) get no code and no email');
+ const busy=await client('busy',false);
+ await db.doc(`emailCodes/${busy.user.uid}`).set({day:new Date().toISOString().slice(0,10),sent_today:10,sent_at:Timestamp.fromMillis(Date.now()-120000)});
+ await assert.rejects(busy.call('sendEmailCode',{}),e=>e.code==='functions/resource-exhausted'&&/today/.test(e.message));ok('an account gets at most ten codes a day');
+}

@@ -22,7 +22,8 @@ import {
   parsePalletCode,
   parseLabelPayload,
 } from "../domain/codes";
-import { initializeApp, type FirebaseOptions } from "firebase/app";
+import { initializeApp } from "firebase/app";
+import { firebaseConfig } from "./firebaseConfig";
 import {
   getAuth,
   onAuthStateChanged,
@@ -69,18 +70,7 @@ import { Outbox, eligibility, type OutboxEntry } from "./outbox";
 import { Engine, emptyDb } from "../demo/engine";
 import type { CommandEnvelope, CommandResult } from "../domain/types";
 
-export function firebaseConfig(): FirebaseOptions | null {
-  const raw = import.meta.env.VITE_FIREBASE_CONFIG;
-  if (!raw) return null;
-  try {
-    const c = JSON.parse(raw);
-    if (c.apiKey && c.authDomain && c.projectId && c.appId && c.storageBucket)
-      return c;
-  } catch {
-    /* setup message below */
-  }
-  return null;
-}
+export { firebaseConfig };
 export class FirebaseBackend extends Backend {
   override mode = "firebase" as const;
   auth: Auth | null = null;

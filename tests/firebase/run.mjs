@@ -9,6 +9,8 @@ process.env.FIREBASE_CONFIG=JSON.stringify({projectId:'demo-wherehouse',storageB
 process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';
 process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 process.env.FIREBASE_STORAGE_EMULATOR_HOST='127.0.0.1:9199';
+// This harness stands in for the Functions emulator, so it says so as the emulator does (sendEmailCode returns devCode).
+process.env.FUNCTIONS_EMULATOR='true';
 const express=require('express');const handlers=require('../../firebase/functions/lib/index.cjs');
 const app=express();app.use(express.json({limit:'10mb'}));
 app.get('/__test/metrics',(_req,res)=>{res.json(globalThis.__wherehouseMetrics||[]);globalThis.__wherehouseMetrics=[];});

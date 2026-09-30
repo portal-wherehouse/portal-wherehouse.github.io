@@ -618,3 +618,5 @@
 .auth-google{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%}
 .auth-trial{padding:16px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--accent)}
 .auth-trial h2{margin:0;font-size:20px}
+.verify-code-input{font-size:28px;letter-spacing:.3em;text-align:center;font-variant-numeric:tabular-nums}
+.verify-code .verify-link{align-self:flex-start;font-size:14px}

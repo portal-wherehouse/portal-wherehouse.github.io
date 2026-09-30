@@ -34,9 +34,15 @@ try {
  },reset:()=>{}}};`}));
  await signupPage.goto('http://127.0.0.1:4175/#signin');
  await expect(signupPage.getByRole('group',{name:'Account verification'})).toHaveCount(0);
- await signupPage.getByRole('button',{name:'Create account',exact:true}).click();
+ // The website survey needs a verified account first; the gate sends visitors to sign-up and back.
+ const signupEmail=`signup-browser-${Date.now()}@example.com`;
+ await signupPage.goto('http://127.0.0.1:4175/#start');const gate=signupPage.getByTestId('account-gate');
+ await gate.getByRole('heading',{name:'Create an account to begin your survey',exact:true}).waitFor();await expect(gate).toContainText('No newsletters, no spam.');await expect(signupPage.getByTestId('setup-survey')).toHaveCount(0);
+ await expect(gate.getByRole('button',{name:'Continue with Google',exact:true})).toBeVisible();assert.equal(await signupPage.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);await signupPage.screenshot({path:'test-results/start-account-gate-mobile.png',animations:'disabled'});
+ await gate.getByRole('button',{name:'Create account',exact:true}).click();
+ await signupPage.getByRole('heading',{name:'Create an account to begin your survey',exact:true}).waitFor();await expect(signupPage.locator('.auth-card')).toContainText('We only email you verification and sign-in codes.');
  await signupPage.getByLabel('Your name',{exact:true}).fill('New signup');
- await signupPage.getByLabel('Email',{exact:true}).fill(`signup-browser-${Date.now()}@example.com`);
+ await signupPage.getByLabel('Email',{exact:true}).fill(signupEmail);
  await signupPage.getByLabel('Password',{exact:true}).fill(password);
  const createButton=signupPage.getByRole('button',{name:'Create account',exact:true});
  await expect(createButton).toBeDisabled();
@@ -45,8 +51,14 @@ try {
  await signupPage.getByRole('checkbox',{name:"I'm not a robot"}).check();
  assert.equal(await signupPage.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
  await signupPage.screenshot({path:'test-results/signup-checkbox-mobile.png'});
- await createButton.click();await signupPage.getByRole('button',{name:'I’ve verified my email',exact:true}).waitFor();
+ await createButton.click();await signupPage.getByText('We emailed a 6-digit code to',{exact:false}).waitFor();
  await expect(signupPage.getByRole('group',{name:'Account verification'})).toHaveCount(0);
+ const mailed=(await licenseStore().db.collection('mail').where('to','==',signupEmail).get()).docs.map(d=>d.get('message.subject'));assert.equal(mailed.length,1);
+ await signupPage.screenshot({path:'test-results/verify-code-mobile.png',animations:'disabled'});
+ await signupPage.getByLabel('Verification code',{exact:true}).fill(mailed[0].match(/\d{6}$/)[0]);await signupPage.getByRole('button',{name:'Verify',exact:true}).click();
+ await signupPage.getByTestId('setup-survey').waitFor();await expect(signupPage).toHaveURL(/#start$/);assert.equal((await getAuth().getUserByEmail(signupEmail)).emailVerified,true);
+ console.log('PASS the #start gate leads to sign-up, a typed email code verifies the account, and the survey begins');
+ await signupPage.goto('http://127.0.0.1:4175/#signin');await signupPage.getByTestId('trial-form').waitFor();
  await signupPage.getByRole('button',{name:'Sign out',exact:true}).click();
  await expect(signupPage.getByRole('group',{name:'Account verification'})).toHaveCount(0);
  await signupPage.close();console.log('PASS mobile signup checkbox gates submission, expires, creates an account and stays off sign-in');

@@ -1,5 +1,6 @@
 import { canEditWarehouse, canReadWarehouse } from "./access";
 import { registerAccount } from "./registration";
+import { sendCode, verifyCode } from "./emailCode";
 import { warehouseSummary, directoryCounts } from "./summary";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
@@ -818,4 +819,14 @@ export const getDirectoryCounts = onCall(options, directoryCounts);
 export const createAccount = onCall(
   { ...options, maxInstances: 1, concurrency: 10 },
   registerAccount,
+);
+
+// Email verification by a typed code. Google sign-in accounts are already verified and skip it.
+export const sendEmailCode = onCall(
+  { ...options, maxInstances: 1, concurrency: 10 },
+  sendCode,
+);
+export const verifyEmailCode = onCall(
+  { ...options, maxInstances: 1, concurrency: 10 },
+  verifyCode,
 );

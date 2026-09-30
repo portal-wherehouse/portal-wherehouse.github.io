@@ -1,0 +1,12 @@
+/* #start gate: "Create an account to begin your survey". Built on the survey's own look (survey.css). */
+.account-gate-spacer { flex: 1; }
+.account-gate .survey-card { width: min(600px, 100%); }
+.account-gate-promise { margin: 20px 0 0; color: var(--sv-ink); font-weight: 600; }
+.account-gate-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.account-gate-actions > button:disabled { opacity: 0.5; cursor: default; }
+.account-gate-google { gap: 10px; }
+.account-gate-google svg { width: 18px; height: 18px; }
+.account-gate .survey-stage > [role='status'] { color: var(--sv-ink-2); }
+@media (max-width: 480px) {
+  .account-gate-actions > button { width: 100%; justify-content: center; }
+}

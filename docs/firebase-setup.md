@@ -68,7 +68,7 @@ npm run test:firebase
 npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project YOUR_PROJECT_ID
 ```
 
-Choose the project created in step 1. The deploy command builds and uploads ten functions: `createAccount`, `createWarehouse`, `command`, `authorizeEmail`, `joinAuthorizedWarehouses`, `cancelAuthorization`, `reservePhotoUpload`, `getWarehouseSummary`, `getDirectoryCounts` and the scheduled `cleanupPhotoUploads`, the database rules and the photo rules. Only accept Google's API/billing prompts once you intend to activate this project. The daily cleanup creates one Cloud Scheduler job. After deployment, configure artifact cleanup explicitly:
+Choose the project created in step 1. The deploy command builds and uploads twelve functions: `createAccount`, `sendEmailCode`, `verifyEmailCode`, `createWarehouse`, `command`, `authorizeEmail`, `joinAuthorizedWarehouses`, `cancelAuthorization`, `reservePhotoUpload`, `getWarehouseSummary`, `getDirectoryCounts` and the scheduled `cleanupPhotoUploads`, the database rules and the photo rules. Only accept Google's API/billing prompts once you intend to activate this project. The daily cleanup creates one Cloud Scheduler job. After deployment, configure artifact cleanup explicitly:
 
 ```bash
 npx firebase functions:artifacts:setpolicy --project YOUR_PROJECT_ID --location us-east1 --days 7
@@ -220,7 +220,20 @@ There are two different public reCAPTCHA keys. Keep the Firebase configuration J
 
 Changing a GitHub Actions variable does not update the already-published JavaScript. Run the Pages workflow again or push a commit; after its deployment succeeds, refresh the website. An old page can continue sending the old key. A usage key cannot fix an App Check 401.
 
-The website displays the checkbox only in Create account. `createAccount` verifies it with Google before creating an unverified Auth account; the browser then signs in and sends the verification email. No warehouse access is granted until email verification, authorization and an active license. Ordinary sign-in and password reset have no visible checkbox.
+The website displays the checkbox only in Create account. `createAccount` verifies it with Google before creating an unverified Auth account; the browser then signs in and asks `sendEmailCode` for a 6-digit verification code (see below). No warehouse access is granted until email verification, authorization and an active license. Ordinary sign-in and password reset have no visible checkbox.
+
+### Email verification codes
+
+New accounts verify their email by typing a 6-digit code instead of clicking a link ("Send me a link instead" remains as a fallback). Google sign-in accounts are already verified and never get a code. The website's #start survey requires a verified account first.
+
+`sendEmailCode` keeps only a salted hash of the code in `emailCodes/{uid}` (10-minute expiry, 5 wrong tries, one code a minute, ten a day) and writes the email to the `mail` collection. `verifyEmailCode` marks the account verified. The rules deny clients both collections. Nothing is delivered until the official **Trigger Email from Firestore** extension is installed:
+
+1. Firebase console → Extensions → *Trigger Email from Firestore* (`firebase/firestore-send-email`) → Install in the same project.
+2. SMTP connection URI: `smtps://YOUR_ADDRESS@gmail.com@smtp.gmail.com:465` with the password field set to a Gmail **app password** (Google Account → Security → 2-Step Verification → App passwords). Older versions of the form take it inline: `smtps://YOUR_ADDRESS%40gmail.com:APP_PASSWORD@smtp.gmail.com:465`.
+3. Email documents collection: `mail`. Default FROM address: the same Gmail address (for example `Wherehouse <YOUR_ADDRESS@gmail.com>`). Firestore location: the database's region (`us-east1`).
+4. Deploy the two functions and the rules: `npx firebase deploy --only functions:wherehouse:sendEmailCode,functions:wherehouse:verifyEmailCode,firestore:rules --project YOUR_PROJECT_ID`.
+
+Gmail allows about 500 messages a day. The extension runs one more function per email and records delivery state on each `mail` document. Test locally with `npm run test:firebase`; the emulator harness returns the code to tests and sends nothing.
 
 **Owner activation commands for the current project**, after pulling this change in Cloud Shell:
 
