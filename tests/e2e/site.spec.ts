@@ -33,3 +33,16 @@ test('homepage stays below its script budget and defers the warehouse applicatio
   await expect(page.locator('[data-tour=signin], .door, .auth-shell').first()).toBeVisible();
   expect(scripts.some(url=>/WarehouseApp-/.test(url))).toBe(true);
 });
+
+test('Why Wherehouse compares price, features and support with other tools and doing it by hand', async ({ page }) => {
+  await page.goto('/#simple');
+  const table = page.getByTestId('compare-table');
+  for (const name of ['Sortly', 'inFlow', 'Zoho Inventory', 'Fishbowl', 'By hand']) await expect(table.locator('thead')).toContainText(name);
+  await expect(table).toContainText('Local, small-business support');
+  await expect(page.getByRole('heading', { name: 'Why a local, small business' })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Fishbowl' }).click();
+  await expect(table.locator('thead th.c-fishbowl')).toBeVisible();
+  await expect(table.locator('thead th.c-sortly')).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});

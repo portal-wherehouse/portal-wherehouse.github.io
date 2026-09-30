@@ -1,0 +1,234 @@
+/* Why Wherehouse: the comparison table. Wide screens see every column; phones see Wherehouse next to one
+   choice picked with the chips above the table. */
+
+.compare-picker {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.compare-picker-label {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.compare-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.compare-chip.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--ground);
+}
+
+.compare-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.compare-wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.compare-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 1000px;
+  table-layout: fixed;
+  text-align: left;
+}
+.compare-table th,
+.compare-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  line-height: 1.4;
+  vertical-align: top;
+}
+.compare-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.compare-table thead th {
+  vertical-align: bottom;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-strong);
+}
+.compare-table thead strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+.compare-table thead small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+/* Row labels stay put while the rest scrolls sideways. */
+.compare-table tbody th[scope='row'],
+.compare-corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 168px;
+  background: var(--surface);
+  font-weight: 600;
+  box-shadow: 1px 0 0 var(--line);
+}
+.compare-corner {
+  background: var(--surface-2);
+}
+.compare-group th {
+  padding: 18px 12px 8px;
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.compare-group th span {
+  position: sticky;
+  left: 12px;
+}
+
+/* The Wherehouse column stands out. */
+.compare-table .c-wherehouse {
+  background: var(--accent-soft);
+}
+.compare-table thead .c-wherehouse {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.compare-table td.c-wherehouse {
+  font-weight: 550;
+}
+
+.compare-cell {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.compare-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: -1px;
+  border-radius: 50%;
+}
+.compare-mark svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 3;
+}
+.compare-mark.yes {
+  background: var(--ok);
+  color: var(--surface);
+}
+.compare-mark.no {
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.compare-mark.part {
+  box-sizing: border-box;
+  border: 2px solid var(--warn);
+  background: linear-gradient(90deg, transparent 50%, var(--warn) 50%);
+}
+
+.compare-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.compare-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.compare-note {
+  max-width: 80ch;
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-3);
+}
+.compare-fit {
+  margin: 0 0 16px;
+  padding-left: 20px;
+}
+.compare-fit li {
+  padding: 3px 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+@media (max-width: 719px) {
+  .compare-picker {
+    display: flex;
+  }
+  .compare-table {
+    min-width: 0;
+    table-layout: auto;
+  }
+  .compare-table td {
+    overflow-wrap: anywhere;
+  }
+  .compare-table thead th:not(.compare-corner):not(.is-off),
+  .compare-table td:not(.is-off) {
+    width: 34.5%;
+  }
+  .compare-table .is-off {
+    display: none;
+  }
+  .compare-table tbody th[scope='row'],
+  .compare-corner {
+    position: static;
+    width: 31%;
+    box-shadow: none;
+  }
+  .compare-table th,
+  .compare-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+  .compare-table thead strong {
+    font-size: 17px;
+  }
+  .compare-group th {
+    padding: 14px 8px 6px;
+    font-size: 14px;
+  }
+  .compare-cell {
+    gap: 6px;
+  }
+  .compare-mark {
+    width: 18px;
+    height: 18px;
+  }
+  .compare-mark svg {
+    width: 12px;
+    height: 12px;
+  }
+}
