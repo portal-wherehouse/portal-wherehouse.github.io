@@ -1,36 +1,50 @@
-import {
-  MultiFormatReader,
-  BarcodeFormat,
-  DecodeHintType,
-  RGBLuminanceSource,
-  BinaryBitmap,
-  HybridBinarizer,
-} from "@zxing/library";
+let zxingInstance: {
+  reader: any;
+  hints: any;
+  BinaryBitmap: any;
+  HybridBinarizer: any;
+  RGBLuminanceSource: any;
+} | null = null;
 
-const hints = new Map<DecodeHintType, unknown>([
-  [
-    DecodeHintType.POSSIBLE_FORMATS,
-    [
-      BarcodeFormat.QR_CODE,
-      BarcodeFormat.CODE_128,
-      BarcodeFormat.CODE_39,
-      BarcodeFormat.EAN_13,
-      BarcodeFormat.EAN_8,
-      BarcodeFormat.UPC_A,
-      BarcodeFormat.UPC_E,
-      BarcodeFormat.ITF,
-      BarcodeFormat.DATA_MATRIX,
-    ],
-  ],
-  [DecodeHintType.TRY_HARDER, true],
-  [DecodeHintType.ASSUME_GS1, true],
-]);
-const reader = new MultiFormatReader();
+async function loadZxing() {
+  if (!zxingInstance) {
+    const z = await import("@zxing/library");
+    const hints = new Map<any, unknown>([
+      [
+        z.DecodeHintType.POSSIBLE_FORMATS,
+        [
+          z.BarcodeFormat.QR_CODE,
+          z.BarcodeFormat.CODE_128,
+          z.BarcodeFormat.CODE_39,
+          z.BarcodeFormat.EAN_13,
+          z.BarcodeFormat.EAN_8,
+          z.BarcodeFormat.UPC_A,
+          z.BarcodeFormat.UPC_E,
+          z.BarcodeFormat.ITF,
+          z.BarcodeFormat.DATA_MATRIX,
+        ],
+      ],
+      [z.DecodeHintType.TRY_HARDER, true],
+      [z.DecodeHintType.ASSUME_GS1, true],
+    ]);
+    const reader = new z.MultiFormatReader();
+    zxingInstance = {
+      reader,
+      hints,
+      BinaryBitmap: z.BinaryBitmap,
+      HybridBinarizer: z.HybridBinarizer,
+      RGBLuminanceSource: z.RGBLuminanceSource,
+    };
+  }
+  return zxingInstance;
+}
 
-/** Pixels stay on this device. Lazy-loaded only when a scanner is used. */
-export function decodeBarcodePixels(
+/** Pixels stay on this device. Lazy-loaded on-demand only when a scanner fallback is used. */
+export async function decodeBarcodePixels(
   image: Pick<ImageData, "data" | "width" | "height">,
-): string | null {
+): Promise<string | null> {
+  const { reader, hints, BinaryBitmap, HybridBinarizer, RGBLuminanceSource } =
+    await loadZxing();
   const luminance = new Uint8ClampedArray(image.width * image.height);
   for (let i = 0; i < luminance.length; i++) {
     const offset = i * 4;

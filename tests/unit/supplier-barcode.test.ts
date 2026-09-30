@@ -49,7 +49,7 @@ describe("supplier barcode interpretation", () => {
     });
   });
 });
-it("decodes an actual Code 128 supplier barcode from pixels without native browser support", () => {
+it("decodes an actual Code 128 supplier barcode from pixels without native browser support", async () => {
   const text = `00${sscc}`;
   const barcode = encodeCode128(text);
   const scale = 3,
@@ -68,7 +68,7 @@ it("decodes an actual Code 128 supplier barcode from pixels without native brows
         }
     x = next;
   });
-  expect(decodeBarcodePixels({ data, width, height })).toBe(text);
+  expect(await decodeBarcodePixels({ data, width, height })).toBe(text);
 });
 
 describe("receiving QR contents", () => {

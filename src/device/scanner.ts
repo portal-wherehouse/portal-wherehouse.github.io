@@ -92,7 +92,7 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-          const text = code?.data ?? (await import('./barcodeDecoder')).decodeBarcodePixels(img);
+          const text = code?.data ?? (await (await import('./barcodeDecoder')).decodeBarcodePixels(img));
           if (text && !stopped) onText(text);
         }
       } catch {
