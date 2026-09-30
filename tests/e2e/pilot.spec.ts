@@ -20,7 +20,10 @@ test('operator receives matching pallets, prints both labels, places and retriev
   await expect(page.getByRole('heading', {name:'Pallet saved'})).toBeVisible();
   await page.getByRole('button', {name:'Receive another like this'}).click();
   await expect(page.locator('#rcv-desc')).toHaveValue('Pilot lighting fixtures');
-  await expect(page.locator('#rcv-sup')).toHaveValue('PO-PILOT-01');
+  // New receipts must not silently reuse a supplier pallet identifier.
+  await expect(page.locator('#rcv-sup')).toHaveValue('');
+  // A purchase order can legitimately cover both pallets when entered explicitly.
+  await page.locator('#rcv-sup').fill('PO-PILOT-01');
   await expect(page.locator('#rcv-note')).toHaveValue('');
   await page.getByRole('button', {name:'Save pallet',exact:true}).click();
   await expect(page.getByText('P-000043').first()).toBeVisible();
