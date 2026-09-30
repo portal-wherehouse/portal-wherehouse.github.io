@@ -17,3 +17,12 @@ export function WarehouseLoading({ name = 'your warehouse', welcome = false, rea
     <div className="warehouse-loader-track" aria-hidden="true"><span /></div>
   </div>;
 }
+
+/** Just the moving bar, for a refresh that returns to the same screen. */
+export function QuietLoading() {
+  return <main className="auth-shell"><div className="warehouse-loading warehouse-loading-quiet" role="status" aria-live="polite">
+    <div className="warehouse-loader-mark" aria-hidden="true"><BrandMark /><span /></div>
+    <span className="sr-only">Loading</span>
+    <div className="warehouse-loader-track" aria-hidden="true"><span /></div>
+  </div></main>;
+}

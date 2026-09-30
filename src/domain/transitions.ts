@@ -41,6 +41,7 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   change_role: 'SUPERVISOR',
   remove_member: 'SUPERVISOR',
   import_batch: 'SUPERVISOR',
+  rename_import: 'SUPERVISOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -83,6 +84,7 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   change_role: 'Role changed',
   remove_member: 'Access removed',
   import_batch: 'Import committed',
+  rename_import: 'Import renamed',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {

@@ -1396,6 +1396,9 @@ export class FirebaseBackend extends Backend {
           if (this.activeWorkspace === cmd.workspace_id && root.exists())
             this.ingest("workspaces", [root.data()]);
         }
+        // The import list shows a new or renamed batch without reloading the page.
+        if (["import_batch", "rename_import"].includes(cmd.kind) && id)
+          await this.one("imports", id, true);
         if (["create_job", "close_job", "reopen_job"].includes(cmd.kind) && id)
           await this.one("jobs", id, true);
         if (

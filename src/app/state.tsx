@@ -92,6 +92,20 @@ function awayTooLong(hash: string): boolean {
   return type === 'reload' || type === 'back_forward' || readLocalRaw(LAST_ROUTE) === hash;
 }
 
+let firstLoad: boolean | undefined;
+/** Decided once per page load, before this session's activity is recorded. */
+export function opensOnDashboard(): boolean {
+  if (firstLoad === undefined) firstLoad = typeof location !== 'undefined' && awayTooLong(location.hash);
+  return firstLoad;
+}
+
+/** A refresh that keeps its screen shows only the loading bar, not the full "Opening your warehouse" screen. */
+export function quietOpening(): boolean {
+  if (typeof location === 'undefined' || opensOnDashboard()) return false;
+  const r = parseHash(location.hash);
+  return !!r && !isSiteRoute(r.name) && r.name !== 'overview' && r.name !== 'signin';
+}
+
 function readLocalRaw(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -274,7 +288,7 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   const [demoActorId, setActor] = useState<string | null>(() => readLocalRaw('pl.actor'));
   const actorId = backend.mode === 'firebase' ? backend.authUid : demoActorId;
   const [workspaceId, setWs] = useState<string | null>(() => readLocalRaw('pl.workspace'));
-  const refreshToDashboard = useRef(typeof location !== 'undefined' && awayTooLong(location.hash));
+  const refreshToDashboard = useRef(opensOnDashboard());
   const [stack, setStack] = useState<Route[]>(() => {
     if (typeof location === 'undefined') return [{ name: 'home' }];
     const linked = parseHash(location.hash);

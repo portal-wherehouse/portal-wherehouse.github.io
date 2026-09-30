@@ -208,6 +208,7 @@ export const ADMIN_COMMANDS = [
   'change_role',
   'remove_member',
   'import_batch',
+  'rename_import',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 
@@ -234,6 +235,11 @@ export interface ImportBatch {
   created_ids: string[];
   actor_id: string;
   created_at: string;
+  /** A name people choose for the batch; older batches have none. */
+  name?: string;
+  file_name?: string | null;
+  /** The spreadsheet as imported, under template column names. Older batches have none. */
+  rows?: Record<string, string>[];
 }
 
 export interface RowError {

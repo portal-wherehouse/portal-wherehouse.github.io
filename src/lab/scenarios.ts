@@ -678,6 +678,13 @@ add({
     h.expect(!c.ok && c.code === 'COMMAND_KEY_REUSED', 'Changed file with the same batch ID rejected');
     const imported = a.ok ? h.db.pallets[a.created_ids![0]] : null;
     h.equal([imported?.state, imported?.current_location_id, h.events(imported!)[0].type], ['RECEIVED', null, 'import_receive'], 'Imported as RECEIVED, no invented history');
+    const named = h.cmd(h.users.supervisor, 'import_batch', { import_kind: 'pallets', checksum: 'named', rows: [{ description: 'Named batch pallet', supplier_ref: 'TC-9' }], name: 'Timber Creek truck', file_name: 'timber.csv' }, null, { commandId: uuid() });
+    const batchRec = named.ok ? h.db.imports[named.command_id] : undefined;
+    h.equal([batchRec?.name, batchRec?.file_name, batchRec?.rows], ['Timber Creek truck', 'timber.csv', [{ description: 'Named batch pallet', supplier_ref: 'TC-9' }]], 'The batch keeps its name, file name and spreadsheet rows');
+    const renamed = h.cmd(h.users.supervisor, 'rename_import', { import_id: named.ok ? named.command_id : '', name: 'Timber Creek, Sep 30' }, null, { commandId: uuid() });
+    h.expect(renamed.ok && h.db.imports[named.ok ? named.command_id : '']?.name === 'Timber Creek, Sep 30', 'A supervisor can rename a batch');
+    const blocked = h.cmd(h.users.operator, 'rename_import', { import_id: named.ok ? named.command_id : '', name: 'Nope' }, null, { commandId: uuid() });
+    h.expect(!blocked.ok, 'Operators cannot rename imports');
   },
 });
 

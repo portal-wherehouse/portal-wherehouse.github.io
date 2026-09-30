@@ -81,7 +81,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
 }
 
 export function History({ events, users, onCorrect }: { events: PalletEvent[]; users: Record<string, User>; onCorrect?: (e: PalletEvent) => void }) {
-  const { prefs } = useApp();
+  const { prefs, backend } = useApp();
   return (
     <div className="timeline">
       {events.map((e) => (
@@ -113,7 +113,7 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
             )}
             {e.detail.import_batch && (
               <div className="tl-change muted">
-                Imported from row {String(e.detail.source_row)} of batch <span className="mono">{String(e.detail.import_batch).slice(0, 8)}</span>
+                Imported from row {String(e.detail.source_row)} of {backend.db.imports[String(e.detail.import_batch)]?.name ? <>“{backend.db.imports[String(e.detail.import_batch)]?.name}”</> : <>batch <span className="mono">{String(e.detail.import_batch).slice(0, 8)}</span></>}
               </div>
             )}
             {e.detail.corrects_event_id && <div className="tl-change muted">Corrects an earlier entry. The original stays in the history.</div>}

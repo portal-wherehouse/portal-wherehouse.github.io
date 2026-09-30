@@ -1,7 +1,8 @@
 import { FirebaseBackend } from "../data/firebase";
 import { useEffect, useState } from "react";
 import { App } from "../app/App";
-import { AppProvider } from "../app/state";
+import { AppProvider, quietOpening } from "../app/state";
+import { QuietLoading } from "./WarehouseLoading";
 import { ScanRouterProvider } from "../device/scanRouter";
 import { Backend } from "../data/backend";
 let opening: Promise<Backend> | undefined;
@@ -34,6 +35,7 @@ export default function WarehouseApp() {
       active = false;
     };
   }, []);
+  if (!backend && !error && quietOpening()) return <QuietLoading />;
   if (!backend)
     return (
       <main className="auth-shell">

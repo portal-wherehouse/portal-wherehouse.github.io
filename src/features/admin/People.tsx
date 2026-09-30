@@ -256,7 +256,7 @@ export function RoleMatrix() {
 function AuditList({ entries }: { entries: AdminAudit[] }) {
   const { backend } = useApp();
   const users = backend.db.users;
-  const target = (a: AdminAudit) => backend.db.jobs[a.target_id]?.code ?? backend.db.locations[a.target_id]?.code ?? users[a.target_id]?.name ?? (a.action === 'import_batch' ? `batch ${a.target_id.slice(0, 8)}` : '');
+  const target = (a: AdminAudit) => backend.db.jobs[a.target_id]?.code ?? backend.db.locations[a.target_id]?.code ?? users[a.target_id]?.name ?? (a.action === 'import_batch' || a.action === 'rename_import' ? (backend.db.imports[a.target_id]?.name ?? `batch ${a.target_id.slice(0, 8)}`) : '');
   const change = (a: AdminAudit) => {
     const b = a.before ?? {};
     const af = a.after ?? {};

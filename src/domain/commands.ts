@@ -68,7 +68,10 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     import_kind: z.enum(['locations', 'jobs', 'pallets', 'shipments']),
     checksum: z.string().max(64),
     rows: z.array(z.record(z.string(), z.string().max(1000))).max(1000),
+    name: text(80).optional(),
+    file_name: text(200).optional(),
   }),
+  rename_import: z.object({ import_id: id, name: text(80) }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];

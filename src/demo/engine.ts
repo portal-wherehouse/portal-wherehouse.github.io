@@ -360,6 +360,7 @@ export class Engine {
       case 'change_role':
       case 'remove_member':
       case 'import_batch':
+      case 'rename_import':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -767,6 +768,18 @@ export class Engine {
       }
       case 'import_batch':
         return this.importBatch(tx, actorId, cmd, now, wh, reject);
+      case 'rename_import': {
+        const batch = this.db.imports[p.import_id ?? ''];
+        if (!batch || batch.workspace_id !== ws) return reject('NOT_FOUND', 'Import not found.');
+        const name = (p.name ?? '').trim();
+        if (!name) return reject('INVALID_INPUT', 'Give the import a name.');
+        if (name.length > 80) return reject('INVALID_INPUT', 'Import names are limited to 80 characters.');
+        if (name === batch.name) return reject('INVALID_INPUT', 'That is already its name.');
+        const before = { name: batch.name ?? null };
+        tx.put('imports', batch.id, { ...batch, name });
+        const a = audit(batch.id, before, { name });
+        return this.accepted(cmd, now, a.id, null, batch.id);
+      }
     }
     return reject('INVALID_INPUT', 'Unknown command.');
   }
@@ -781,7 +794,7 @@ export class Engine {
     reject: (c: ErrorCode, m: string, cur?: Pallet | null) => CommandRejected,
   ): CommandResult {
     const ws = cmd.workspace_id;
-    const p = cmd.payload as { import_kind: 'locations' | 'jobs' | 'pallets' | 'shipments'; checksum: string; rows: Record<string, string>[] };
+    const p = cmd.payload as { import_kind: 'locations' | 'jobs' | 'pallets' | 'shipments'; checksum: string; rows: Record<string, string>[]; name?: string; file_name?: string };
     const rows = p.rows;
     const errors: RowError[] = [];
     const err = (i: number, column: string, message: string) => errors.push({ row: i + 2, column, message });
@@ -941,7 +954,8 @@ export class Engine {
       });
     }
     const summary = `${created.length} ${p.import_kind} created${skipped ? `, ${skipped} already existed` : ''}${jobsAdded ? `, ${jobsAdded} new job${jobsAdded === 1 ? '' : 's'} added` : ''}`;
-    tx.put('imports', cmd.command_id, { id: cmd.command_id, workspace_id: ws, kind: p.import_kind, checksum: p.checksum, status: 'committed', summary, created_ids: created, actor_id: actorId, created_at: now });
+    const name = (p.name ?? '').trim().slice(0, 80) || (p.file_name ?? '').replace(/\.csv$/i, '').trim().slice(0, 80) || `${p.import_kind[0].toUpperCase()}${p.import_kind.slice(1)} import`;
+    tx.put('imports', cmd.command_id, { id: cmd.command_id, workspace_id: ws, kind: p.import_kind, checksum: p.checksum, status: 'committed', summary, created_ids: created, actor_id: actorId, created_at: now, name, file_name: (p.file_name ?? '').trim().slice(0, 200) || null, rows: rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '').trim()]))) });
     tx.appendAudit({ id: this.newId(), workspace_id: ws, actor_id: actorId, action: 'import_batch', target_id: cmd.command_id, before: null, after: { kind: p.import_kind, summary }, reason: null, accepted_at: now, command_id: cmd.command_id });
     const res = this.accepted(cmd, now, null, null, cmd.command_id);
     res.created_ids = created;

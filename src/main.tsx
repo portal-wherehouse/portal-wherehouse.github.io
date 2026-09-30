@@ -1,6 +1,7 @@
 import { StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { isSiteRoute, parseHash, type Route } from "./app/state";
+import { isSiteRoute, parseHash, quietOpening, type Route } from "./app/state";
+import { QuietLoading } from "./portal/WarehouseLoading";
 import { SitePage } from "./site/SitePage";
 import { SiteRouting } from "./site/routing";
 import { ScanRouterProvider } from "./device/scanRouter";
@@ -31,9 +32,13 @@ function Entry() {
     return (
       <Suspense
         fallback={
-          <main className="auth-shell">
-            <p role="status">Opening your warehouse…</p>
-          </main>
+          quietOpening() ? (
+            <QuietLoading />
+          ) : (
+            <main className="auth-shell">
+              <p role="status">Opening your warehouse…</p>
+            </main>
+          )
         }
       >
         <WarehouseApp />

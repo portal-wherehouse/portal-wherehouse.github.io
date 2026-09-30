@@ -12,8 +12,8 @@ import { Icon } from '../../ui/icons';
 import { useCommand } from '../../ui/useCommand';
 import { Explain, Notice, PageHead, PermissionDenied, Spinner, fmtAgo } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
+import { ImportHistory, KIND_LABEL } from './ImportHistory';
 
-const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets', shipments: 'Expected shipments' };
 
 // Saved column layouts live in this browser, per warehouse.
 const templatesKey = (ws: string | null) => `wherehouse.importTemplates.${ws ?? 'none'}`;
@@ -29,6 +29,7 @@ export function Import() {
   const [kind, setKind] = useState<ImportKind>('locations');
   const [text, setText] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [batchName, setBatchName] = useState('');
   const [labels, setLabels] = useState<string[] | null>(null);
   const cmd = useCommand();
 
@@ -108,6 +109,7 @@ export function Import() {
     setMapFor('');
     setText('');
     setFileName(null);
+    setBatchName('');
     cmd.reset();
   };
   const onFile = async (f: File | undefined) => {
@@ -126,7 +128,8 @@ export function Import() {
   };
   const commit = async () => {
     if (!parsed) return;
-    const r = await cmd.run('import_batch', { import_kind: kind, checksum, rows: parsed.rows });
+    const name = batchName.trim() || (fileName ?? '').replace(/\.csv$/i, '').trim();
+    const r = await cmd.run('import_batch', { import_kind: kind, checksum, rows: parsed.rows, ...(name ? { name: name.slice(0, 80) } : {}), ...(fileName ? { file_name: fileName.slice(0, 200) } : {}) });
     if (r.phase === 'done') {
       toast(`Import committed: ${r.accepted?.created_ids?.length ?? 0} created`);
       if (kind === 'pallets' && r.accepted?.created_ids?.length) setLabels(r.accepted.created_ids);
@@ -286,6 +289,11 @@ export function Import() {
             </Notice>
           ) : (
             !cmd.locked && (
+              <>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <label htmlFor="batch-name" className="sr-only">Name this import</label>
+                <input id="batch-name" className="input" value={batchName} maxLength={80} onChange={(e) => setBatchName(e.target.value)} placeholder={fileName ? `Name: ${fileName.replace(/\.csv$/i, '')}` : 'Name this import, e.g. Timber Creek truck, Sep 30'} style={{ flex: '1 1 260px', maxWidth: 380 }} disabled={cmd.busy} />
+              </div>
               <div className="row">
                 <button className="btn primary big" disabled={!ready || cmd.busy || backend.network === 'offline'} onClick={() => void commit()}>
                   {cmd.busy ? <Spinner /> : <Icon name="import" />} Import {parsed.rows.length} rows
@@ -295,6 +303,7 @@ export function Import() {
                 </button>
                 {backend.network === 'offline' && <span className="muted">Imports need a connection.</span>}
               </div>
+              </>
             )
           )}
         </div>
@@ -313,20 +322,7 @@ export function Import() {
         </div>
       )}
 
-      {earlier.length > 0 && (
-        <div className="panel stack">
-          <div className="panel-title">Earlier imports</div>
-          {earlier.slice(0, 8).map((b) => (
-            <div key={b.id} className="row" style={{ fontSize: 14 }}>
-              <span className="tag">{KIND_LABEL[b.kind]}</span>
-              <span className="grow">{b.summary}</span>
-              <span className="muted">
-                {backend.db.users[b.actor_id]?.name} · {fmtAgo(b.created_at)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <ImportHistory batches={earlier} />
       {labels && <LabelSheet palletIds={labels} onClose={() => setLabels(null)} closeHint={<><strong>Optional.</strong> Close with the X if the incoming pallets are already labeled.</>} />}
     </div>
   );

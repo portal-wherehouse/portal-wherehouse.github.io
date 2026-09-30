@@ -1,6 +1,6 @@
 import { WarehouseMenu } from '../features/warehouse/WarehouseMenu';
 import { FirebaseBackend } from '../data/firebase';
-import { WarehouseLoading } from '../portal/WarehouseLoading';
+import { QuietLoading, WarehouseLoading } from '../portal/WarehouseLoading';
 import { SampleHints } from '../portal/SampleHints';
 import { LiveView } from '../data/LiveView';
 // App shell. Website pages get the site header and footer; everything else is the portal:
@@ -8,7 +8,7 @@ import { LiveView } from '../data/LiveView';
 
 import { useEffect, useRef, useState } from 'react';
 import { BRAND } from '../brand';
-import { isSiteRoute, useApp, type RouteName, type SiteRouteName } from './state';
+import { isSiteRoute, quietOpening, useApp, type RouteName, type SiteRouteName } from './state';
 import { IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
 import { Avatar, Empty, Notice, ROLE_DESC, ROLE_LABEL, ROLE_SHORT, Sheet, Toasts, fmtTime } from '../ui/ui';
@@ -104,6 +104,7 @@ export function App() {
     );
   }
   if (welcome && !backend.cloudError) return <main className="auth-shell"><WarehouseLoading name={welcome} welcome ready={!backend.loading && !!workspaceId && route.name === 'overview'} onComplete={() => setWelcome('')} /></main>;
+  if (backend.mode === 'firebase' && backend.loading && !backend.cloudError && route.name !== 'signin' && quietOpening()) return <QuietLoading />;
   if (backend.mode === 'firebase' && (route.name === 'signin' || !actorId || !workspaceId || backend.loading || backend.cloudError)) return <LiveSignIn onActivated={setWelcome} />;
   if (route.name === 'signin' || !actorId) {
     return (

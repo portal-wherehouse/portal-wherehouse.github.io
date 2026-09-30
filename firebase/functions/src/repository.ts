@@ -241,6 +241,7 @@ export async function loadCommand(
     await one("attachments", p.attachment_id);
   }
   if (k === "remove_photo") await one("attachments", p.attachment_id);
+  if (k === "rename_import") await one("imports", p.import_id);
   if (k === "rotate_label")
     await query(
       "labels",
@@ -358,8 +359,8 @@ export function persist(
         }),
       };
     if (
-      ["events", "audit", "lineage", "imports"].includes(table) ||
-      (!before.has(path) && table === "labels")
+      ["events", "audit", "lineage"].includes(table) ||
+      (!before.has(path) && ["labels", "imports"].includes(table))
     )
       tx.create(root.collection(table).doc(path.slice(table.length + 1)), v);
     else tx.set(root.collection(table).doc(path.slice(table.length + 1)), v);

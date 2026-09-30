@@ -3127,3 +3127,50 @@ table.t td svg,
 
 .signup-verification { min-width:0; width:100%; }
 .signup-verification p { font-size:.875rem; font-weight:400; margin:8px 0 0; }
+
+/* Import history */
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  min-height: 48px;
+}
+.import-row:hover,
+.import-row:focus-visible {
+  border-color: var(--accent);
+}
+.import-row .grow {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .import-row {
+    flex-wrap: wrap;
+  }
+  .import-row .grow {
+    flex-basis: 100%;
+    order: -1;
+  }
+}
+button.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.warehouse-loading-quiet {
+  min-height: 160px;
+}
