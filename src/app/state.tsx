@@ -54,7 +54,9 @@ export type RouteName =
   | 'transfer'
   /** Orders and picking: the board and the Pick, Pack, Stage and Hand off tasks (q), and one order. */
   | 'orders'
-  | 'order';
+  | 'order'
+  /** Stock reports (q: which report), a tab beside the map under Stock. */
+  | 'reports';
 
 export interface Route {
   name: RouteName;
@@ -222,13 +224,14 @@ const ROUTE_TOKENS: RouteName[] = [
   'products',
   'transfers',
   'orders',
+  'reports',
 ];
 
 /** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them.
  * The website's #for/<kind of business> pages link the same way. */
 const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive', 'transfer', 'for', 'order'];
 /** Screens whose query rides along in the link, e.g. #find?q=J-214, #station?q=count or #move?q=ship. */
-const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products', 'move', 'orders'];
+const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products', 'move', 'orders', 'transfer', 'reconcile', 'reports'];
 
 /** The address-bar hash for a route: '' for home, or for a screen that has no link of its own. */
 export function hashFor(r: Route): string {

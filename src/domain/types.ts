@@ -45,6 +45,8 @@ export interface Warehouse {
   setup?: WarehouseSetup;
   /** Orders and picking: off unless an owner turns it on. See domain/orders.ts. */
   orders?: OrdersSettings;
+  /** Quantity changes by operators wait for a manager's approval. Off unless a manager turns it on. See domain/stock.ts. */
+  adjust_approval?: boolean;
   /** A new self-serve warehouse is locked to the setup checklist until it is done or skipped; see features/onboarding. */
   onboarding?: Onboarding;
   id: string;
@@ -162,6 +164,34 @@ export interface Pallet {
   transfer?: PalletTransfer | null;
   /** Set while the unit is picked for a customer order (state PICKED): its tote, then its package. */
   order?: PalletOrderRef | null;
+  /** The last time it was dispatched: the dispatch slip it left on (D-000012), where to and who sent it. */
+  dispatch?: PalletDispatch | null;
+  /** A quantity change an operator recorded, waiting for a manager's approval. Nothing else is adjusted meanwhile. */
+  pending_adjust?: PendingAdjust | null;
+}
+
+/** One dispatch: a dispatch slip groups the pallets that left together under one reference. */
+export interface PalletDispatch {
+  ref: string;
+  destination: string;
+  note: string | null;
+  at: string;
+  by_name: string;
+}
+
+/** The fixed reasons a quantity can change for; see ADJUST_REASONS in domain/stock.ts. */
+export type AdjustReason = 'used' | 'damaged' | 'write_off' | 'found' | 'counted';
+
+export interface PendingAdjust {
+  reason: AdjustReason;
+  /** How many were used, damaged, written off or found; for "counted", the new total. */
+  amount: number;
+  from_qty: number | null;
+  to_qty: number;
+  note: string | null;
+  by: string;
+  by_name: string;
+  at: string;
 }
 
 /** The transfer a pallet is travelling on, so Find and the record can say where it is headed. */
@@ -356,6 +386,8 @@ export const PALLET_COMMANDS = [
   'split',
   'pick',
   'substitute',
+  'adjust_qty',
+  'review_adjust',
 ] as const;
 export type PalletCommandKind = (typeof PALLET_COMMANDS)[number];
 
@@ -396,6 +428,8 @@ export const ADMIN_COMMANDS = [
   'pack',
   'stage_package',
   'hand_off',
+  'note_reorder',
+  'set_adjust_approval',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 

@@ -25,6 +25,7 @@ import { Guide } from '../features/guide/Guide';
 import { Lab } from '../features/lab/Lab';
 import { LabelStudio } from '../features/labels/LabelStudio';
 import { WarehouseMap } from '../features/map/WarehouseMap';
+import { Reports } from '../features/stock/Reports';
 import { HOME_ITEM, More, navItemCurrent, navTarget, visibleNav, type NavGroup, type NavItem } from '../features/more/More';
 import { useOrdersOn, useSetup, useWordSwap } from './words';
 import { Move } from '../features/move/Move';
@@ -92,6 +93,7 @@ const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.
   transfer: TransferDetail,
   orders: Orders,
   order: OrderDetail,
+  reports: Reports,
 };
 
 const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' | 'overview' }[] = [

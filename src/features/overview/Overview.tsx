@@ -11,6 +11,7 @@ import { Icon, type IconName } from '../../ui/icons';
 import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
 import { ScanReadyPanel } from '../scan/ScanReady';
+import { useLowStock } from '../stock/useStock';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'PICKED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', PICKED: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -35,6 +36,7 @@ function FirstSteps({manager,spots,needsJob}:{manager:boolean;spots:number;needs
 
 export function Overview() {
   const {read,go,backend,v,role} = useApp();
+  const low=useLowStock();
   const setup=useSetup();
   const [crewFull,setCrewFull]=useState(()=>{try{return localStorage.getItem('pl.crewFull')==='1';}catch{return false;}});
   const [minute,setMinute]=useState(0);
@@ -47,7 +49,7 @@ export function Overview() {
     const today=warehouseDate(ctx.warehouse?.timezone||'UTC');
     const reminders=pallets.filter(p=>reminderDate(p) && reminderDate(p)!<=today).sort((a,b)=>a.receiving!.remind_on.localeCompare(b.receiving!.remind_on));
     const r=e.reconciliation(a,ws);
-    return {ctx,counts,reminders,reminder_count:reminders.length,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000),attention:r.unplaced.length+r.missing.length+r.holds.length+r.reprint.length};
+    return {ctx,counts,reminders,reminder_count:reminders.length,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000),attention:r.unplaced.length+r.missing.length+r.holds.length+r.reprint.length+r.approvals.length};
   }),[v,backend.network,read,minute]);
   if(!data)return null;
   const live=backend instanceof FirebaseBackend;
@@ -76,7 +78,8 @@ export function Overview() {
     <section aria-label="Everyday tasks" data-tour="overview-summary"><div className="warehouse-actions">
       {actions.map(a=><button className="warehouse-action" key={a.title} aria-label={a.title} onClick={()=>go(a.to)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
     </div></section>
-    {manager&&data.attention>0&&<button type="button" className="panel attention-card" onClick={()=>go('reconcile')} data-testid="attention-card"><span className="attention-count">{data.attention.toLocaleString()}</span><span><strong>Needs attention</strong><small>Pallets waiting for a spot, missing, on hold, or with a label to reprint.</small></span><Icon name="chevronRight"/></button>}
+    {manager&&data.attention>0&&<button type="button" className="panel attention-card" onClick={()=>go('reconcile')} data-testid="attention-card"><span className="attention-count">{data.attention.toLocaleString()}</span><span><strong>Needs attention</strong><small>Pallets waiting for a spot, missing, on hold, with a label to reprint, or with a quantity change to approve.</small></span><Icon name="chevronRight"/></button>}
+    {manager&&!!low?.length&&<button type="button" className="panel attention-card low-stock-card" onClick={()=>go({name:'reconcile',q:'low'})} data-testid="low-stock-card"><span className="attention-count">{low.length.toLocaleString()}</span><span><strong>Running low</strong><small>Products below the minimum you set. Bring more from another warehouse, or note a reorder.</small></span><Icon name="chevronRight"/></button>}
     {summary&&total===0&&<FirstSteps manager={manager} spots={spots} needsJob={needsJob}/>}
     {summary?.reminder_count>0 && <section className="panel stack" aria-label="Still here reminders"><h2>Still here: {summary.reminder_count} reminder{summary.reminder_count===1?'':'s'}</h2><p className="muted">Due today or earlier. Open a pallet to clear or reschedule its date.</p>{summary.reminders.map((p:Pallet)=><button className="btn" key={p.id} onClick={()=>go({name:'pallet',id:p.id})}>{p.code} · {palletContents(p)} · {p.receiving?.remind_on}{p.receiving?.destination?` · Going to ${p.receiving.destination}`:''}{p.state==='MISSING'?' · Missing':''}</button>)}{summary.reminder_count>50 && <p>Showing the 50 earliest reminders. Clear or reschedule reviewed dates to see the next ones.</p>}</section>}
     <section aria-label="Warehouse analytics" className="warehouse-metrics">

@@ -20,7 +20,10 @@ import { searchRows, type SearchFilters, type SearchRow } from '../domain/search
 import { ROLE_RANK, checkTransition, roleAllows } from '../domain/transitions';
 import { MAX_TRANSFER_LINES, formatTransferNumber, isOnTheWay, lineForScan, parseTransferNumber, statusFromLines, transferBlocker, transferKeys } from '../domain/transfers';
 import { fitCheck, palletWeight } from '../domain/capacity';
+import { dispatchRefNumber, formatDispatchRef, isHere, parseQty, productKeyOf } from '../domain/stock';
+import { stateCounts, type WarehouseRow } from '../domain/reports';
 import type {
+  AdjustReason,
   AdminAudit,
   Attachment,
   CommandAccepted,
@@ -189,8 +192,8 @@ export class Tx {
     return prev + 1;
   }
 
-  /** Order, batch and package numbers (O-, B-, K-) run per warehouse, kept as counters "<workspace>:<letter>". */
-  seq(ws: string, letter: 'O' | 'B' | 'K'): number {
+  /** Order, batch, package and dispatch numbers (O-, B-, K-, D-) run per warehouse, kept as counters "<workspace>:<letter>". */
+  seq(ws: string, letter: 'O' | 'B' | 'K' | 'D'): number {
     const key = `${ws}:${letter}`;
     const prev = this.db.counters[key] ?? 0;
     this.db.counters[key] = prev + 1;
@@ -426,6 +429,8 @@ export class Engine {
       case 'set_measurements':
       case 'set_setup':
       case 'set_onboarding':
+      case 'note_reorder':
+      case 'set_adjust_approval':
         return this.admin(tx, actorId, cmd, now, reject);
     }
 
@@ -556,7 +561,23 @@ export class Engine {
     }
 
     const before = this.snapshot(pallet);
-    const next: Pallet = { ...pallet, ...outcome.patch, version: pallet.version + 1, updated_at: now };
+    let next: Pallet = { ...pallet, ...outcome.patch, version: pallet.version + 1, updated_at: now };
+    const actorName = this.db.users[actorId]?.name ?? '';
+    if (kind === 'dispatch') {
+      // Pallets that leave together share one dispatch reference, printed on the dispatch slip.
+      const join = typeof p.join_ref === 'string' ? p.join_ref : null;
+      if (join && dispatchRefNumber(join) > (this.db.counters[`${ws}:D`] ?? 0)) return reject('INVALID_INPUT', `${join} is not a dispatch from this warehouse. Start a new send.`);
+      const ref = join ?? formatDispatchRef(tx.seq(ws, 'D'));
+      next.dispatch = { ref, destination: String(detail.destination ?? ''), note: outcome.reason, at: now, by_name: actorName };
+      detail.dispatch_ref = ref;
+    }
+    if (kind === 'adjust_qty' && this.activeWarehouse(ws)?.adjust_approval && this.membership(actorId, ws)?.role === 'OPERATOR') {
+      // The warehouse asks a manager to approve quantity changes: record the request and change nothing else yet.
+      const d = outcome.detail;
+      next = { ...pallet, pending_adjust: { reason: d.adjust_reason as AdjustReason, amount: Number(d.amount), from_qty: d.from_qty === null ? null : Number(d.from_qty), to_qty: Number(d.to_qty), note: outcome.reason, by: actorId, by_name: actorName, at: now }, version: pallet.version + 1, updated_at: now };
+      detail.pending = true;
+      detail.retired = false;
+    }
     // Locations with limits: a pallet only goes where it fits (count, and with advanced tracking, weight and size).
     if (next.state === 'STORED' && next.current_location_id && next.current_location_id !== pallet.current_location_id) {
       const dest = this.db.locations[next.current_location_id];
@@ -675,7 +696,13 @@ export class Engine {
     if (shipment) tx.put('shipments', shipment.id, {...shipment, pallet_id:pallet.id, pending_barcode:null});
     if (p.remember_product) {
       const id = productKey(cmd.workspace_id, info.product_code);
-      tx.put('products', id, {id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', length_in:info.length_in ?? '', width_in:info.width_in ?? '', height_in:info.height_in ?? '', weight_lb:info.weight_lb ?? '', field_names:info.fields.map(f=>f.name), ...(this.db.products[id]?.home_location_id ? {home_location_id:this.db.products[id]!.home_location_id} : {}), updated_at:now});
+      // Remembering a product keeps its home spot, minimum and reorder settings.
+      tx.put('products', id, {...this.db.products[id], id, workspace_id:cmd.workspace_id, warehouse_id:wh.id, code:info.product_code, description, unit:info.unit, category:info.category ?? '', length_in:info.length_in ?? '', width_in:info.width_in ?? '', height_in:info.height_in ?? '', weight_lb:info.weight_lb ?? '', field_names:info.fields.map(f=>f.name), reorder_note: null, updated_at:now});
+    } else if (info.product_code) {
+      // More of a product arrived, so a reorder noted for it is done.
+      const id = productKey(cmd.workspace_id, info.product_code);
+      const known = this.db.products[id];
+      if (known && known.workspace_id === cmd.workspace_id && known.reorder_note) tx.put('products', id, { ...known, reorder_note: null, updated_at: now });
     }
     tx.put('pallets', pallet.id, pallet);
     const token = this.newToken();
@@ -886,9 +913,16 @@ export class Engine {
           if (!home || home.workspace_id !== ws || !home.active) return reject('NOT_FOUND', 'That home spot was not found or is turned off. Pick another.');
         }
         const home_location_id = homeIn === undefined ? existing?.home_location_id ?? null : homeIn || null;
-        const product = { id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, ...size, home_location_id, field_names: existing?.field_names ?? [], updated_at: now };
+        // Minimum and reorder quantity: undefined keeps what was set; null or 0 clears it.
+        const q = cmd.payload as { min_qty?: number | null; reorder_qty?: number | null; count_by?: 'units' | 'quantity' };
+        const keep = (v: number | null | undefined, old: number | null | undefined) => (v === undefined ? old ?? null : v || null);
+        const min_qty = keep(q.min_qty, existing?.min_qty);
+        const reorder_qty = keep(q.reorder_qty, existing?.reorder_qty);
+        const count_by = q.count_by ?? existing?.count_by ?? 'units';
+        if (count_by === 'units' && ((min_qty ?? 0) % 1 || (reorder_qty ?? 0) % 1)) return reject('INVALID_INPUT', 'Count whole pallets, like 4. Counting by quantity allows decimals.');
+        const product: ProductMemory = { ...existing, id: key, workspace_id: ws, warehouse_id: wh.id, code, description, unit, category, ...size, home_location_id, min_qty, reorder_qty, count_by, reorder_note: existing?.reorder_note ?? null, field_names: existing?.field_names ?? [], updated_at: now };
         tx.put('products', key, product);
-        const a = audit(key, existing ? { description: existing.description, unit: existing.unit, category: existing.category ?? '' } : null, { code, description, unit, category });
+        const a = audit(key, existing ? { description: existing.description, unit: existing.unit, category: existing.category ?? '', min_qty: existing.min_qty ?? null, reorder_qty: existing.reorder_qty ?? null } : null, { code, description, unit, category, min_qty, reorder_qty });
         return this.accepted(cmd, now, a.id, null, key);
       }
       case 'set_location_capacity': {
@@ -994,6 +1028,25 @@ export class Engine {
         });
         const a = audit(issue.id, { status: issue.status }, { status, note: note || null });
         return this.accepted(cmd, now, a.id, null, issue.id);
+      }
+      case 'note_reorder': {
+        const q = cmd.payload as { product_id: string; note?: string; clear?: boolean };
+        const product = this.db.products[q.product_id];
+        if (!product || product.workspace_id !== ws) return reject('NOT_FOUND', 'Product not found.');
+        const note = (q.note ?? '').trim();
+        if (q.clear && !product.reorder_note) return reject('INVALID_STATE', `No reorder is noted for ${product.description}.`);
+        const reorder_note = q.clear ? null : { at: now, by_name: this.db.users[actorId]?.name ?? '', note };
+        tx.put('products', product.id, { ...product, reorder_note, updated_at: now });
+        const a = audit(product.id, { reorder_note: product.reorder_note ?? null }, { reorder_note });
+        return this.accepted(cmd, now, a.id, null, product.id);
+      }
+      case 'set_adjust_approval': {
+        const on = !!(cmd.payload as { on?: boolean }).on;
+        if (!!wh.adjust_approval === on) return reject('INVALID_INPUT', on ? 'Approval for quantity changes is already on.' : 'Approval for quantity changes is already off.');
+        // No version bump, like set_measurements: it must not conflict with an open warehouse details form.
+        tx.put('warehouses', wh.id, { ...wh, adjust_approval: on, updated_at: now });
+        const a = audit(wh.id, { adjust_approval: !!wh.adjust_approval }, { adjust_approval: on });
+        return this.accepted(cmd, now, a.id, null, wh.id);
       }
       case 'rename_import': {
         const batch = this.db.imports[p.import_id ?? ''];
@@ -1758,6 +1811,41 @@ export class Engine {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  /** How many of a product the person's other warehouses hold, for "bring it from there" on a low-stock row. */
+  stockElsewhere(actorId: string, workspaceId: string, code: string): { workspace_id: string; name: string; units: number; qty: number }[] {
+    const key = barcodeMatchKey(code);
+    return this.transferTargets(actorId, workspaceId)
+      .map((t) => {
+        let units = 0,
+          qty = 0;
+        for (const p of Object.values(this.db.pallets)) {
+          if (p.workspace_id !== t.workspace_id || !isHere(p) || p.hold || productKeyOf(p) !== key) continue;
+          units++;
+          qty += parseQty(p.receiving?.quantity) ?? 0;
+        }
+        return { ...t, units, qty };
+      })
+      .filter((t) => t.units > 0);
+  }
+
+  /** Pallets that left on one dispatch, for its slip. */
+  dispatchUnits(actorId: string, workspaceId: string, ref: string): Pallet[] {
+    this.requireMember(actorId, workspaceId);
+    return Object.values(this.db.pallets)
+      .filter((p) => p.workspace_id === workspaceId && p.dispatch?.ref === ref)
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }
+
+  /** Pallet counts by status in each warehouse the person belongs to, for the by-warehouse report. */
+  warehouseRows(actorId: string, workspaceId: string): WarehouseRow[] {
+    this.requireMember(actorId, workspaceId);
+    const all = [{ workspace_id: workspaceId, name: this.activeWarehouse(workspaceId)?.name ?? 'Warehouse' }, ...this.transferTargets(actorId, workspaceId)];
+    return all.map((w) => {
+      const { counts, holds } = stateCounts(Object.values(this.db.pallets).filter((p) => p.workspace_id === w.workspace_id));
+      return { workspace_id: w.workspace_id, name: w.name, current: w.workspace_id === workspaceId, counts, holds };
+    });
+  }
+
   /** The transfer a scan points at in this warehouse: its slip number, or the label or code of a pallet on it. */
   transferForScan(actorId: string, workspaceId: string, text: string): { transfer: Transfer; line: TransferLine | null } | null {
     this.requireMember(actorId, workspaceId);
@@ -1820,6 +1908,7 @@ export class Engine {
       missing: rows.filter((r) => r.pallet.state === 'MISSING').sort(byAge),
       holds: rows.filter((r) => r.pallet.hold && r.pallet.state !== 'RETIRED').sort(byAge),
       reprint: rows.filter((r) => r.pallet.label_needs_reprint && r.pallet.state !== 'RETIRED').sort(byAge),
+      approvals: rows.filter((r) => r.pallet.pending_adjust).sort((a, b) => (a.pallet.pending_adjust!.at).localeCompare(b.pallet.pending_adjust!.at)),
     };
   }
 

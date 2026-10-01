@@ -53,7 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Inventory',
     items: [
-      { route: 'map', label: 'Stock', icon: 'map', hint: 'Every spot and what is on it' },
+      { route: 'map', label: 'Stock', icon: 'map', hint: 'Every spot and what is on it, and stock reports', covers: ['reports'] },
       { route: 'transfers', label: 'Transfers', icon: 'swap', hint: 'Send pallets to another warehouse', covers: ['transfer'] },
       { route: 'station', q: 'count', label: 'Counts', icon: 'checklist', hint: 'Count a spot with the Scan station', covers: ['station'] },
       { route: 'activity', label: 'History', icon: 'activity', hint: 'Every saved change' },
@@ -92,8 +92,8 @@ export function visibleNav(role: Role | null, advanced: boolean, live = false, j
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(
     role === 'VIEWER'
-      ? ['find', 'pallet', 'overview', 'map', 'jobs', 'job', 'help', 'settings', 'about']
-      : ['receive', 'incoming', 'products', 'move', 'find', 'pallet', 'station', 'overview', 'map', 'locations', 'location', 'labels', 'jobs', 'job', 'activity', 'scanners', 'help', 'settings', 'about'],
+      ? ['find', 'pallet', 'overview', 'map', 'reports', 'jobs', 'job', 'help', 'settings', 'about']
+      : ['receive', 'incoming', 'products', 'move', 'find', 'pallet', 'station', 'overview', 'map', 'reports', 'locations', 'location', 'labels', 'jobs', 'job', 'activity', 'scanners', 'help', 'settings', 'about'],
   );
   if (manager) for (const r of ['reconcile', 'import', 'export', 'people', 'data'] as RouteName[]) allowed.add(r);
   if (live) {

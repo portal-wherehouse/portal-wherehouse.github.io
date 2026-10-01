@@ -75,7 +75,18 @@ import { createStore, get, set } from "idb-keyval";
 import { Backend, type Outcome, type PendingSend } from "./backend";
 import { Outbox, eligibility, type OutboxEntry } from "./outbox";
 import { Engine, emptyDb } from "../demo/engine";
-import { ORDER_COMMANDS, type CommandEnvelope, type CommandResult } from "../domain/types";
+import {
+  ORDER_COMMANDS,
+  type CommandEnvelope,
+  type CommandResult,
+  type Pallet,
+} from "../domain/types";
+import type { Stock } from "../domain/stock";
+import {
+  ADJUSTMENT_EVENTS,
+  type ReportId,
+  type WarehouseRow,
+} from "../domain/reports";
 
 export { firebaseConfig };
 export class FirebaseBackend extends Backend {
@@ -860,9 +871,13 @@ export class FirebaseBackend extends Backend {
     this.viewKey = "";
     await this.openView(this.viewRoute);
   }
-  async openView(route: { name: string; id?: string }) {
+  async openView(route: { name: string; id?: string; q?: string }) {
     if (!this.activeWorkspace || !this.firestore) return;
-    const key = route.name + ":" + (route.id || "");
+    const key =
+      route.name +
+      ":" +
+      (route.id || "") +
+      (route.name === "transfer" ? ":" + (route.q || "") : "");
     if (this.viewKey === key) return;
     this.viewKey = key;
     this.viewRoute = route;
@@ -994,7 +1009,7 @@ export class FirebaseBackend extends Backend {
         await Promise.all(
           [...new Set(Object.values(this.db.shipments).map((r) => r.job_id))].map((j) => this.one("jobs", j)),
         );
-      } else if (name === "products")
+      } else if (name === "products") {
         await this.page(
           "products",
           "products",
@@ -1005,6 +1020,8 @@ export class FirebaseBackend extends Backend {
           ),
           true,
         );
+        await this.loadProductStock();
+      }
       else if (name === "receive" && id) {
         await this.one("shipments", id, true);
         const row = this.db.shipments[id];
@@ -1069,6 +1086,21 @@ export class FirebaseBackend extends Backend {
           ),
           true,
         );
+        // Opened from a low-stock row in another warehouse: load this product's pallets too, wherever they sort.
+        const product = new URLSearchParams(route.q || "").get("product");
+        if (product)
+          for (const state of ["STORED", "RECEIVED"])
+            await this.page(
+              "candidates-product-" + state,
+              "pallets",
+              query(
+                this.col("pallets"),
+                where("receiving.product_code", "in", productCodeVariants(product)),
+                where("archived_at", "==", null),
+                where("state", "==", state),
+                limit(100),
+              ),
+            );
       } else if (name === "transfer" && id) {
         await this.one("transfers", id, true);
         if (gen !== this.viewGeneration) return;
@@ -1132,7 +1164,7 @@ export class FirebaseBackend extends Backend {
         await this.loadCounts("locations");
       if (["jobs", "job", "overview"].includes(name))
         await this.loadCounts("jobs");
-      if (["receive", "import", "pallet"].includes(name))
+      if (["receive", "import", "pallet", "reconcile"].includes(name))
         await this.refreshSummary();
       if (name === "overview") {
         await this.refreshSummary();
@@ -1469,6 +1501,137 @@ export class FirebaseBackend extends Backend {
       ).data as { values: Record<string, any> };
       for (const [id, counts] of Object.entries(result.values))
         if (this.db[table][id]) Object.assign(this.db[table][id], counts);
+    }
+    this.bump(false);
+  }
+  /** Stock on hand per product here, keyed by product id; counted on the server. */
+  productStock: Record<string, Stock> = {};
+  async loadProductStock(ids = Object.keys(this.db.products)) {
+    if (this.network === "offline" || !this.activeWorkspace) return;
+    const ws = this.activeWorkspace;
+    const mine = ids.filter((id) => this.db.products[id]?.workspace_id === ws);
+    for (let i = 0; i < mine.length; i += 50) {
+      const result = (
+        await httpsCallable(
+          this.functions!,
+          "getDirectoryCounts",
+        )({ workspaceId: ws, table: "products", ids: mine.slice(i, i + 50) })
+      ).data as { values: Record<string, Stock> };
+      if (ws !== this.activeWorkspace) return;
+      Object.assign(this.productStock, result.values);
+    }
+    this.bump(false);
+  }
+  /** The Dashboard summary is cached on the server for a minute; show a reorder note at once. */
+  patchLowStock(productId: string, reorder_note: ProductMemory["reorder_note"]) {
+    const row = this.summary?.low_stock?.find((r: any) => r.product?.id === productId);
+    if (!row) return;
+    row.product = { ...row.product, reorder_note };
+    this.summary = { ...this.summary, low_stock: [...this.summary.low_stock] };
+    this.bump(false);
+  }
+  /** How many of a product the person's other warehouses hold, for "bring it from there". */
+  async stockElsewhere(
+    code: string,
+  ): Promise<{ workspace_id: string; name: string; units: number; qty: number }[]> {
+    const targets = await this.transferTargets();
+    const rows = await Promise.all(
+      targets.map(async (t) => {
+        const id = productKey(t.workspace_id, code);
+        try {
+          const result = (
+            await httpsCallable(
+              this.functions!,
+              "getDirectoryCounts",
+            )({ workspaceId: t.workspace_id, table: "products", ids: [id], qty: true })
+          ).data as { values: Record<string, Stock> };
+          const s = result.values[id];
+          return { ...t, units: s?.units ?? 0, qty: s?.qty ?? 0 };
+        } catch {
+          return { ...t, units: 0, qty: 0 };
+        }
+      }),
+    );
+    return rows.filter((r) => r.units > 0);
+  }
+  /** Pallets that left on one dispatch, for its slip. */
+  async dispatchUnits(ref: string): Promise<Pallet[]> {
+    if (this.network === "offline" || !this.activeWorkspace)
+      return Object.values(this.db.pallets).filter((p) => p.dispatch?.ref === ref);
+    const s = await this.docs(
+      query(this.col("pallets"), where("dispatch.ref", "==", ref), orderBy("code"), limit(100)),
+    );
+    const rows = s.docs.map((d) => d.data() as Pallet);
+    this.ingest("pallets", rows);
+    return rows;
+  }
+  /** Pallet counts by status in each of the person's warehouses in this account. */
+  async warehouseRows(): Promise<WarehouseRow[]> {
+    if (this.network === "offline" || !this.activeWorkspace)
+      throw Error("Reconnect to compare your warehouses.");
+    const here = this.activeWorkspace;
+    const all = [
+      { workspace_id: here, name: this.db.workspaces[here]?.name ?? "This warehouse" },
+      ...(await this.transferTargets()),
+    ];
+    return Promise.all(
+      all.map(async (w) => {
+        try {
+          const data = (
+            await httpsCallable(
+              this.functions!,
+              "getWarehouseSummary",
+            )({ workspaceId: w.workspace_id })
+          ).data as any;
+          return { ...w, current: w.workspace_id === here, counts: data.counts ?? {}, holds: data.holds ?? null };
+        } catch {
+          return { ...w, current: w.workspace_id === here, counts: {}, holds: null };
+        }
+      }),
+    );
+  }
+  /** Load what one report needs: every pallet here, the spots, transfers, or the counting and adjustment history. */
+  async prepareReport(id: ReportId, progress: (rows: number) => void) {
+    if (this.network === "offline")
+      throw Error("Reconnect to prepare a complete report. This device only holds the records you opened.");
+    const gen = this.generation;
+    let n = 0;
+    const all = async (table: string, q: Query, max = 20000) => {
+      let cursor: QueryDocumentSnapshot | undefined;
+      let got = 0;
+      do {
+        const s = await this.docs(query(q, ...(cursor ? [startAfter(cursor)] : []), limit(100)));
+        if (gen !== this.generation) throw Error("Warehouse changed.");
+        this.ingest(table, s.docs.map((d) => d.data()));
+        got += s.size;
+        n += s.size;
+        progress(n);
+        cursor = s.size === 100 && got < max ? s.docs.at(-1) : undefined;
+      } while (cursor);
+    };
+    if (["product", "zone", "aging"].includes(id))
+      await all(
+        "pallets",
+        query(this.col("pallets"), where("archived_at", "==", null), where("state", "in", ["RECEIVED", "STORED"]), orderBy("code")),
+      );
+    if (id === "product") await all("products", query(this.col("products"), orderBy(documentId())));
+    if (id === "zone" || id === "aging") await all("locations", query(this.col("locations"), orderBy(documentId())));
+    if (id === "transfers") await all("transfers", query(this.col("transfers"), orderBy("created_at", "desc")), 5000);
+    if (id === "adjustments") {
+      await all(
+        "events",
+        query(this.col("events"), where("type", "in", [...ADJUSTMENT_EVENTS]), orderBy("accepted_at", "desc")),
+        5000,
+      );
+      const events = Object.values(this.db.events).flat();
+      const actors = new Set(events.map((e) => e.actor_id));
+      await Promise.all([...actors].map((uid) => (this.db.users[uid] ? Promise.resolve() : this.one("members", uid, true))));
+      // Pallet codes for the rows: the history keeps where it was, not its code.
+      const ids = [...new Set(events.map((e) => e.pallet_id))].slice(0, 1000);
+      for (let i = 0; i < ids.length; i += 20) {
+        await Promise.all(ids.slice(i, i + 20).map((pid) => this.one("pallets", pid)));
+        if (gen !== this.generation) throw Error("Warehouse changed.");
+      }
     }
     this.bump(false);
   }

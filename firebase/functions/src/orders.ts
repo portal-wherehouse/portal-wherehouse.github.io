@@ -28,8 +28,8 @@ interface Loader {
   query: (table: string, q: Query) => Promise<void>;
 }
 
-/** Order numbers, batch numbers and package numbers each have their own counter. */
-export const SEQ_LETTERS = ["O", "B", "K"] as const;
+/** Order, batch, package and dispatch numbers each have their own counter. */
+export const SEQ_LETTERS = ["O", "B", "K", "D"] as const;
 
 async function seq(l: Loader, letter: (typeof SEQ_LETTERS)[number]) {
   const c = await l.tx.get(l.root.collection("private").doc(`seq_${letter}`));

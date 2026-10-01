@@ -2,6 +2,7 @@ import { canReadWarehouse } from "./access";
 import { warehouseDate } from "../../../src/domain/receiving";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
+import { lowStock, productStock } from "./stock";
 export async function warehouseSummary(request: any) {
   const uid = request.auth?.uid,
     ws = request.data?.workspaceId;
@@ -30,6 +31,7 @@ export async function warehouseSummary(request: any) {
     cached.get("value")?.optional_jobs_version === 1 &&
     cached.get("value")?.warehouse_settings_version === 1 &&
     cached.get("value")?.orders_version === 1 &&
+    cached.get("value")?.stock_version === 1 &&
     Date.now() - cached.get("at") < 60000
   )
     return cached.get("value");
@@ -102,6 +104,7 @@ export async function warehouseSummary(request: any) {
     dueQuery.limit(50).get(),
     count(dueQuery),
   ]);
+  const low_stock = await lowStock(root);
   const reminders = due.docs.map((d) => ({
     id: d.id,
     code: d.get("code"),
@@ -118,6 +121,8 @@ export async function warehouseSummary(request: any) {
     optional_jobs_version: 1,
     warehouse_settings_version: 1,
     orders_version: 1,
+    stock_version: 1,
+    low_stock,
     reminders,
     reminder_count,
     at: new Date().toISOString(),
@@ -135,14 +140,18 @@ export async function directoryCounts(request: any) {
     !uid ||
     !request.auth.token.email_verified ||
     !/^[\w-]{1,128}$/.test(ws || "") ||
-    !["jobs", "locations"].includes(table) ||
+    !["jobs", "locations", "products"].includes(table) ||
     !Array.isArray(ids) ||
     ids.length > 50 ||
-    ids.some((id) => !/^[\w-]{1,128}$/.test(id))
+    ids.some((id) =>
+      table === "products"
+        ? typeof id !== "string" || !/^p_[\w%.!~*'()-]{1,400}$/.test(id)
+        : !/^[\w-]{1,128}$/.test(id),
+    )
   )
     throw new HttpsError(
       "invalid-argument",
-      "Choose up to 50 jobs or locations.",
+      "Choose up to 50 jobs, locations or products.",
     );
   const db = getFirestore(),
     root = db.doc(`workspaces/${ws}`),
@@ -159,10 +168,34 @@ export async function directoryCounts(request: any) {
   for (let start = 0; start < ids.length; start += 5)
     await Promise.all(
       ids.slice(start, start + 5).map(async (id: string) => {
-        const cache = root.collection("private").doc(`count_${table}_${id}`),
+        const cache = root
+            .collection("private")
+            .doc(
+              `count_${table}${table === "products" && request.data?.qty === true ? "_q" : ""}_${id}`,
+            ),
           old = await cache.get();
         if (old.get("at") && Date.now() - old.get("at") < 60000) {
           result[id] = old.get("value");
+          return;
+        }
+        if (table === "products") {
+          // A product's stock here. The product need not be saved in this warehouse: its code is in the id.
+          const prefix = `p_${encodeURIComponent(ws)}_`;
+          if (!id.startsWith(prefix)) return;
+          let code: string;
+          try {
+            code = decodeURIComponent(id.slice(prefix.length));
+          } catch {
+            return;
+          }
+          const saved = await root.collection("products").doc(id).get();
+          const value = await productStock(
+            root,
+            code,
+            saved.get("count_by") === "quantity" || request.data?.qty === true,
+          );
+          result[id] = value;
+          await cache.set({ at: Date.now(), value });
           return;
         }
         if (!(await root.collection(table).doc(id).get()).exists) return;

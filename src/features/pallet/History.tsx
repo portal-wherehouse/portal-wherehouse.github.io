@@ -2,7 +2,8 @@
 
 import { useApp } from '../../app/state';
 import { EVENT_LABEL } from '../../domain/transitions';
-import type { PalletEvent, PalletSnapshot, User } from '../../domain/types';
+import { ADJUST_LABEL, adjustLine } from '../../domain/stock';
+import type { AdjustReason, PalletEvent, PalletSnapshot, User } from '../../domain/types';
 import { Icon, type IconName } from '../../ui/icons';
 import { fmtFull, fmtTime } from '../../ui/ui';
 
@@ -39,14 +40,24 @@ const EVENT_ICON: Record<string, IconName> = {
   hand_off: 'truck',
   pick_missing: 'question',
   pick_hold: 'hold',
+  adjust_qty: 'layers',
+  review_adjust: 'check',
 };
+
+/** The title for an entry; quantity changes say whether they wait for approval or how the review went. */
+function eventTitle(e: PalletEvent): string {
+  if (e.type === 'adjust_qty' && e.detail.pending) return 'Quantity change requested';
+  if (e.type === 'review_adjust') return e.detail.approved ? 'Quantity change approved' : 'Quantity change turned down';
+  if (e.type === 'adjust_qty' && e.detail.adjust_reason) return `Quantity changed: ${ADJUST_LABEL[e.detail.adjust_reason as AdjustReason]}`;
+  return EVENT_LABEL[e.type] ?? e.type;
+}
 
 const TONE: Record<string, string> = { pick_missing: 'bad', mark_missing: 'bad', correct: 'accent', locate: 'ok', split: 'accent', retire: 'bad', transfer_send: 'accent', transfer_receive: 'accent' };
 
 /** Lower-case state words for the change line: "in transit", not "in_transit". */
 const stateWord = (s: string) => s.toLowerCase().replace(/_/g, ' ');
 
-function Change({ before, after }: { before: PalletSnapshot | null; after: PalletSnapshot }) {
+function Change({ before, after, quiet }: { before: PalletSnapshot | null; after: PalletSnapshot; quiet?: boolean }) {
   const parts: React.ReactNode[] = [];
   const loc = (s: PalletSnapshot | null) => s?.current_location_code ?? (s?.state === 'STORED' ? '?' : 'none');
   if (!before) {
@@ -96,7 +107,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
       );
     if (before.archived !== after.archived) parts.push(<strong key="arch">archived</strong>);
   }
-  if (!parts.length) return <span className="muted">No change to state or location.</span>;
+  if (!parts.length) return quiet ? null : <span className="muted">No change to state or location.</span>;
   return <>{parts.reduce<React.ReactNode[]>((acc, p, i) => (i ? [...acc, <span key={`s${i}`} className="faint">·</span>, p] : [p]), [])}</>;
 }
 
@@ -111,18 +122,32 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
           </span>
           <div>
             <div className="tl-head">
-              <span className="tl-title">{EVENT_LABEL[e.type] ?? e.type}</span>
+              <span className="tl-title">{eventTitle(e)}</span>
               {prefs.advancedTools && <span className="tag">v{e.revision}</span>}
               <span className="muted" style={{ fontSize: 13.5 }} title={`${fmtFull(e.accepted_at)} · stored as ${e.accepted_at} (UTC)`}>
                 {fmtTime(e.accepted_at)} · {users[e.actor_id]?.name ?? (e.detail.actor_name ? String(e.detail.actor_name) : 'Unknown person')}
               </span>
             </div>
             <div className="tl-change">
-              <Change before={e.before_state} after={e.after_state} />
+              <Change before={e.before_state} after={e.after_state} quiet={!!e.detail.adjust_reason} />
             </div>
             {e.detail.destination && (
               <div className="tl-change muted">
                 Destination: <strong>{String(e.detail.destination)}</strong>
+                {e.detail.dispatch_ref ? (
+                  <>
+                    {' '}
+                    on dispatch <span className="mono">{String(e.detail.dispatch_ref)}</span>
+                  </>
+                ) : null}
+              </div>
+            )}
+            {e.detail.adjust_reason && (
+              <div className="tl-change" data-testid="adjust-line">
+                <strong>{adjustLine(e.detail.adjust_reason as AdjustReason, Number(e.detail.amount ?? 0), e.detail.from_qty === null || e.detail.from_qty === undefined ? null : Number(e.detail.from_qty), Number(e.detail.to_qty ?? 0), e.detail.unit ? String(e.detail.unit) : null)}</strong>
+                {e.detail.pending ? <span className="muted">. Waiting for a manager to approve.</span> : null}
+                {e.detail.requested_by ? <span className="muted">. Asked by {String(e.detail.requested_by)}.</span> : null}
+                {e.detail.retired ? <span className="muted"> Nothing left, so it was retired.</span> : null}
               </div>
             )}
             {e.detail.transfer_id && (

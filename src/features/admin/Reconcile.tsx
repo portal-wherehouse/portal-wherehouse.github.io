@@ -13,8 +13,11 @@ import { Empty, Explain, PageHead, Spinner, fmtAgo } from '../../ui/ui';
 import { ResultRow } from '../find/Find';
 import { LabelSheet } from '../labels/LabelSheet';
 import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
+import { RunningLow } from '../stock/RunningLow';
+import { useLowStock } from '../stock/useStock';
+import { ReviewAdjust } from '../stock/Adjust';
 
-type ListId = 'unplaced' | 'missing' | 'holds' | 'reprint' | 'stale';
+type ListId = 'unplaced' | 'missing' | 'holds' | 'reprint' | 'stale' | 'approvals' | 'low';
 
 const LISTS: { id: ListId; title: string; icon: IconName; what: string; fix: string }[] = [
   { id: 'unplaced', title: 'Needs placement', icon: 'receive', what: 'Received but never put on a rack.', fix: 'Walk to the pallet, then use Move: scan it, scan its rack.' },
@@ -22,13 +25,16 @@ const LISTS: { id: ListId; title: string; icon: IconName; what: string; fix: str
   { id: 'holds', title: 'On hold', icon: 'hold', what: 'Flagged as damaged, wrong or disputed.', fix: 'Inspect it. A supervisor clears the hold with a reason.' },
   { id: 'reprint', title: 'Labels to reprint', icon: 'print', what: 'The label was replaced, or details changed after printing.', fix: 'Print new labels and stick them over the old ones.' },
   { id: 'stale', title: 'Not verified 3+ days', icon: 'check', what: 'Stored, but nobody has confirmed the rack recently.', fix: 'During a walk, open Move, scan the pallet and the rack it is on, and press “Confirm still here”, or use Confirm still here on the pallet record.' },
+  { id: 'approvals', title: 'Quantity changes', icon: 'edit', what: 'Quantity changes waiting for a manager to approve.', fix: 'Check the pallet if you need to, then approve the change or turn it down. Both are recorded in its history.' },
+  { id: 'low', title: 'Running low', icon: 'alert', what: 'Products below the minimum set on Products and barcodes.', fix: 'Bring more from another warehouse on a transfer, or note that more is on order. A reorder note clears itself when the product is received.' },
 ];
 
 export function Reconcile() {
-  const { read, go, backend, v, role } = useApp();
-  const [tab, setTab] = useState<ListId>('unplaced');
+  const { read, go, backend, v, role, route } = useApp();
+  const [tab, setTab] = useState<ListId>(LISTS.some((l) => l.id === route.q) ? (route.q as ListId) : 'unplaced');
+  const low = useLowStock();
   useEffect(()=>{if(!(backend instanceof FirebaseBackend))return;const filters=[where('archived_at','==',null)];
-  if(tab==='unplaced')filters.push(where('state','==','RECEIVED'));if(tab==='missing')filters.push(where('state','==','MISSING'));if(tab==='holds')filters.push(where('has_hold','==',true));if(tab==='reprint')filters.push(where('label_needs_reprint','==',true));if(tab==='stale')filters.push(where('state','==','STORED'),where('last_confirmed_at','<',new Date(Date.now()-3*86400000).toISOString()));
+  if(tab==='unplaced')filters.push(where('state','==','RECEIVED'));if(tab==='missing')filters.push(where('state','==','MISSING'));if(tab==='holds')filters.push(where('has_hold','==',true));if(tab==='reprint')filters.push(where('label_needs_reprint','==',true));if(tab==='stale')filters.push(where('state','==','STORED'),where('last_confirmed_at','<',new Date(Date.now()-3*86400000).toISOString()));if(tab==='approvals')filters.push(where('has_pending_adjust','==',true));if(tab==='low')return;
   void backend.filteredList('records',filters);},[backend,tab]);
   const [printing, setPrinting] = useState<string[] | null>(null);
   const bulk = useBulk();
@@ -43,7 +49,7 @@ export function Reconcile() {
           .filter((p) => p.workspace_id === ws && !p.archived_at && p.state === 'STORED' && p.last_confirmed_at && Date.now() - new Date(p.last_confirmed_at).getTime() > 3 * 86_400_000)
           .sort((a, b) => (a.last_confirmed_at ?? '').localeCompare(b.last_confirmed_at ?? ''))
           .map((pallet) => ({ pallet, job: e.db.jobs[pallet.job_id], location: pallet.current_location_id ? e.db.locations[pallet.current_location_id] : null, lastLocation: pallet.last_confirmed_location_id ? e.db.locations[pallet.last_confirmed_location_id] : null }));
-        return { ...r, stale } as Record<ListId, SearchRow[]>;
+        return { ...r, stale, low: [] } as Record<ListId, SearchRow[]>;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [v, backend.network],
@@ -51,7 +57,8 @@ export function Reconcile() {
   if (!data) return null;
   const meta = LISTS.find((l) => l.id === tab)!;
   const rows = [...data[tab], ...pinnedRows(backend.db, bulk, data[tab].map((r) => r.pallet.id))];
-  const total = LISTS.reduce((n, l) => n + data[l.id].length, 0);
+  const total = LISTS.reduce((n, l) => n + (l.id === 'low' ? (low?.length ?? 0) : data[l.id].length), 0);
+  const tabCount = (id: ListId) => (id === 'low' ? (low?.length ?? 0) : data[id].length);
 
   return (
     <div className="stack">
@@ -62,7 +69,7 @@ export function Reconcile() {
       <div className="tabs wrap" role="tablist" data-tour="reconcile-lists">
         {LISTS.map((l) => (
           <button key={l.id} role="tab" aria-selected={tab === l.id} onClick={() => setTab(l.id)}>
-            <Icon name={l.icon} /> {l.title} {backend.mode==='demo'&&<span className="tag">{data[l.id].length}</span>}
+            <Icon name={l.icon} /> {l.title} {(backend.mode==='demo'||l.id==='low')&&<span className="tag">{tabCount(l.id)}</span>}
           </button>
         ))}
       </div>
@@ -73,7 +80,9 @@ export function Reconcile() {
           <div className="n-body">{meta.fix}</div>
         </div>
       </div>
-      {rows.length === 0 ? (
+      {tab === 'low' ? (
+        <RunningLow />
+      ) : rows.length === 0 ? (
         <Empty icon="checkCircle" title={`Nothing in “${meta.title}”`}>
           This list is clear.
         </Empty>
@@ -126,6 +135,7 @@ export function Reconcile() {
                       <AppliedButton pallet={r.pallet} />
                     </>
                   )}
+                  {tab === 'approvals' && r.pallet.pending_adjust && <ReviewAdjust pallet={r.pallet} />}
                   {tab === 'stale' &&
                     (roleAllows(role, 'verify_location') ? (
                       <button className="btn small" onClick={() => go({ name: 'move', id: r.pallet.id })}>

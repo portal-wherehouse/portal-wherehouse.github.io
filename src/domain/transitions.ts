@@ -1,10 +1,11 @@
 import { blankInfo, receivingSchema } from './receiving';
 import { STATE_LABEL } from './display';
+import { adjustQty, withQty } from './stock';
 // Pure transition checker (blueprint pages 7, 12, 14, 15, 21).
 // Given the locked, re-read server values, decide whether a command is allowed and what it changes.
 // The engine owns persistence; this module owns the rules.
 
-import type { CommandKind, ErrorCode, EventType, Job, Location, Pallet, PalletCommandKind, PalletState, Role } from './types';
+import type { AdjustReason, CommandKind, ErrorCode, EventType, Job, Location, Pallet, PalletCommandKind, PalletState, Role } from './types';
 
 export const ROLE_RANK: Record<Role, number> = { VIEWER: 0, OPERATOR: 1, SUPERVISOR: 2, OWNER: 3 };
 
@@ -72,6 +73,12 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   hand_off: 'OPERATOR',
   pick: 'OPERATOR',
   substitute: 'OPERATOR',
+  // Stock: operators record quantity changes (a manager approves them when the warehouse asks for that); managers set
+  // minimums on products, note reorders and decide whether quantity changes need approval.
+  adjust_qty: 'OPERATOR',
+  review_adjust: 'SUPERVISOR',
+  note_reorder: 'SUPERVISOR',
+  set_adjust_approval: 'SUPERVISOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -140,6 +147,10 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   hand_off: 'Handed off',
   pick: 'Picked',
   substitute: 'Picked as substitute',
+  adjust_qty: 'Quantity changed',
+  review_adjust: 'Quantity change reviewed',
+  note_reorder: 'Reorder noted',
+  set_adjust_approval: 'Quantity approval changed',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {
@@ -182,6 +193,7 @@ export type PalletPatch = Partial<
     | 'supplier_ref'
     | 'archived_at'
     | 'label_needs_reprint'
+    | 'pending_adjust'
   >
 >;
 
@@ -250,11 +262,11 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
 
   // A pallet on a transfer belongs to the transfer until it is received or the transfer is cancelled.
   if (pallet.state === 'IN_TRANSIT') return reject('INVALID_STATE', inTransitMessage(pallet));
-  if (pallet.state === 'PICKED' && !WHILE_PICKED.includes(kind)) {
+  if (pallet.state === 'PICKED' && !WHILE_PICKED.includes(kind) && kind !== 'review_adjust') {
     return reject('INVALID_STATE', kind === 'pick' || kind === 'substitute' ? `${pallet.code} is already picked${pallet.order ? ` for ${pallet.order.order_code}` : ''}.` : pickedMessage(pallet));
   }
 
-  if (pallet.state === 'RETIRED' && !['correct', 'archive'].includes(kind)) {
+  if (pallet.state === 'RETIRED' && !['correct', 'archive', 'review_adjust'].includes(kind)) {
     return reject('INVALID_STATE', `${pallet.code} is retired. A supervisor can correct a mistaken retirement.`);
   }
 
@@ -483,6 +495,29 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
       if (pallet.hold) return reject('INVALID_STATE', `${pallet.code} is on hold (${pallet.hold.reason}). Pick another unit.`);
       return { ok: true, patch: { state: 'PICKED', current_location_id: null }, reason: null, detail: {} };
     }
+    case 'adjust_qty': {
+      if (pallet.state !== 'STORED' && pallet.state !== 'RECEIVED') return reject('INVALID_STATE', `${pallet.code} is ${STATE_LABEL[pallet.state].toLowerCase()}. Only a pallet here can have its quantity changed.`);
+      if (pallet.pending_adjust) return reject('INVALID_STATE', `${pallet.code} has a quantity change waiting for a manager. It needs approving or turning down first.`);
+      const why = payload.reason as AdjustReason;
+      const amount = Number(payload.amount);
+      const r = adjustQty(pallet.receiving?.quantity, why, amount);
+      if (!r.ok) return reject('INVALID_INPUT', r.message);
+      return adjusted(pallet, why, amount, r.from, r.to, str(payload.note) || null);
+    }
+    case 'review_adjust': {
+      const pend = pallet.pending_adjust;
+      if (!pend) return reject('INVALID_STATE', `${pallet.code} has no quantity change waiting for approval.`);
+      const note = str(payload.note) || null;
+      const detail = { adjust_reason: pend.reason, amount: pend.amount, from_qty: pend.from_qty, to_qty: pend.to_qty, unit: pallet.receiving?.unit || null, requested_by: pend.by_name, approved: !!payload.approve };
+      if (!payload.approve) return { ok: true, patch: { pending_adjust: null }, reason: note, detail };
+      if (pallet.state !== 'STORED' && pallet.state !== 'RECEIVED') return reject('INVALID_STATE', `${pallet.code} is ${STATE_LABEL[pallet.state].toLowerCase()} now. Turn the change down instead.`);
+      // Worked out again from the quantity recorded now, in case details were edited while it waited.
+      const r = adjustQty(pallet.receiving?.quantity, pend.reason, pend.amount);
+      if (!r.ok) return reject('INVALID_STATE', `${r.message} Turn the change down, or ask for a new one.`);
+      const a = adjusted(pallet, pend.reason, pend.amount, r.from, r.to, note);
+      if (a.ok) Object.assign(a.detail, { requested_by: pend.by_name, approved: true });
+      return a.ok ? { ...a, patch: { ...a.patch, pending_adjust: null } } : a;
+    }
     case 'add_photo':
     case 'remove_photo':
       // Attachment checks live in the engine; the pallet itself only gains a revision.
@@ -492,6 +527,18 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
   }
 }
 
+/**
+ * A quantity change: the new quantity text, keeping any words after the number. Using up the last of it retires the
+ * pallet, since nothing is left to keep track of.
+ */
+function adjusted(pallet: Pallet, why: AdjustReason, amount: number, from: number | null, to: number, note: string | null): TransitionOutcome {
+  const receiving = { ...blankInfo(), ...(pallet.receiving ?? {}), quantity: withQty(pallet.receiving?.quantity, to) };
+  const gone = to === 0;
+  const patch: PalletPatch = { receiving };
+  if (gone) Object.assign(patch, { state: 'RETIRED', current_location_id: null });
+  return { ok: true, patch, reason: note, detail: { adjust_reason: why, amount, from_qty: from, to_qty: to, unit: pallet.receiving?.unit || null, retired: gone } };
+}
+
 /** Actions to offer on a pallet record for this role. The server re-checks everything. */
 export function availableActions(pallet: Pallet, role: Role | null): PalletCommandKind[] {
   if (!role || pallet.state === 'IN_TRANSIT') return [];
@@ -499,6 +546,7 @@ export function availableActions(pallet: Pallet, role: Role | null): PalletComma
   const add = (k: PalletCommandKind, when: boolean) => when && roleAllows(role, k) && out.push(k);
   if (pallet.state === 'PICKED') {
     for (const k of WHILE_PICKED) add(k, k !== 'label_applied' || pallet.label_needs_reprint);
+    add('review_adjust', !!pallet.pending_adjust);
     return out;
   }
   const s = pallet.state;
@@ -520,6 +568,8 @@ export function availableActions(pallet: Pallet, role: Role | null): PalletComma
   add('rotate_label', s !== 'RETIRED');
   add('label_applied', pallet.label_needs_reprint && s !== 'RETIRED');
   add('split', s === 'STORED' && !pallet.hold);
+  add('adjust_qty', (s === 'STORED' || s === 'RECEIVED') && !pallet.pending_adjust);
+  add('review_adjust', !!pallet.pending_adjust);
   return out;
 }
 

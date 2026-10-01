@@ -16,6 +16,7 @@ import {
   ROLE_LABEL,
 } from "../../ui/ui";
 import { OrdersSetting } from "../orders/OrdersSetting";
+import { ApprovalSetting } from "../stock/ApprovalSetting";
 
 export function Settings() {
   const { backend } = useApp();
@@ -68,6 +69,7 @@ function DemoSettings() {
       />
 
       {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
+      {(role === "OWNER" || role === "SUPERVISOR") && <ApprovalSetting />}
 
       <div className="panel stack" data-tour="settings-display">
         <div className="panel-title">Display</div>
@@ -333,6 +335,7 @@ function LiveSettings() {
         <span>{role ? ROLE_LABEL[role] : "Team member"}</span>
       </div>
       {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
+      {(role === "OWNER" || role === "SUPERVISOR") && <ApprovalSetting />}
       <div className="panel stack">
         <Setting label="Theme">
           <Seg<Prefs["theme"]>
