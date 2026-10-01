@@ -5,6 +5,7 @@ export const STATE_LABEL: Record<PalletState, string> = {
   RECEIVED: 'Received',
   STORED: 'Stored',
   IN_TRANSIT: 'In transit',
+  PICKED: 'Picked',
   DISPATCHED: 'Dispatched',
   MISSING: 'Missing',
   RETIRED: 'Retired',

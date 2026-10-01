@@ -1,6 +1,7 @@
 // Scan station logic: what a scan means in each mode, put-away line planning and count classification.
 // Pure functions over plain records (no React, no storage), so every rule here is unit-tested.
 
+import { whereInOrder } from '../../domain/orders';
 import { parseScanCommand, type ScanCommand } from '../../device/scanCommands';
 import type { ScanSource } from '../../device/scanRouter';
 import type { Outcome } from '../../data/backend';
@@ -120,6 +121,8 @@ export function whereLine(p: Pallet, codeOf: CodeOf, now = Date.now()): string {
     }
     case 'IN_TRANSIT':
       return `In transit to ${p.transfer?.to_name ?? 'another warehouse'}${p.transfer ? ` on ${p.transfer.number}` : ''}`;
+    case 'PICKED':
+      return p.order ? `Picked ${whereInOrder(p.order)}` : 'Picked for an order';
     case 'DISPATCHED':
       return 'Dispatched. It has left the warehouse';
     case 'RETIRED':
@@ -138,6 +141,8 @@ export function whereShort(p: Pallet, codeOf: CodeOf): string {
       return 'Marked missing';
     case 'IN_TRANSIT':
       return 'In transit';
+    case 'PICKED':
+      return p.order ? `Picked for ${p.order.order_code}` : 'Picked';
     case 'DISPATCHED':
       return 'Dispatched';
     case 'RETIRED':
@@ -289,6 +294,8 @@ export function countRowFor(p: Pallet, rack: Location, codeOf: CodeOf): { list: 
       const last = codeOf(p.last_confirmed_location_id);
       return { list: 'unexpected', row: row('locate', `Marked missing${last ? `, last confirmed at ${last}` : ''}`) };
     }
+    case 'PICKED':
+      return { list: 'unexpected', row: row(null, `Picked for ${p.order?.order_code ?? 'an order'}. It should be in a tote or package, not on a spot.`) };
     case 'IN_TRANSIT':
       return { list: 'unexpected', row: row(null, `In transit on ${p.transfer?.number ?? 'a transfer'}. Receive it at ${p.transfer?.to_name ?? 'its destination'}, or ask a manager to cancel the transfer.`) };
     case 'DISPATCHED':

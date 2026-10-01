@@ -29,7 +29,7 @@ export async function testOfflineWarehouse(page, db, uid, ws) {
   await expect.poll(()=>page.evaluate(()=>!!window.__wherehouseBackend.cache)).toBe(true);
   await page.locator('#manual-code').fill(fixture.code);await page.locator('#manual-code').press('Enter');
   await page.locator('#manual-code').fill('A-01-02');await page.locator('#manual-code').press('Enter');
-  await page.getByRole('button',{name:'Queue: move A-01-02',exact:true}).click();
+  // One scan of the spot saves the move, which queues while offline.
   await expect.poll(()=>page.evaluate(()=>window.__wherehouseBackend.outbox.entries.filter(e=>e.status==='queued').length)).toBe(1);
   const queued=await page.evaluate(()=>window.__wherehouseBackend.outbox.entries[0]);
   assert.equal((await db.doc(`workspaces/${ws}/pallets/${fixture.id}`).get()).get('version'),fixture.version);

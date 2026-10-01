@@ -13,6 +13,7 @@ import { Icon } from '../../ui/icons';
 import { useCommand } from '../../ui/useCommand';
 import { Explain, Notice, PageHead, PermissionDenied, Spinner, fmtAgo } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
+import { useOrdersOn } from '../../app/words';
 import { ImportHistory, KIND_LABEL } from './ImportHistory';
 import { ProductForm, ProductLabelSheet } from '../receive/Products';
 import type { ProductMemory } from '../../domain/receiving';
@@ -28,10 +29,11 @@ function storeTemplates(ws: string | null, list: SavedImportTemplate[]): boolean
 }
 
 export function Import() {
-  const { role, toast, backend, go, workspaceId, v } = useApp();
+  const { role, toast, backend, go, workspaceId, v, route } = useApp();
+  const ordersOn = useOrdersOn();
   // Incoming is the everyday import: a supplier's list of what's on the truck.
   const incomingOffered = !(backend instanceof FirebaseBackend) || backend.summary?.receiving_version === 1;
-  const [kind, setKind] = useState<ImportKind>(incomingOffered ? 'shipments' : 'locations');
+  const [kind, setKind] = useState<ImportKind>(ordersOn && route.q === 'orders' ? 'orders' : incomingOffered ? 'shipments' : 'locations');
   const [newType, setNewType] = useState(false);
   const [typeLabel, setTypeLabel] = useState<ProductMemory | null>(null);
   const [text, setText] = useState('');
@@ -73,7 +75,7 @@ export function Import() {
     );
   }
 
-  const kinds = (['shipments', 'locations', 'jobs', 'pallets'] as ImportKind[]).filter((k) => k !== 'shipments' || incomingOffered);
+  const kinds = (['shipments', 'locations', 'jobs', 'pallets', 'orders'] as ImportKind[]).filter((k) => (k !== 'shipments' || incomingOffered) && (k !== 'orders' || ordersOn));
   // A file whose header fits another template switches to it, instead of failing against the selected one.
   const adopt = (csv: string) => {
     const found = detectImportKind(csv, kinds);
@@ -175,10 +177,15 @@ export function Import() {
         />
       )}
       {typeLabel && <ProductLabelSheet product={typeLabel} onClose={() => setTypeLabel(null)} />}
-      <h2 className="panel-title" style={{ marginBottom: 0 }}>Delivery list (CSV)</h2>
+      <h2 className="panel-title" style={{ marginBottom: 0 }}>{kind === 'orders' ? 'Orders (CSV)' : 'Delivery list (CSV)'}</h2>
       {kind === 'shipments' && (
         <Notice tone="info" icon="barcode" title="Each row loads a pallet's barcode info into your system">
           So when that pallet arrives and you scan it on Receive, Wherehouse already knows what it is: the description, quantity, job and everything else in the file. It's counted as stock once it's scanned in. Rows with no barcode wait in <button className="link" onClick={() => go('incoming')}>Incoming</button>, where you can receive them by hand.
+        </Notice>
+      )}
+      {kind === 'orders' && (
+        <Notice tone="info" icon="box" title="Each row is one line of a customer order">
+          Rows with the same order number make one order. Give the product as its barcode or SKU, as saved in Products or on stock you received. New orders wait in <button className="link" onClick={() => go('orders')}>Pick orders</button>, ready to pick.
         </Notice>
       )}
       {kind === 'pallets' && (

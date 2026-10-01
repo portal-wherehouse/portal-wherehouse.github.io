@@ -39,14 +39,12 @@ await page.locator('#rcv-job').selectOption({ label: 'J-214 · School renovation
   await expect(shift.getByRole('heading', { name: 'Practice shift · 1/7' })).toBeVisible();
 
   await typeCode(page, 'A-03-02');
-  await page.getByRole('button', { name: 'Place: A-03-02' }).click();
   await expect(page.getByText('Placed at A-03-02')).toBeVisible();
   await expect(shift.getByRole('heading', { name: 'Practice shift · 2/7' })).toBeVisible();
 
   await nav(page, 'Put away and move');
   await typeCode(page, 'p-42');
   await typeCode(page, 'B-01-01');
-  await page.getByRole('button', { name: 'Move: B-01-01' }).click();
   await expect(page.getByText('Moved to B-01-01')).toBeVisible();
   await expect(shift.getByRole('heading', { name: 'Practice shift · 3/7' })).toBeVisible();
 
@@ -68,7 +66,6 @@ await page.locator('#rcv-job').selectOption({ label: 'J-214 · School renovation
 
   await page.getByRole('button', { name: 'Place', exact: true }).click();
   await typeCode(page, 'A-02-01');
-  await page.getByRole('button', { name: 'Place: A-02-01' }).click();
   await expect(page.getByText('Placed at A-02-01')).toBeVisible();
 
   await nav(page, 'Find');
@@ -107,7 +104,6 @@ test('offline move is queued, then saved when the connection returns', async ({ 
   await nav(page, 'Put away and move');
   await typeCode(page, 'P-000014');
   await typeCode(page, 'A-03-02');
-  await page.getByRole('button', { name: 'Queue: move A-03-02' }).click();
   await expect(page.getByText('Queued on this device, not confirmed')).toBeVisible();
   await page.getByRole('button', { name: 'Reconnect' }).click();
   await expect(page.getByText('Back online: 1 queued change saved')).toBeVisible();

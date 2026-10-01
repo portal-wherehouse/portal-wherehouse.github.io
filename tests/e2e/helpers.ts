@@ -1,6 +1,7 @@
 // Shared helpers for the end-to-end specs. Not a spec itself (Playwright only runs *.spec.ts).
 
 import { expect, type Page } from '@playwright/test';
+import { encodeCode128 } from '../../src/device/code128';
 
 export type DemoRole = 'owner' | 'supervisor' | 'operator' | 'viewer';
 
@@ -108,3 +109,46 @@ export async function wedgeScan(page: Page, code: string, { suffix = 'Enter' }: 
     );
   }
 }
+
+/** A fake camera that shows one Code 128 label at a time; `window.__show(text)` changes it, '' shows nothing. */
+export async function fakeCamera(page: Page, labels: string[]) {
+  const patterns = Object.fromEntries(labels.map((l) => [l, encodeCode128(l)]));
+  await page.addInitScript((patterns) => {
+    const w = window as unknown as { __show: (t: string) => void; __streams: MediaStream[]; __calls: number };
+    let showing = '';
+    w.__show = (t) => (showing = t);
+    w.__streams = [];
+    w.__calls = 0;
+    Object.defineProperty(window, 'BarcodeDetector', { value: undefined, configurable: true });
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+      value: async () => {
+        w.__calls++;
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const c = canvas.getContext('2d')!;
+        const draw = () => {
+          c.fillStyle = 'white';
+          c.fillRect(0, 0, canvas.width, canvas.height);
+          const p = patterns[showing];
+          if (p) {
+            c.fillStyle = 'black';
+            let x = (canvas.width - p.modules * 3) / 2;
+            for (let i = 0; i < p.widths.length; i++) {
+              if (i % 2 === 0) c.fillRect(x, 140, p.widths[i] * 3, 200);
+              x += p.widths[i] * 3;
+            }
+          }
+        };
+        draw();
+        setInterval(draw, 50);
+        const stream = canvas.captureStream(10);
+        w.__streams.push(stream);
+        return stream;
+      },
+    });
+  }, patterns);
+}
+
+export const show = (page: Page, text: string) => page.evaluate((t) => (window as unknown as { __show: (t: string) => void }).__show(t), text);
+

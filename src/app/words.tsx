@@ -4,6 +4,7 @@
 import { useLayoutEffect } from 'react';
 import { useApp } from './state';
 import { isDefaultWords, setupOf, swapWords } from '../domain/terms';
+import { ordersOf } from '../domain/orders';
 import type { WarehouseSetup } from '../domain/types';
 
 export function useSetup(): WarehouseSetup {
@@ -15,6 +16,13 @@ export function useSetup(): WarehouseSetup {
 /** Whether jobs (or whatever the warehouse calls them) are turned on. */
 export function useJobsOn(): boolean {
   return useSetup().jobs_on;
+}
+
+/** Whether "Orders and picking" is on for the active warehouse. */
+export function useOrdersOn(): boolean {
+  const { backend, workspaceId } = useApp();
+  const wh = Object.values(backend.db.warehouses).find((w) => w.workspace_id === workspaceId && w.active);
+  return ordersOf(wh).on;
 }
 
 const ATTRS = ['aria-label', 'placeholder', 'title', 'alt'];

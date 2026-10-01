@@ -12,8 +12,8 @@ import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
 import { ScanReadyPanel } from '../scan/ScanReady';
 
-const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'MISSING', 'DISPATCHED', 'RETIRED'];
-const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
+const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'PICKED', 'MISSING', 'DISPATCHED', 'RETIRED'];
+const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', PICKED: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
 /** The everyday tasks, first on the Dashboard after Ready to scan. */
 const ACTIONS: { to: Route; title: string; hint: string; icon: IconName; needs?: CommandKind }[] = [
   {to:{name:'receive'},title:'Receive',hint:'A delivery came in',icon:'receive',needs:'receive'},

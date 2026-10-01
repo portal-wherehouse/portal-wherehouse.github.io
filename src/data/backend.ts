@@ -549,6 +549,8 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
   }
   for (const t of RECORD_TABLES) if (!isObj(db[t])) problems.push(`The ${t} table is missing or is not a set of records.`);
   for (const t of LIST_TABLES) if (!Array.isArray(db[t])) problems.push(`The ${t} table is missing or is not a list.`);
+  // Orders, pick batches and packages came later: an older backup has none, which is fine.
+  for (const t of ['orders', 'batches', 'packages']) if (db[t] !== undefined && !isObj(db[t])) problems.push(`The ${t} table is not a set of records.`);
   if (!(db.seed === null || typeof db.seed === 'number')) problems.push('The seed value is not a number.');
   if (problems.length) return { ok: false, problems };
   const d = db as unknown as Db;
@@ -560,7 +562,8 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
   };
   (['users', 'workspaces', 'warehouses', 'locations', 'jobs', 'pallets', 'attachments', 'imports'] as const).forEach(keyed);
   for (const [k, v] of Object.entries(d.labels)) if (!isObj(v) || v.token !== k) problems.push(`Label ${k.slice(0, 12)} does not match its key.`);
-  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !own(d.workspaces, k)) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
+  // A company's pallet counter is keyed by its id; its order, batch and package counters by `id:O`, `id:B` and `id:K`.
+  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !own(d.workspaces, k.replace(/:[OBK]$/, ''))) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
   if (problems.length) return { ok: false, problems: cap(problems) };
 
   // Every entry of the lists is a record of the right shape, before anything reads its fields.

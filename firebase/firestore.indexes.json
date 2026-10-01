@@ -379,9 +379,43 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updated_at",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
+    {
+      "collectionGroup": "orders",
+      "fieldPath": "lines",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "orders",
+      "fieldPath": "log",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "batches",
+      "fieldPath": "stops",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "batches",
+      "fieldPath": "slots",
+      "indexes": []
+    },
     {
       "collectionGroup": "events",
       "fieldPath": "before_state",

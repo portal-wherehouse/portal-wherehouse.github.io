@@ -12,7 +12,7 @@ import { useCommand } from '../../ui/useCommand';
 import { Notice, Sheet, Spinner, fmtAgo, fmtFull } from '../../ui/ui';
 import { LabelSheet } from '../labels/LabelSheet';
 
-export const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets on hand', shipments: 'Incoming' };
+export const KIND_LABEL: Record<ImportKind, string> = { locations: 'Locations', jobs: 'Jobs', pallets: 'Pallets on hand', shipments: 'Incoming', orders: 'Orders' };
 
 export const batchName = (b: ImportBatch) => b.name || `${KIND_LABEL[b.kind]} import`;
 

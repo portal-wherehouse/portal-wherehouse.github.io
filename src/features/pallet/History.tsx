@@ -32,9 +32,16 @@ const EVENT_ICON: Record<string, IconName> = {
   transfer_send: 'send',
   transfer_receive: 'receive',
   transfer_return: 'returnIcon',
+  pick: 'checklist',
+  substitute: 'swap',
+  unpick: 'returnIcon',
+  pack: 'box',
+  hand_off: 'truck',
+  pick_missing: 'question',
+  pick_hold: 'hold',
 };
 
-const TONE: Record<string, string> = { mark_missing: 'bad', correct: 'accent', locate: 'ok', split: 'accent', retire: 'bad', transfer_send: 'accent', transfer_receive: 'accent' };
+const TONE: Record<string, string> = { pick_missing: 'bad', mark_missing: 'bad', correct: 'accent', locate: 'ok', split: 'accent', retire: 'bad', transfer_send: 'accent', transfer_receive: 'accent' };
 
 /** Lower-case state words for the change line: "in transit", not "in_transit". */
 const stateWord = (s: string) => s.toLowerCase().replace(/_/g, ' ');
@@ -125,6 +132,17 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
                   {String(e.detail.transfer)}
                 </button>
                 {e.detail.job_from ? `. Job ${String(e.detail.job_from)} is not set up here, so it has no job now.` : ''}
+              </div>
+            )}
+            {e.detail.order_id && (
+              <div className="tl-change muted">
+                Order{' '}
+                <button className="text-link" onClick={() => go({ name: 'order', id: String(e.detail.order_id) })}>
+                  {String(e.detail.order)}
+                </button>
+                {e.detail.package ? `, package ${String(e.detail.package)}` : e.detail.tote ? `, tote ${String(e.detail.tote)}` : ''}
+                {e.detail.from_location ? `, from ${String(e.detail.from_location)}` : ''}
+                {e.detail.substitute_for ? `. Substitute for ${String(e.detail.substitute_for)}` : ''}
               </div>
             )}
             {e.detail.children && <div className="tl-change muted">Split into {String(e.detail.children)}</div>}

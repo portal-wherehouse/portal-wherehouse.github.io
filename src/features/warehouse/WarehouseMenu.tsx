@@ -9,6 +9,7 @@ import { Icon } from "../../ui/icons";
 import { Field, Notice, Sheet } from "../../ui/ui";
 import { AdminSheet } from "../admin/AdminSheet";
 import { MeasurementsSetting } from "../settings/Settings";
+import { OrdersSetting } from "../orders/OrdersSetting";
 import { SetupSetting } from "../settings/SetupSetting";
 import type { Warehouse } from "../../domain/types";
 
@@ -397,6 +398,7 @@ function WarehouseSettings({
       </p>
       <SetupSetting />
       <MeasurementsSetting />
+      <OrdersSetting />
     </AdminSheet>
   );
 }

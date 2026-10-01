@@ -8,7 +8,7 @@ import { roleAllows } from '../../domain/transitions';
 import { useApp, type Route, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
-import { useJobsOn } from '../../app/words';
+import { useJobsOn, useOrdersOn } from '../../app/words';
 import { useChecklistStatus } from '../setup/SetupChecklist';
 import { useHasTransferTargets } from '../transfers/targets';
 
@@ -46,7 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { route: 'move', label: 'Put away and move', icon: 'move', hint: 'Scan it, then scan where it goes' },
       { route: 'move', q: 'ship', label: 'Ship', icon: 'truck', hint: 'Scan it, then record where it went' },
       { route: 'find', label: 'Find', icon: 'find', hint: 'Where is it?', covers: ['pallet'] },
-      // Next: "Pick orders" goes here, between Find and Jobs, once picking is built. Not built yet.
+      { route: 'orders', label: 'Pick orders', icon: 'box', hint: 'Pick, pack, stage and hand off customer orders', covers: ['order'] },
       { route: 'jobs', label: 'Jobs', icon: 'jobs', hint: 'Material grouped by project', covers: ['job'] },
     ],
   },
@@ -88,7 +88,7 @@ export interface VisibleNav {
 }
 
 /** Navigation is task-oriented; permission checks still happen in the command engine. */
-export function visibleNav(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false): VisibleNav {
+export function visibleNav(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false, orders = false): VisibleNav {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(
     role === 'VIEWER'
@@ -109,6 +109,11 @@ export function visibleNav(role: Role | null, advanced: boolean, live = false, j
     allowed.add('transfers');
     allowed.add('transfer');
   }
+  // Pick orders appears when an owner turns on "Orders and picking" in Settings. Viewers do not pick.
+  if (orders && role !== 'VIEWER') {
+    allowed.add('orders');
+    allowed.add('order');
+  }
   if (advanced) for (const r of ['sync', 'lab', 'guide'] as RouteName[]) allowed.add(r);
   const fit = (i: NavItem): NavItem | null => {
     if (!allowed.has(i.route)) return null;
@@ -123,8 +128,8 @@ export function visibleNav(role: Role | null, advanced: boolean, live = false, j
 }
 
 /** The groups only, for callers that list items (older call sites). Help and Settings are in `visibleNav().foot`. */
-export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false): NavGroup[] {
-  return visibleNav(role, advanced, live, jobsOn, transfers).groups;
+export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false, orders = false): NavGroup[] {
+  return visibleNav(role, advanced, live, jobsOn, transfers, orders).groups;
 }
 
 /** Every screen the menu reaches for this account, including the ones its items cover. */
@@ -151,7 +156,8 @@ export function More() {
   const jobsOn = useJobsOn();
   const checklist = useChecklistStatus();
   const transfers = useHasTransferTargets();
-  const nav = visibleNav(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, transfers);
+  const orders = useOrdersOn();
+  const nav = visibleNav(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, transfers, orders);
   const groups = [...nav.groups, { title: nav.foot.some((i) => i.route === 'settings') ? 'Help and settings' : 'Help', items: nav.foot }]
     .map((g) => ({ ...g, items: g.items.filter((i) => i.q || !PHONE_TABS.includes(i.route)) }))
     .filter((g) => g.items.length > 0);

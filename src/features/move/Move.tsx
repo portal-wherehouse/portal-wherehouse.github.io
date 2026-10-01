@@ -1,5 +1,5 @@
 // Put away and move: the scan-first task screen (blueprint page 12). Three modes share one camera that stays on:
-// Move (scan the pallet, scan the spot, scan the spot again to save), Stage (the same, onto a staging spot) and
+// Move (scan the pallet, scan the spot, saved), Stage (the same, onto a staging spot) and
 // Ship (scan the pallet, record where it went). The flow itself lives in MoveFlow.tsx.
 
 import { useMemo, useState } from 'react';
@@ -69,7 +69,7 @@ export function Move() {
       <Explain>
         <p>Every save carries the version you scanned. If someone moved the pallet first, you see the newer record and decide again. Nothing is overwritten.</p>
         <ul>
-          <li>Scanning the spot a second time saves the move, so your hands stay on the scanner. Scan Confirm, or tap the button, if you prefer.</li>
+          <li>Scanning the spot saves the move straight away, so your hands stay on the scanner. Only an unusual move (already recorded there, or on hold) asks you to scan the spot again or tap Save.</li>
           <li>The same label seen by the camera many times in a row counts once.</li>
           <li>Offline, moves of stored pallets are queued on this device and are not confirmed until the server accepts them.</li>
         </ul>

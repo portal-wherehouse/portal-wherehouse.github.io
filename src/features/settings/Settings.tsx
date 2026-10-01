@@ -15,6 +15,7 @@ import {
   Spinner,
   ROLE_LABEL,
 } from "../../ui/ui";
+import { OrdersSetting } from "../orders/OrdersSetting";
 
 export function Settings() {
   const { backend } = useApp();
@@ -65,6 +66,8 @@ function DemoSettings() {
         title="Settings"
         sub="Display choices are saved on this device only."
       />
+
+      {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
 
       <div className="panel stack" data-tour="settings-display">
         <div className="panel-title">Display</div>
@@ -329,6 +332,7 @@ function LiveSettings() {
         <span>{me?.email}</span>
         <span>{role ? ROLE_LABEL[role] : "Team member"}</span>
       </div>
+      {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
       <div className="panel stack">
         <Setting label="Theme">
           <Seg<Prefs["theme"]>

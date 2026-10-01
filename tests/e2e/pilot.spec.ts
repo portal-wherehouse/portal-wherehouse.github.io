@@ -35,7 +35,6 @@ await page.locator('#rcv-job').selectOption({label:'J-214 · School renovation'}
   await labels.getByRole('button', {name:'Close',exact:true}).click();
   await typeCode(page, 'A-03-02');
   await expect(page.getByRole('button', {name:/Demo: another phone/})).toHaveCount(0);
-  await page.getByRole('button', {name:'Place: A-03-02',exact:true}).click();
   await expect(page.getByText('Placed at A-03-02')).toBeVisible();
   await nav(page,'Find');
   await page.locator('#find-q').fill('P-000043');

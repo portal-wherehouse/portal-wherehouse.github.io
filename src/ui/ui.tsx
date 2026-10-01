@@ -48,6 +48,7 @@ const STATE_ICON: Record<PalletState, IconName> = {
   RECEIVED: 'receive',
   STORED: 'check',
   IN_TRANSIT: 'swap',
+  PICKED: 'box',
   DISPATCHED: 'truck',
   MISSING: 'question',
   RETIRED: 'retire',

@@ -29,6 +29,7 @@ export async function warehouseSummary(request: any) {
     cached.get("value")?.receiving_version === 1 &&
     cached.get("value")?.optional_jobs_version === 1 &&
     cached.get("value")?.warehouse_settings_version === 1 &&
+    cached.get("value")?.orders_version === 1 &&
     Date.now() - cached.get("at") < 60000
   )
     return cached.get("value");
@@ -52,6 +53,7 @@ export async function warehouseSummary(request: any) {
     "RECEIVED",
     "STORED",
     "IN_TRANSIT",
+    "PICKED",
     "MISSING",
     "DISPATCHED",
     "RETIRED",
@@ -115,6 +117,7 @@ export async function warehouseSummary(request: any) {
     receiving_version: 1,
     optional_jobs_version: 1,
     warehouse_settings_version: 1,
+    orders_version: 1,
     reminders,
     reminder_count,
     at: new Date().toISOString(),
@@ -181,6 +184,7 @@ export async function directoryCounts(request: any) {
                       "RECEIVED",
                       "STORED",
                       "IN_TRANSIT",
+                      "PICKED",
                       "MISSING",
                       "DISPATCHED",
                       "RETIRED",

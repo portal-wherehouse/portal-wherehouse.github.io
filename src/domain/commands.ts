@@ -68,7 +68,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   change_role: z.object({ user_id: id, role: z.string().max(20), reason }),
   remove_member: z.object({ user_id: id, reason }),
   import_batch: z.object({
-    import_kind: z.enum(['locations', 'jobs', 'pallets', 'shipments']),
+    import_kind: z.enum(['locations', 'jobs', 'pallets', 'shipments', 'orders']),
     checksum: z.string().max(64),
     rows: z.array(z.record(z.string(), z.string().max(1000))).max(1000),
     name: text(80).optional(),
@@ -123,6 +123,40 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   receive_transfer: z.object({ transfer_id: id, location_id: id.optional() }),
   cancel_transfer: z.object({ transfer_id: id, reason }),
   transfer_now: z.object({ to_workspace_id: id, lines: transferLines.max(20), note: text(500).optional(), location_id: id.optional() }),
+  // Orders and picking (src/demo/orderEngine.ts).
+  set_orders: z.object({
+    on: z.boolean(),
+    cart_size: z.number().int().min(1).max(8),
+    box_types: z.array(z.string().trim().min(1).max(40)).max(12),
+    subs: z.enum(['ask', 'allow', 'never']),
+  }),
+  create_order: z.object({
+    external_ref: text(40).optional(),
+    customer: z.object({ name: text(120), phone: text(40).optional(), email: text(120).optional(), address: text(300).optional() }),
+    method: z.enum(['ship', 'pickup']),
+    due_at: z.union([z.literal(''), z.string().datetime()]).optional(),
+    allow_subs: z.boolean(),
+    notes: text(1000).optional(),
+    lines: z.array(z.object({ product_code: text(80), qty: z.number().int().min(1).max(999) })).min(1).max(50),
+  }),
+  cancel_order: z.object({ order_id: id, reason }),
+  start_batch: z.object({ order_ids: z.array(id).min(1).max(8).optional(), assign_to: id.optional() }),
+  assign_tote: z.object({ batch_id: id, letter: z.string().regex(/^[A-H]$/), tote_code: text(12) }),
+  short_pick: z.object({ batch_id: id, stop_key: text(40), reason: z.enum(['not_at_spot', 'damaged', 'wrong_item', 'cant_reach', 'no_stock']) }),
+  finish_batch: z.object({ batch_id: id, reason }),
+  decide_sub: z.object({ order_id: id, pallet_id: id, approve: z.boolean(), note: text(500).optional() }),
+  pack: z.object({ order_id: id, unit_ids: z.array(id).min(1).max(100), box_type: text(40), weight_lb: z.number().nonnegative().max(100_000).nullable().optional() }),
+  stage_package: z.object({ package_id: id, location_id: id }),
+  hand_off: z.object({
+    order_id: id,
+    package_ids: z.array(id).min(1).max(50),
+    collected_by: text(120).optional(),
+    carrier: text(60).optional(),
+    tracking: text(80).optional(),
+    refused_ids: z.array(id).max(50).optional(),
+  }),
+  pick: z.object({ batch_id: id, stop_key: text(40) }),
+  substitute: z.object({ batch_id: id, stop_key: text(40) }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];
@@ -154,7 +188,7 @@ export function validateEnvelope(
   if (c.kind === 'receive_transfer' && (!c.pallet_id || c.expected_version === undefined)) {
     return { ok: false, message: 'receive_transfer requires pallet_id and expected_version.' };
   }
-  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer') && c.expected_version === undefined) {
+  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer' || c.kind === 'cancel_order' || c.kind === 'hand_off') && c.expected_version === undefined) {
     return { ok: false, message: `${c.kind} requires expected_version.` };
   }
   if ((VERSIONED_PALLET_COMMANDS as readonly string[]).includes(c.kind)) {

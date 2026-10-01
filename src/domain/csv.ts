@@ -56,7 +56,7 @@ export function parseCsv(text: string): { header: string[]; rows: string[][] } {
   return { header: header.map((h) => h.trim().toLowerCase()), rows };
 }
 
-export type ImportKind = 'locations' | 'jobs' | 'pallets' | 'shipments';
+export type ImportKind = 'locations' | 'jobs' | 'pallets' | 'shipments' | 'orders';
 
 export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional: string[]; sample: string[][]; who: string; policy: string }> = {
   shipments: {
@@ -99,6 +99,17 @@ export const IMPORT_TEMPLATES: Record<ImportKind, { required: string[]; optional
     ],
     who: 'Supervisors and owners',
     policy: 'Only for pallets already sitting in your warehouse, such as when you start using Wherehouse. Each row becomes a pallet on hand right away, with a new label to print. For a delivery that hasn\'t arrived yet, use Incoming instead.',
+  },
+  orders: {
+    required: ['order_ref', 'customer', 'product', 'qty'],
+    optional: ['method', 'due', 'substitutes_ok', 'phone', 'email', 'address', 'notes'],
+    sample: [
+      ['WEB-1042', 'Jane Ruiz', '0123456789012', '1', 'pickup', '2026-10-02 14:00', 'yes', '555-0142', '', '', ''],
+      ['WEB-1042', 'Jane Ruiz', 'USB-C-1M', '2', 'pickup', '2026-10-02 14:00', 'yes', '', '', '', ''],
+      ['WEB-1043', 'Lee Park', 'CASE-14-BLK', '1', 'ship', '2026-10-03', 'no', '', 'lee@example.com', '12 Elm St, Springfield', 'Gift'],
+    ],
+    who: 'Supervisors and owners',
+    policy: 'One row per order line. Rows with the same order_ref make one order. product is the barcode or SKU of a saved product or of stock on hand. method is ship or pickup; substitutes_ok is yes or no.',
   },
 };
 
@@ -168,6 +179,16 @@ const SYNONYMS: Record<string, string[]> = {
   destination_notes: ['destination notes', 'destination', 'deliver to', 'ship to'],
   barcode: ['barcode', 'sscc', 'gtin', 'upc', 'ean', 'upc code', 'item barcode', 'scan code', 'supplier ref', 'supplier reference', 'tag', 'lpn'],
   product_code: ['product code', 'sku', 'item code', 'item number', 'part number'],
+  order_ref: ['order ref', 'order', 'order number', 'order no', 'order id', 'web order', 'reference'],
+  customer: ['customer', 'customer name', 'name', 'ship to name', 'buyer'],
+  product: ['product', 'sku', 'barcode', 'upc', 'item', 'item code', 'product code', 'part number'],
+  qty: ['qty', 'quantity', 'count', 'units'],
+  method: ['method', 'delivery', 'fulfillment', 'ship or pickup', 'shipping method'],
+  due: ['due', 'due date', 'due by', 'ready by', 'pickup time', 'ship by'],
+  substitutes_ok: ['substitutes ok', 'substitutes', 'allow substitutes', 'subs ok', 'substitutions'],
+  phone: ['phone', 'phone number', 'mobile'],
+  email: ['email', 'email address'],
+  address: ['address', 'ship to', 'shipping address'],
   quantity: ['quantity', 'qty', 'count', 'amount'],
   unit: ['unit', 'units', 'uom'],
   destination: ['destination', 'deliver to', 'ship to'],
