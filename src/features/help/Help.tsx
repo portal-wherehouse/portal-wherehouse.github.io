@@ -154,9 +154,8 @@ export function Help() {
   return (
     <div className="stack help-page">
       <PageHead
-        eyebrow="Learn"
         title="Help"
-        sub={`Everything you need to learn the ${BRAND.portal}: a walkthrough video spot with every chapter described, step-by-step tutorials, answers to common questions, and a way to reach support.`}
+        sub="Tutorials, answers, the guide, sync and support."
       />
       <Explain title="How this page works">
         <p>
@@ -421,7 +420,8 @@ function Tips() {
 }
 
 function StillStuck({ onGo, onContact }: { onGo: ReturnType<typeof useRunTarget>; onContact: () => void }) {
-  const links: { icon: IconName; title: string; body: string; route: 'guide' | 'lab' | 'about' }[] = [
+  const links: { icon: IconName; title: string; body: string; route: 'guide' | 'lab' | 'about' | 'sync' }[] = [
+    { icon: 'sync', title: 'Sync and offline', body: 'Changes waiting on this device, and how saving works without a signal.', route: 'sync' },
     { icon: 'guide', title: 'Guide handbook', body: 'The big ideas, the life of a pallet, roles, a glossary, and what is real or simulated in this build.', route: 'guide' },
     { icon: 'lab', title: 'Integrity lab', body: 'Watch the rules survive the bad days: lost signal, two phones, removed people.', route: 'lab' },
     { icon: 'about', title: 'About', body: `Who makes ${BRAND.name} and how to reach them.`, route: 'about' },

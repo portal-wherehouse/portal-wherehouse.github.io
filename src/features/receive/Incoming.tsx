@@ -6,6 +6,7 @@ import type { ExpectedShipment } from '../../domain/receiving';
 import { roleAllows } from '../../domain/transitions';
 import { Icon } from '../../ui/icons';
 import { Explain, PageHead, Sheet, fmtAgo, fmtFull } from '../../ui/ui';
+import { ReceiveTabs } from '../../ui/tabSets';
 
 type Show = 'waiting' | 'received' | 'all';
 
@@ -34,7 +35,8 @@ export function Incoming() {
 
   return (
     <div className="stack">
-      <PageHead eyebrow="Floor" title="Incoming" sub={`${waiting} item${waiting === 1 ? '' : 's'} expected. None of these are stock until they're received.`} />
+      <ReceiveTabs />
+      <PageHead title="Incoming" sub={`${waiting} item${waiting === 1 ? '' : 's'} expected. None of these are stock until they're received.`} />
       <Explain title="How Incoming works">
         <p>Incoming holds the delivery lists you import. When a delivery arrives, scan a pallet's barcode on Receive: Wherehouse finds it here and fills in the details. Check them and save, and it becomes a pallet on hand with its own Wherehouse label.</p>
         <p>No barcode on the list, or the label won't scan? Search for it here and tap Receive pallet. Everything is filled in the same way.</p>

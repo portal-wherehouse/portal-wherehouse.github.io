@@ -1,75 +1,146 @@
-// More: every other screen, for the phone layout where the main tabs stay focused.
+// The portal's menu, grouped by what the person is doing: daily work, inventory, setup, then help.
+// The desktop sidebar, the phone's More page and the portal tour all read it from here. Screens that used to
+// have their own menu item (Incoming, Labels, Export, Data and storage, the Help tools) are reached from the
+// item that covers them, and every route still opens from its link.
 
 import type { Role } from '../../domain/types';
-import { useApp, type RouteName } from '../../app/state';
+import { roleAllows } from '../../domain/transitions';
+import { useApp, type Route, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
 import { useJobsOn } from '../../app/words';
 import { useChecklistStatus } from '../setup/SetupChecklist';
 import { useHasTransferTargets } from '../transfers/targets';
 
-export const NAV_GROUPS: { title: string; items: { route: RouteName; label: string; icon: IconName; hint: string }[] }[] = [
+export interface NavItem {
+  route: RouteName;
+  /** A mode the screen opens in, e.g. the Move screen's Ship mode or the Scan station's Count mode. */
+  q?: string;
+  label: string;
+  icon: IconName;
+  hint: string;
+  /** Screens this item stands for: they mark it as the current item, and the tour names them through it. */
+  covers?: RouteName[];
+}
+
+export interface NavGroup {
+  title: string;
+  items: NavItem[];
+  /** Starts folded until the person opens it. */
+  folded?: boolean;
+}
+
+/** Above the groups: the home screen. */
+export const HOME_ITEM: NavItem = { route: 'overview', label: 'Dashboard', icon: 'overview', hint: 'Ready to scan, and what needs attention', covers: ['reconcile'] };
+
+/** Below the groups: help, with the guide, sync, the integrity lab and About inside it. */
+export const HELP_ITEM: NavItem = { route: 'help', label: 'Help', icon: 'help', hint: 'Guides, answers and support', covers: ['lab', 'guide', 'about', 'sync'] };
+
+const SETTINGS_ITEM: NavItem = { route: 'settings', label: 'Settings', icon: 'settings', hint: 'This device, data and storage', covers: ['data'] };
+
+export const NAV_GROUPS: NavGroup[] = [
   {
-    title: 'Floor',
+    title: 'Daily work',
     items: [
-      { route: 'receive', label: 'Receive', icon: 'receive', hint: 'Record a delivery' },
-      { route: 'incoming', label: 'Incoming', icon: 'import', hint: 'Expected deliveries from imports' },
-      { route: 'move', label: 'Move', icon: 'move', hint: 'Scan pallet, then rack' },
-      { route: 'find', label: 'Find', icon: 'find', hint: 'Search inventory' },
-      { route: 'station', label: 'Scan station', icon: 'target', hint: 'Hands-free scanning' },
-      { route: 'transfers', label: 'Transfers', icon: 'swap', hint: 'Send pallets to another warehouse' },
+      { route: 'receive', label: 'Receive', icon: 'receive', hint: 'Record a delivery, or see what is expected', covers: ['incoming'] },
+      { route: 'move', label: 'Put away and move', icon: 'move', hint: 'Scan it, then scan where it goes' },
+      { route: 'move', q: 'ship', label: 'Ship', icon: 'truck', hint: 'Scan it, then record where it went' },
+      { route: 'find', label: 'Find', icon: 'find', hint: 'Where is it?', covers: ['pallet'] },
+      // Next: "Pick orders" goes here, between Find and Jobs, once picking is built. Not built yet.
+      { route: 'jobs', label: 'Jobs', icon: 'jobs', hint: 'Material grouped by project', covers: ['job'] },
     ],
   },
   {
-    title: 'Warehouse',
+    title: 'Inventory',
     items: [
-      { route: 'overview', label: 'Dashboard', icon: 'overview', hint: 'Counts and attention' },
-      { route: 'map', label: 'Warehouse map', icon: 'map', hint: 'Racks and what is on them' },
-      { route: 'reconcile', label: 'Needs attention', icon: 'reconcile', hint: 'Fix what needs fixing' },
-      { route: 'locations', label: 'Locations', icon: 'locations', hint: 'Racks and areas' },
-      { route: 'labels', label: 'Labels', icon: 'labels', hint: 'Print pallet and rack labels' },
-      { route: 'products', label: 'Pallet types', icon: 'barcode', hint: 'Saved pallets and their barcodes' },
-      { route: 'activity', label: 'Activity', icon: 'activity', hint: 'Every accepted change' },
+      { route: 'map', label: 'Stock', icon: 'map', hint: 'Every spot and what is on it' },
+      { route: 'transfers', label: 'Transfers', icon: 'swap', hint: 'Send pallets to another warehouse', covers: ['transfer'] },
+      { route: 'station', q: 'count', label: 'Counts', icon: 'checklist', hint: 'Count a spot with the Scan station', covers: ['station'] },
+      { route: 'activity', label: 'History', icon: 'activity', hint: 'Every saved change' },
     ],
   },
   {
-    title: 'Manage',
+    title: 'Setup',
+    folded: true,
     items: [
-      { route: 'jobs', label: 'Jobs', icon: 'jobs', hint: 'Projects and pick lists' },
-      { route: 'import', label: 'Import', icon: 'import', hint: 'CSV in' },
-      { route: 'export', label: 'Export', icon: 'export', hint: 'CSV out' },
-      { route: 'people', label: 'Manager dashboard', icon: 'people', hint: 'Roles and access' },
-      { route: 'scanners', label: 'Scanners', icon: 'qr', hint: 'Connect and test scanners' },
-      { route: 'data', label: 'Data and storage', icon: 'database', hint: 'Where records live, backups' },
-    ],
-  },
-  {
-    title: 'Learn and tools',
-    items: [
-      { route: 'help', label: 'Help', icon: 'help', hint: 'Video, tutorials, FAQ, contact' },
-      { route: 'sync', label: 'Sync and offline', icon: 'sync', hint: 'Waiting moves and sync status' },
-      { route: 'lab', label: 'Integrity lab', icon: 'lab', hint: 'Run the built-in safety tests' },
-      { route: 'guide', label: 'Guide', icon: 'guide', hint: 'How it all works' },
-      { route: 'settings', label: 'Settings', icon: 'settings', hint: 'Display and account' },
-      { route: 'about', label: 'About', icon: 'about', hint: 'Credits' },
+      { route: 'locations', label: 'Spots and labels', icon: 'locations', hint: 'Racks, areas and their labels', covers: ['location', 'labels'] },
+      { route: 'products', label: 'Products and barcodes', icon: 'barcode', hint: 'Saved products and their barcodes' },
+      { route: 'people', label: 'People', icon: 'people', hint: 'Who has access, and their roles' },
+      { route: 'scanners', label: 'Scanners and printers', icon: 'qr', hint: 'Connect and test scanners and label printers' },
+      { route: 'import', label: 'Import and export', icon: 'import', hint: 'Spreadsheets in and out', covers: ['export'] },
+      SETTINGS_ITEM,
     ],
   },
 ];
 
+/** Whether a menu item stands for the screen on show. */
+export function navItemCurrent(i: NavItem, r: Route): boolean {
+  if (i.route === r.name) return i.route === 'move' ? (i.q === 'ship') === (r.q === 'ship') : true;
+  return !!i.covers?.includes(r.name);
+}
+
+export interface VisibleNav {
+  groups: NavGroup[];
+  /** At the bottom: Help, and Settings for people without the Setup group. */
+  foot: NavItem[];
+  /** The screens this account's menu offers. Covered screens outside it still mark their item when opened by link. */
+  allowed: Set<RouteName>;
+}
+
 /** Navigation is task-oriented; permission checks still happen in the command engine. */
-export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false) {
+export function visibleNav(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false): VisibleNav {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
-  const allowed = new Set<RouteName>(role === 'VIEWER'
-    ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
-    : ['receive', 'incoming', 'products', 'move', 'find', 'station', 'map', 'locations', 'labels', 'jobs', 'activity', 'scanners', 'help', 'settings']);
-  if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
-  if (live) allowed.add('sync');
-  if (!jobsOn) allowed.delete('jobs');
+  const allowed = new Set<RouteName>(
+    role === 'VIEWER'
+      ? ['find', 'pallet', 'overview', 'map', 'jobs', 'job', 'help', 'settings', 'about']
+      : ['receive', 'incoming', 'products', 'move', 'find', 'pallet', 'station', 'overview', 'map', 'locations', 'location', 'labels', 'jobs', 'job', 'activity', 'scanners', 'help', 'settings', 'about'],
+  );
+  if (manager) for (const r of ['reconcile', 'import', 'export', 'people', 'data'] as RouteName[]) allowed.add(r);
+  if (live) {
+    allowed.add('sync');
+    allowed.delete('data');
+  }
+  if (!jobsOn) {
+    allowed.delete('jobs');
+    allowed.delete('job');
+  }
   // Transfers appear once the account has a second warehouse to send to.
-  if (transfers) allowed.add('transfers');
-  if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
-  return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title === 'Manage' && !manager ? 'Tools' : g.title,
-    items: g.items.filter(i => allowed.has(i.route) && !(live && i.route === 'data')) })).filter(g => g.items.length);
+  if (transfers) {
+    allowed.add('transfers');
+    allowed.add('transfer');
+  }
+  if (advanced) for (const r of ['sync', 'lab', 'guide'] as RouteName[]) allowed.add(r);
+  const fit = (i: NavItem): NavItem | null => {
+    if (!allowed.has(i.route)) return null;
+    if (i.q === 'ship' && !roleAllows(role, 'dispatch')) return null;
+    return i;
+  };
+  const groups = NAV_GROUPS.filter((g) => g.title !== 'Setup' || manager)
+    .map((g) => ({ ...g, items: g.items.map(fit).filter((i): i is NavItem => !!i) }))
+    .filter((g) => g.items.length);
+  const foot = [...(manager ? [] : [fit(SETTINGS_ITEM)]), fit(HELP_ITEM)].filter((i): i is NavItem => !!i);
+  return { groups, foot, allowed };
+}
+
+/** The groups only, for callers that list items (older call sites). Help and Settings are in `visibleNav().foot`. */
+export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false): NavGroup[] {
+  return visibleNav(role, advanced, live, jobsOn, transfers).groups;
+}
+
+/** Every screen the menu reaches for this account, including the ones its items cover. */
+export function reachableRoutes(nav: VisibleNav): Set<RouteName> {
+  const out = new Set<RouteName>(['overview']);
+  if (nav.groups.some((g) => g.items.some((i) => i.route === 'people'))) out.add('reconcile');
+  for (const i of [...nav.groups.flatMap((g) => g.items), ...nav.foot]) {
+    out.add(i.route);
+    for (const r of i.covers ?? []) if (nav.allowed.has(r)) out.add(r);
+  }
+  return out;
+}
+
+/** Where a menu item goes. */
+export function navTarget(i: NavItem): Route {
+  return i.q ? { name: i.route, q: i.q } : { name: i.route };
 }
 
 /** Screens the phone's bottom tabs already reach. */
@@ -80,6 +151,10 @@ export function More() {
   const jobsOn = useJobsOn();
   const checklist = useChecklistStatus();
   const transfers = useHasTransferTargets();
+  const nav = visibleNav(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, transfers);
+  const groups = [...nav.groups, { title: nav.foot.some((i) => i.route === 'settings') ? 'Help and settings' : 'Help', items: nav.foot }]
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.q || !PHONE_TABS.includes(i.route)) }))
+    .filter((g) => g.items.length > 0);
   return (
     <div className="stack">
       <PageHead title="More" />
@@ -94,14 +169,12 @@ export function More() {
           </button>
         </div>
       )}
-      {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, transfers).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
-        .filter((g) => g.items.length > 0)
-        .map((g) => (
+      {groups.map((g) => (
         <div key={g.title} className="stack" style={{ gap: 8 }}>
           <div className="eyebrow">{g.title}</div>
           <div className="more-menu">
             {g.items.map((i) => (
-              <button key={i.route} onClick={() => go(i.route)} data-tour={`more-${i.route}`}>
+              <button key={`${i.route}:${i.q ?? ''}`} onClick={() => go(navTarget(i))} data-tour={`more-${i.q ?? i.route}`}>
                 <Icon name={i.icon} />
                 {i.label}
                 <small>{i.hint}</small>

@@ -53,7 +53,7 @@ export function Activity() {
 
   return (
     <div className="stack">
-      <PageHead title="Activity" sub={`${filtered.length} ${backend.mode==='firebase'?'loaded':'accepted'} changes${person ? ` by ${users[person]?.name}` : ''}. Rejected attempts never appear here, because they changed nothing.`} />
+      <PageHead title="History" sub={`${filtered.length} ${backend.mode==='firebase'?'loaded':'saved'} changes${person ? ` by ${users[person]?.name}` : ''}.`} />
       <Explain refs="pages 13, 21">
         <p>Each line is one accepted command, written in the same transaction as the change itself. The log is append-only. A mistake is fixed by a later correction entry, so the original stays visible.</p>
       </Explain>

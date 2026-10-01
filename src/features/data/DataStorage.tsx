@@ -1,6 +1,7 @@
 // Data and storage: where records live today (this browser), backup and restore of the local store,
 // the planned Firebase design as a diagram, and the project owner's Firebase setup checklist.
 
+import { SettingsTabs } from '../../ui/tabSets';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BRAND } from '../../brand';
 import { useApp } from '../../app/state';
@@ -17,8 +18,8 @@ export function DataStorage() {
   const { go } = useApp();
   return (
     <div className="stack ds">
+      <SettingsTabs />
       <PageHead
-        eyebrow="Manage"
         title="Data and storage"
         sub="Where your records live today, how to keep your own copy, and how storage will work once real accounts arrive."
         actions={

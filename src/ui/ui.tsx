@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { STATE_LABEL } from '../domain/display';
 import type { Location, Pallet, PalletState, Role } from '../domain/types';
-import { useApp } from '../app/state';
+import { useApp, type RouteName } from '../app/state';
 import { Icon, type IconName } from './icons';
 import { UpdatePrompt } from '../features/install/Install';
 
@@ -366,5 +366,35 @@ export function StatTile({ label, value, note, icon, onClick }: { label: string;
       <span className="s-value num">{value}</span>
       {note && <span className="s-note">{note}</span>}
     </button>
+  );
+}
+
+// ------------------------------------------------------------------ page tabs
+
+export interface PageTab {
+  route: RouteName;
+  label: string;
+  count?: number;
+  /** Leave the tab out (for example, a page this role cannot use). */
+  hidden?: boolean;
+}
+
+/**
+ * Tabs across the top of pages that share one menu item, such as Receive and Incoming, or Import and Export.
+ * Each tab is its own page with its own link, so old links keep working. Shows nothing with fewer than two tabs.
+ */
+export function PageTabs({ label, tabs }: { label: string; tabs: PageTab[] }) {
+  const { route, go } = useApp();
+  const shown = tabs.filter((t) => !t.hidden);
+  if (shown.length < 2) return null;
+  return (
+    <nav className="page-tabs" aria-label={label}>
+      {shown.map((t) => (
+        <button key={t.route} type="button" aria-current={route.name === t.route ? 'page' : undefined} onClick={() => route.name !== t.route && go(t.route)}>
+          {t.label}
+          {!!t.count && <span className="page-tab-count">{t.count}</span>}
+        </button>
+      ))}
+    </nav>
   );
 }

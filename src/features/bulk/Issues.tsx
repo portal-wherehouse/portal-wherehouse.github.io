@@ -1,5 +1,5 @@
 // Flag issue: anyone on the floor reports damage, missing items or a wrong delivery, with photos and a note.
-// Managers see every report, with who sent it, in the Issues folder on the Manager dashboard.
+// Managers see every report, with who sent it, in the Issues folder on the People page.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../app/state';
@@ -152,7 +152,7 @@ export function IssueSheet({ pallets, onClose, onReported }: { pallets: Pallet[]
       {phase === 'done' && (
         <div className="stack">
           <Notice tone="ok" title="Sent to your managers">
-            {ISSUE_LABEL[kind]}: {codeList(codes)}. They'll see it in Issues on the Manager dashboard, with your name on it.
+            {ISSUE_LABEL[kind]}: {codeList(codes)}. They'll see it in Issues on the People page, with your name on it.
           </Notice>
           {photoNote && <Notice tone="warn">{photoNote}</Notice>}
           <button className="btn primary" onClick={onClose} autoFocus>
@@ -166,7 +166,7 @@ export function IssueSheet({ pallets, onClose, onReported }: { pallets: Pallet[]
 
 type Folder = 'NEW' | 'APPROVED' | 'FILED' | 'ALL';
 
-/** The Issues folder on the Manager dashboard. */
+/** The Issues folder on the People page. */
 export function IssuesPanel() {
   const { backend, workspaceId, role, v } = useApp();
   const [folder, setFolder] = useState<Folder>('NEW');

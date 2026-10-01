@@ -27,6 +27,9 @@ import { AdminSheet } from '../admin/AdminSheet';
 import { Barcode128 } from '../labels/Barcode128';
 import { PrintPortal } from '../labels/LabelSheet';
 import { ScanPanel } from '../scan/ScanPanel';
+import { ScanFlow, useFlowFlash } from '../scan/ScanFlow';
+import { parseScanCommand } from '../../device/scanCommands';
+import { ReadError } from '../../demo/engine';
 import { useHasTransferTargets, useTransferTargets } from './targets';
 import './transfers.css';
 
@@ -503,12 +506,15 @@ function TransferView({ id }: { id: string }) {
   );
 }
 
-/** Receiving at the destination: scan each pallet (or tap Receive), onto the chosen spot or waiting for placement. */
+/**
+ * Receiving at the destination, scan first: scan each pallet and it is received at once, onto the chosen spot or
+ * waiting for placement. Scanning a spot label changes where the next ones go. The camera stays on throughout.
+ */
 function ReceivePanel({ t }: { t: Transfer }) {
-  const { read, toast } = useApp();
+  const { read, toast, actorId, workspaceId, backend } = useApp();
   const cmd = useCommand();
+  const flash = useFlowFlash();
   const [spot, setSpot] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ tone: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const [all, setAll] = useState(false);
   const inFlight = useRef(new Set<string>());
   const locations =
@@ -522,6 +528,7 @@ function ReceivePanel({ t }: { t: Transfer }) {
   const spotId = spot ?? fallback?.id ?? '';
   const chosen: Location | null = locations.find((l) => l.id === spotId) ?? null;
   const waiting = t.lines.filter((l) => l.status === 'IN_TRANSIT');
+  const received = t.lines.filter((l) => l.status === 'RECEIVED').length;
 
   const receive = async (line: TransferLine): Promise<boolean> => {
     if (inFlight.current.has(line.pallet_id)) return false;
@@ -530,9 +537,10 @@ function ReceivePanel({ t }: { t: Transfer }) {
       const pallet = { id: line.pallet_id, version: line.version } as Pallet;
       const r = await cmd.run('receive_transfer', chosen ? { transfer_id: t.id, location_id: chosen.id } : { transfer_id: t.id }, pallet);
       if (r.phase === 'done') {
-        setMsg({ tone: 'ok', text: `${line.code} received${chosen ? ` on ${chosen.code}` : ', waiting for placement'}.` });
+        flash.ok(`${line.code} received${chosen ? ` on ${chosen.code}` : ', waiting for placement'}.`);
         return true;
       }
+      flash.bad(`${line.code} was not received. See the message below.`);
       return false;
     } finally {
       inFlight.current.delete(line.pallet_id);
@@ -550,19 +558,52 @@ function ReceivePanel({ t }: { t: Transfer }) {
     if (n) toast(`Received ${count(n)} from ${t.number}.`);
   };
 
-  const intercept = (text: string): boolean => {
+  /** A pallet of this transfer, by its label or printed code. Null when the scan is something else. */
+  const onLine = (text: string): boolean | 'error' | null => {
     const label = parseLabelPayload(text);
     const token = label?.kind === 'P' ? label.token : null;
     const code = label ? null : parsePalletCode(text);
-    if (!token && !code) return false;
+    if (!token && !code) return null;
     const line = lineForScan(t, token, code);
-    if (!line) return false;
-    if (line.status === 'RECEIVED') setMsg({ tone: 'info', text: `${line.code} is already received${line.to_location_code ? ` on ${line.to_location_code}` : ''}.` });
-    else if (line.status !== 'IN_TRANSIT') setMsg({ tone: 'error', text: `${line.code} is not on its way here.` });
-    else if (cmd.busy) setMsg({ tone: 'info', text: `Saving the last pallet. Scan ${line.code} again in a moment.` });
-    else void receive(line);
+    if (!line) return null;
+    if (line.status === 'RECEIVED') {
+      flash.note(`${line.code} is already received${line.to_location_code ? ` on ${line.to_location_code}` : ''}.`);
+      return true;
+    }
+    if (line.status !== 'IN_TRANSIT') {
+      flash.bad(`${line.code} is not on its way here.`);
+      return 'error';
+    }
+    if (cmd.busy) {
+      flash.note(`Saving the last pallet. Scan ${line.code} again in a moment.`);
+      return 'error';
+    }
+    void receive(line);
     return true;
   };
+
+  useScanTarget(`transfer-receive-${t.id}`, (ev) => {
+    if (!actorId || !workspaceId || parseScanCommand(ev.text)) return false;
+    const hit = onLine(ev.text.trim());
+    if (hit !== null) return hit;
+    try {
+      const r = backend.reader.resolve(actorId, workspaceId, ev.text);
+      if (r.type === 'location') {
+        if (!locations.some((l) => l.id === r.location.id)) {
+          flash.bad(`${r.location.code} is not a spot at ${t.to_name}.`);
+          return 'error';
+        }
+        setSpot(r.location.id);
+        flash.ok(`Received pallets now go on ${r.location.code}.`);
+        return true;
+      }
+      flash.bad(`${r.pallet.code} is not on ${t.number}.`);
+      return 'error';
+    } catch (err) {
+      flash.bad(err instanceof ReadError ? err.message : 'Could not read that label.');
+      return 'error';
+    }
+  });
 
   return (
     <div className="panel stack tr-receive">
@@ -572,7 +613,17 @@ function ReceivePanel({ t }: { t: Transfer }) {
         </h2>
         <span className="tag accent">{waiting.length} to receive</span>
       </div>
-      <Field label="Put received pallets on" htmlFor="tr-spot" hint="Scan a location label to change it.">
+      <ScanFlow
+        prompt={received ? `Scan the next pallet from ${t.number}` : `Scan a pallet from ${t.number}`}
+        sub={chosen ? `It goes on ${chosen.code}. Scan a spot label to change that.` : 'It waits for placement. Scan a spot label to put it there instead.'}
+        flash={flash.flash}
+        placeholder="Type the pallet code, e.g. P-000042"
+        demoTargets={waiting.slice(0, 4).map((l) => ({ label: l.code, sub: l.description, text: l.code }))}
+        testId="transfer-flow"
+      >
+        <CommandFeedback state={cmd.state} onRecover={() => void cmd.recover()} onDiscard={cmd.reset} />
+      </ScanFlow>
+      <Field label="Put received pallets on" htmlFor="tr-spot">
         <select id="tr-spot" className="select" value={spotId} onChange={(e) => setSpot(e.target.value)} disabled={cmd.busy}>
           <option value="">No spot yet (waiting for placement)</option>
           {locations.map((l) => (
@@ -582,21 +633,6 @@ function ReceivePanel({ t }: { t: Transfer }) {
           ))}
         </select>
       </Field>
-      <ScanPanel
-        prompt="Point at a pallet label from this transfer"
-        placeholder="P-000042"
-        intercept={intercept}
-        demoTargets={waiting.slice(0, 4).map((l) => ({ label: l.code, sub: l.description, text: l.code }))}
-        onResolved={(r) => {
-          if (r.type === 'location') {
-            setSpot(r.location.id);
-            setMsg({ tone: 'info', text: `Received pallets now go on ${r.location.code}.` });
-          } else setMsg({ tone: 'error', text: `${r.pallet.code} is not on ${t.number}.` });
-        }}
-        onError={(text) => setMsg({ tone: 'error', text })}
-      />
-      {msg && <Notice tone={msg.tone === 'ok' ? 'ok' : msg.tone === 'error' ? 'error' : 'info'}>{msg.text}</Notice>}
-      <CommandFeedback state={cmd.state} onRecover={() => void cmd.recover()} onDiscard={cmd.reset} />
       {waiting.length > 0 && !cmd.locked && (
         <div className="stack" style={{ gap: 6 }}>
           <div className="eyebrow">Or receive without scanning</div>

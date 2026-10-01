@@ -1,6 +1,7 @@
 import { FirebaseBackend } from '../../data/firebase';
 // Export (page 28): four CSV files plus a manifest, protected against spreadsheet formula injection.
 
+import { ImportExportTabs } from '../../ui/tabSets';
 import { useMemo, useState } from 'react';
 import { toCsv } from '../../domain/csv';
 import { roleAllows } from '../../domain/transitions';
@@ -38,7 +39,7 @@ export function Export() {
   }
   if (!data) return null;
 
-  if(!exportReady)return <div className="stack"><PageHead title="Export warehouse records" sub="Download pallets, jobs, locations and the complete movement history."/><p>Records are read in pages when you prepare the export. Photos are kept in the warehouse and are not included in CSV files.</p><button className="btn primary" disabled={progress!==null} onClick={async()=>{setProgress(0);try{await (backend as FirebaseBackend).prepareExport(setProgress);setExportReady(true);}catch(e){setError((e as Error).message);setProgress(null);}}}>{progress===null?'Prepare complete export':`Preparing: ${progress.toLocaleString()} records`}</button>{error&&<p role="alert">{error}</p>}</div>;
+  if(!exportReady)return <div className="stack"><ImportExportTabs /><PageHead title="Export warehouse records" sub="Download pallets, jobs, locations and the complete movement history."/><p>Records are read in pages when you prepare the export. Photos are kept in the warehouse and are not included in CSV files.</p><button className="btn primary" disabled={progress!==null} onClick={async()=>{setProgress(0);try{await (backend as FirebaseBackend).prepareExport(setProgress);setExportReady(true);}catch(e){setError((e as Error).message);setProgress(null);}}}>{progress===null?'Prepare complete export':`Preparing: ${progress.toLocaleString()} records`}</button>{error&&<p role="alert">{error}</p>}</div>;
   const content = (id: FileId) => (id === 'manifest' ? JSON.stringify({ ...data.manifest, files: FILES.filter((f) => f.id !== 'manifest').map((f) => ({ name: f.title, rows: data[f.id as Exclude<FileId, 'manifest'>].length })) }, null, 2) : toCsv(data[id]));
   const rows = (id: FileId) => (id === 'manifest' ? 1 : data[id].length);
   const stamp = data.manifest.generated_at.slice(0, 16).replace(/[:T]/g, '-');
@@ -51,6 +52,7 @@ export function Export() {
 
   return (
     <div className="stack">
+      <ImportExportTabs />
       <PageHead title="Export" sub={`Snapshot of ${data.manifest.workspace} · ${data.manifest.warehouse} · generated ${new Date(data.manifest.generated_at).toLocaleString()}`} />
       <Explain refs="page 28">
         <p>Exports use stable column names, ISO 8601 UTC timestamps and UTF-8 with a byte-order mark so Excel opens them correctly. Any cell starting with =, +, - or @ is prefixed with an apostrophe, so a description can never run as a spreadsheet formula. Only supervisors and owners can export, and the server checks that.</p>

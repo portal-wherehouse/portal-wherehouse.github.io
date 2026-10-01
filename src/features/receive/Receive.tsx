@@ -3,6 +3,9 @@ import { useJobsOn } from '../../app/words';
 import { FirebaseBackend } from '../../data/firebase';
 import { barcodeMatchKey, blankInfo, productKey, receivingSchema, type ExpectedShipment, type ProductMemory } from '../../domain/receiving';
 import { PalletFields } from './PalletFields';
+import { parseScanCommand } from '../../device/scanCommands';
+import { MoveFlow } from '../move/MoveFlow';
+import { ReceiveTabs } from '../../ui/tabSets';
 // Receive: give a pallet an identity (blueprint page 11).
 
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -21,7 +24,7 @@ import { Explain, Field, Notice, PageHead, PermissionDenied, Spinner } from '../
 import { LabelSheet } from '../labels/LabelSheet';
 
 export function Receive() {
-  const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId, route, v } = useApp();
+  const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId, route, v, actorId } = useApp();
   const jobsOn = useJobsOn();
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
@@ -49,6 +52,9 @@ export function Receive() {
   const [failPhoto, setFailPhoto] = useState(false);
   const [touched, setTouched] = useState(false);
   const [created, setCreated] = useState<Pallet | null>(null);
+  /** The saved pallet has been put away, so the next scan starts the next receipt. */
+  const [putAway, setPutAway] = useState(false);
+  const nextScan = useRef<string | null>(null);
   const [photoState, setPhotoState] = useState<'none' | 'uploading' | 'done' | 'failed'>('none');
   const [labelIds, setLabelIds] = useState<string[]>([]);
   const [sessionIds, setSessionIds] = useState<string[]>([]);
@@ -93,6 +99,28 @@ export function Receive() {
     void captureSupplier(event.text).catch(e=>toast((e as Error).message,'error'));
     return true;
   }, roleAllows(role, 'receive') && !created && !locked && !scanning);
+
+  // Once the saved pallet is put away, scanning the next delivery's barcode starts the next receipt with it.
+  // A pallet or spot label of this warehouse is not a delivery barcode, so it passes on (Scan anywhere opens it).
+  useScanTarget('receive-next', (event) => {
+    if (!actorId || !workspaceId || parseScanCommand(event.text)) return false;
+    try {
+      backend.reader.resolve(actorId, workspaceId, event.text);
+      return false;
+    } catch {
+      /* not a label here: a delivery barcode */
+    }
+    nextScan.current = event.text;
+    another();
+    return true;
+  }, roleAllows(role, 'receive') && !!created && putAway && !scanning);
+  useEffect(() => {
+    const text = nextScan.current;
+    if (created || !text) return;
+    nextScan.current = null;
+    void captureSupplier(text).catch((e) => toast((e as Error).message, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [created]);
 
 
   const dirty = !created && (description.trim() !== '' || notes.trim() !== '' || supplier.trim() !== '' || !!photo || JSON.stringify(info)!==JSON.stringify(blankInfo()));
@@ -179,6 +207,7 @@ export function Receive() {
 
   const another = (sameContents = false) => {
     setCreated(null);
+    setPutAway(false);
     if (!sameContents) setDescription('');
     setInfo(sameContents ? {...blankInfo(),product_code:info.product_code,unit:info.unit,category:info.category,weight_lb:info.weight_lb,length_in:info.length_in,width_in:info.width_in,height_in:info.height_in,fields:info.fields.map(f=>({name:f.name,value:''}))} : blankInfo());
     setRemember(false);setShipmentId('');setMatches([]);setNewCode(false);
@@ -210,23 +239,17 @@ export function Receive() {
     const live = backend.db.pallets[created.id] ?? created;
     return (
       <div className="stack">
-        <PageHead eyebrow="Receive" title="Pallet saved" />
-        <div className="big-result">
+        <PageHead title="Pallet saved" />
+        <div className="big-result receive-saved">
           <div className="br-title">
             <Icon name="checkCircle" />
             <span>
-              <span className="pcode" style={{ fontSize: 30 }}>
-                {live.code}
-              </span>{' '}
-              created · awaiting placement
+              <span className="pcode">{live.code}</span> saved
             </span>
           </div>
           <div>
             <strong>{live.description}</strong>{job ? <> for <span className="jcode">{job.code}</span> {job.name}</> : jobsOn ? <span className="muted"> · No job assigned</span> : null}
-          </div>
-          <div className="muted">
-            This is a new pallet with its own code. Print and attach its label before placement.
-            {cmd.state.accepted?.replayed && ' Recovered from the saved receipt.'}
+            {cmd.state.accepted?.replayed && <span className="muted"> · Recovered from the saved receipt.</span>}
           </div>
           {photo && (
             <div className="row">
@@ -262,25 +285,23 @@ export function Receive() {
             </div>
           )}
           <div className="row">
-            <button className="btn primary big" onClick={() => go({ name: 'move', id: live.id })}>
-              <Icon name="move" /> Place now
-            </button>
-            <button className="btn big" onClick={() => setLabelIds([live.id])}>
+            <button className="btn" onClick={() => setLabelIds([live.id])}>
               <Icon name="print" /> Print label
-            </button>
-          </div>
-          <div className="row">
-            <button className="btn primary" onClick={() => another(true)}>Receive another like this</button>
-            <button className="btn" onClick={() => another()}>
-              <Icon name="plus" /> {job ? `Receive another for ${job.code}` : 'Receive another'}
             </button>
             <button className="btn ghost" onClick={() => go({ name: 'pallet', id: live.id })}>
               Open record
             </button>
           </div>
         </div>
+        {roleAllows(role, 'place') && <MoveFlow single start={live} testId="putaway-flow" onSaved={() => setPutAway(true)} />}
+        <div className="row">
+          <button className="btn primary" onClick={() => another(true)}>Receive another like this</button>
+          <button className="btn" onClick={() => another()}>
+            <Icon name="plus" /> {job ? `Receive another for ${job.code}` : 'Receive another'}
+          </button>
+        </div>
+        <p className="hint" style={{ margin: 0 }}>“Like this” keeps {job ? 'the job and description' : 'the description'}. Each pallet still gets its own code.</p>
         {sessionIds.length > 1 && <button className="btn" onClick={() => setLabelIds(sessionIds)}>Print all {sessionIds.length} labels from this receiving session</button>}
-        <p className="muted">“Receive another like this” keeps {job ? 'the job and description' : 'the description'}. Quantity, custom values, destination, reminder, supplier reference, photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
         {labelIds.length > 0 && <LabelSheet palletIds={labelIds} onClose={() => setLabelIds([])} />}
       </div>
     );
@@ -288,12 +309,13 @@ export function Receive() {
 
   return (
     <div className="stack">
-      <PageHead eyebrow="Warehouse" title="Receive a pallet" sub="Give the pallet an identity. Place it on a rack next." />
-      <button className="btn big" type="button" disabled={locked} onClick={() => setScanning(true)}><Icon name="scanner" />Scan supplier barcode</button>
-      <p className="hint">Scan the pallet's barcode. If it's on your <button type="button" className="link" onClick={() => go('incoming')}>Incoming</button> list or a saved pallet type, the details fill in. A barcode Wherehouse hasn't seen can be saved as a new pallet type. No barcode? Pick the item from Incoming, or type the details.</p>
+      <ReceiveTabs />
+      <PageHead title="Receive a pallet" />
+      <button className="btn big primary receive-scan" type="button" disabled={locked} onClick={() => setScanning(true)}><Icon name="scanner" />Scan supplier barcode</button>
+      <p className="hint" style={{ margin: 0 }}>Expected deliveries and saved products fill in by themselves. No barcode? Type the details below.</p>
       {scanning && <BarcodeSheet title="Scan supplier barcode" onScan={captureSupplier} onClose={() => setScanning(false)} />}
       {newCode && <Notice tone="info" icon="plus" title="New barcode">
-        {supplier} isn't on your Incoming list or saved as a pallet type. Enter a name, and a category if you like. Keep "Save as a pallet type" checked, and the next time this barcode is scanned everything fills in.
+        {supplier} is not expected or saved yet. Enter a name. Keep "Save as a product" checked so the next scan fills in.
       </Notice>}
       {!enhanced && <Notice tone="info">Product memory, shipment matching and pallet reminders will be available after the warehouse server update. Basic receiving is available now.</Notice>}
       {matches.length>0 && <section className="panel stack"><h2>Expected deliveries matching this barcode</h2><p>Choosing one fills the form with its details. Review them before saving.</p>{matches.map(row=><button type="button" className="btn" disabled={locked} key={row.id} onClick={async()=>{setLookupBusy(true);try{await applyShipment(row);}catch(e){toast((e as Error).message,'error');}finally{setLookupBusy(false);}}}>{row.description || 'Description needed'} · {row.receiving.quantity} {row.receiving.unit} · {row.receiving.destination || jobs.find(j=>j.id===row.job_id)?.code}</button>)}<button className="btn ghost" onClick={()=>setMatches([])}>Keep my entries instead</button></section>}
@@ -376,8 +398,8 @@ export function Receive() {
             <Field label="Category (optional)" htmlFor="rcv-category" hint="Group products your way, like Hardwood or Kindling."><input id="rcv-category" className="input" value={info.category ?? ''} onChange={e=>setInfo({...info,category:e.target.value})} maxLength={60} disabled={locked} list="rcv-category-suggest"/>
               <datalist id="rcv-category-suggest">{categories.map((c) => <option key={c} value={c} />)}</datalist></Field>
           </div>
-          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Save as a pallet type, so the next scan of this code fills in the name, unit, category and size</label>
-          <p className="hint">This doesn't copy quantities, destinations or reminders, and it doesn't change older pallets. Saved ones are listed under Pallet types.</p>
+          <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Save as a product, so the next scan of this code fills in the name, unit, category and size</label>
+          <p className="hint">This doesn't copy quantities, destinations or reminders, and it doesn't change older pallets. Saved ones are listed under Products.</p>
           <PalletFields value={info} onChange={setInfo} disabled={locked}/>
         </>}
         <Field label="Note (optional)" htmlFor="rcv-note" count={notes.length} max={1000}>

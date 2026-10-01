@@ -16,7 +16,7 @@ test('employee sample keeps floor actions and explains them without a tour overl
  await expect(page.getByTestId('crew-home')).toBeVisible();await expect(page.locator('.sample-note').first()).toBeVisible();await page.getByRole('button',{name:'Show the full dashboard'}).click();
  await expect(page.locator('.warehouse-identity')).toContainText('Operator');await page.locator('.warehouse-actions').getByRole('button',{name:'Find',exact:true}).click();
  await expect(page.locator('.sidebar').getByRole('button',{name:'Receive',exact:true})).toBeVisible();
- await expect(page.locator('.sidebar').getByRole('button',{name:'Manager dashboard',exact:true})).toHaveCount(0);
+ await expect(page.locator('.sidebar').getByRole('button',{name:'People',exact:true})).toHaveCount(0);
  await page.locator('.result').filter({hasText:'Example pallet 1'}).click();await expect(page.locator('.tl-item')).toHaveCount(3);await expect(page.locator('.sample-note').first()).toBeVisible();
  expect(errors).toEqual([]);
 });
@@ -63,7 +63,7 @@ for(const width of [1280,375]){
   await page.addInitScript(()=>localStorage.setItem('pl.prefs',JSON.stringify({startTab:'move'})));
   await page.goto('/?demo=1#signin');await page.getByRole('button',{name:'View a management dashboard'}).click();
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
-  await expect(page.locator(width>960?'.sidebar .nav-item':'.bottom-nav button').first()).toHaveText('Dashboard');
+  await expect(page.locator(width>960?'.sidebar .nav-item':'.bottom-nav button').first()).toHaveText(/^Dashboard\d*$/);
   await expect(page.getByRole('region',{name:'Warehouse analytics'})).toBeVisible();
   await page.locator('.warehouse-actions').getByRole('button',{name:'Move',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Move pallet',exact:true})).toBeVisible();

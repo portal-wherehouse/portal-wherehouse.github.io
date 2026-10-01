@@ -9,17 +9,17 @@ const PORTAL: [hash: string, h1: string | RegExp][] = [
   ['receive', 'Receive a pallet'],
   ['move', 'Move pallet'],
   ['find', 'Find materials'],
-  ['map', 'Warehouse map'],
-  ['activity', 'Activity'],
+  ['map', 'Stock'],
+  ['activity', 'History'],
   ['reconcile', 'Needs attention'],
   ['jobs', 'Jobs'],
-  ['locations', 'Locations'],
+  ['locations', 'Spots'],
   ['labels', 'Labels'],
   ['import', 'Import'],
   ['incoming', 'Incoming'],
-  ['products', 'Pallet types'],
+  ['products', 'Products'],
   ['export', 'Export'],
-  ['people', 'Manager dashboard'],
+  ['people', 'People'],
   ['sync', 'Sync and offline'],
   ['lab', 'Integrity lab'],
   ['guide', 'Guide'],
@@ -87,7 +87,7 @@ test('on a phone, the bottom tabs and More reach the portal pages', async ({ pag
   await expect(page.locator('#main h1')).toHaveText('Move pallet');
   await tabs.getByRole('button', { name: 'More' }).click();
   await expect(page.locator('#main h1')).toHaveText('More');
-  await page.locator('#main').getByRole('button', { name: /Scan station/ }).click();
+  await page.locator('#main').getByRole('button', { name: /^Counts/ }).click();
   await expect(page.locator('#main h1')).toHaveText('Scan station');
   await expect(tabs.getByRole('button', { name: 'More' })).toHaveAttribute('aria-current', 'page');
 });

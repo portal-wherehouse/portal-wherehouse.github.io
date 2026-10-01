@@ -1,6 +1,6 @@
-// Pallet types: what a barcode means in this warehouse. Scanning a saved type's barcode on Receive fills in
+// Products: what a barcode means in this warehouse. Scanning a saved type's barcode on Receive fills in
 // its name, unit, category and size; each pallet received still gets its own record and its own P-code.
-// A pallet that arrives without a label gets a generated barcode here, printed on a pallet type sticker.
+// A pallet that arrives without a label gets a generated barcode here, printed on a product sticker.
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../../app/state';
@@ -15,7 +15,7 @@ import { Barcode128 } from '../labels/Barcode128';
 import { Qr } from '../labels/LabelCard';
 import { PrintPortal } from '../labels/LabelSheet';
 
-/** A short code for a pallet type that has none: PT- plus six characters that are hard to misread. */
+/** A short code for a product that has none: PT- plus six characters that are hard to misread. */
 export function newProductCode(taken: (code: string) => boolean): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   for (;;) {
@@ -42,11 +42,11 @@ export function Products() {
 
   return (
     <div className="stack">
-      <PageHead eyebrow="Warehouse" title="Pallet types" sub="Every saved pallet and its barcode. Print a sticker any time." />
-      <Explain title="How pallet types work">
-        <p>A pallet type is a product you get again and again, like "Tire crate from Acme Supply" or "Birch wood, 1 face cord". It has one barcode. Every pallet of that type carries the same sticker, so scanning it on Receive fills in the name, size and details.</p>
+      <PageHead eyebrow="Setup" title="Products" sub="Every saved product and its barcode. Print a sticker any time." />
+      <Explain title="How products work">
+        <p>A product is something you get again and again, like "Tire crate from Acme Supply" or "Birch wood, 1 face cord". It has one barcode. Every pallet of that product carries the same sticker, so scanning it on Receive fills in the name, size and details.</p>
         <p>Each pallet you receive still gets its own record and its own Wherehouse label, so three birch pallets are three pallets, even when they sit in the same spot.</p>
-        <p>Pallet coming from somewhere that doesn't label it? Tap New pallet type, generate a barcode, and print its sticker.</p>
+        <p>Pallet coming from somewhere that doesn't label it? Tap New product, generate a barcode, and print its sticker.</p>
       </Explain>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <div className="search-bar" style={{ flex: '1 1 280px' }}>
@@ -58,12 +58,12 @@ export function Products() {
         </div>
         {canEdit && (
           <button className="btn primary" onClick={() => setEditing('new')}>
-            <Icon name="plus" /> New pallet type
+            <Icon name="plus" /> New product
           </button>
         )}
       </div>
       {products.length === 0 ? (
-        <p className="muted">No pallet types yet. They're added here with New pallet type, or when someone receives a new barcode with "Save as a pallet type" checked.</p>
+        <p className="muted">No products yet. They're added here with New product, or when someone receives a new barcode with "Save as a product" checked.</p>
       ) : hits.length === 0 ? (
         <p className="muted">Nothing matches “{q.trim()}”.</p>
       ) : (
@@ -116,7 +116,7 @@ export function sizeLine(p: { length_in?: string; width_in?: string; height_in?:
   return [dims, w].filter(Boolean).join(', ');
 }
 
-/** New or edit a pallet type. New ones must have a barcode: scan the supplier's, or generate one. */
+/** New or edit a product. New ones must have a barcode: scan the supplier's, or generate one. */
 export function ProductForm({ product, onClose, onSaved }: { product: ProductMemory | null; onClose: () => void; onSaved: (p: ProductMemory, print: boolean) => void }) {
   const { backend, workspaceId } = useApp();
   const taken = (code: string) => Object.values(backend.db.products).some((p) => p.workspace_id === workspaceId && p.code.toUpperCase() === code.toUpperCase());
@@ -141,7 +141,7 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
   };
   const ready = !!code.trim() && !!description.trim() && !cmd.busy && backend.network !== 'offline';
   return (
-    <Sheet title={product ? `Edit ${product.description}` : 'New pallet type'} onClose={onClose}>
+    <Sheet title={product ? `Edit ${product.description}` : 'New product'} onClose={onClose}>
       <form
         className="stack"
         onSubmit={(e) => {
@@ -149,10 +149,10 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
           if (ready) void save(false);
         }}
       >
-        <Field label="Pallet type name" htmlFor="prod-name" count={description.length} max={160}>
+        <Field label="Product name" htmlFor="prod-name" count={description.length} max={160}>
           <input id="prod-name" className="input" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={160} placeholder="e.g. Tire crate from Acme Supply" autoFocus />
         </Field>
-        <Field label="Barcode" htmlFor="prod-code" hint={product ? "The barcode is how Wherehouse recognizes this pallet type, so it can't change. Make a new pallet type for a new barcode." : "Scan or type the barcode it already has. No barcode? Tap Generate barcode, and every sticker you print for this type carries the same one."}>
+        <Field label="Barcode" htmlFor="prod-code" hint={product ? "The barcode is how Wherehouse recognizes this product, so it can't change. Make a new product for a new barcode." : "Scan or type the barcode it already has. No barcode? Tap Generate barcode, and every sticker you print for this type carries the same one."}>
           <div className="row nowrap">
             <input id="prod-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value)} maxLength={80} disabled={!!product} placeholder="012345678905 or PT-…" />
             {!product && (
@@ -234,7 +234,7 @@ export function ProductLabelSheet({ product, onClose }: { product: ProductMemory
           <ProductLabel product={product} />
         </div>
         <p className="muted" style={{ fontSize: 13.5, margin: 0 }}>
-          Both codes hold {product.code}. Scanning either one on Receive fills in this pallet type. Receiving then prints the pallet's own Wherehouse label, which tracks that one pallet.
+          Both codes hold {product.code}. Scanning either one on Receive fills in this product. Receiving then prints the pallet's own Wherehouse label, which tracks that one pallet.
         </p>
       </div>
       <div className="sheet-foot">
@@ -259,12 +259,12 @@ export function ProductLabelSheet({ product, onClose }: { product: ProductMemory
   );
 }
 
-/** Deliberately unlike a pallet's own label: landscape, a dark "PALLET TYPE" band, the name first and no P-code. */
+/** Deliberately unlike a pallet's own label: landscape, a dark "PRODUCT" band, the name first and no P-code. */
 export function ProductLabel({ product }: { product: ProductMemory }) {
   return (
     <div className="product-label">
       <div className="pl-band">
-        <span>PALLET TYPE</span>
+        <span>PRODUCT</span>
         {product.category && <span className="pl-cat">{product.category}</span>}
       </div>
       <div className="pl-body">

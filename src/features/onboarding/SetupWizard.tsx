@@ -36,7 +36,7 @@ export const SETUP_ROUTES = ['import', 'products', 'labels', 'locations', 'locat
 let openStep = WIZARD_STEPS[0].id;
 /**
  * The warehouse whose wizard already opened at its first unfinished step. Kept outside the component, so
- * coming back from Import or Item types, or picking a step in the sidebar, keeps the step instead of
+ * coming back from Import or Products, or picking a step in the sidebar, keeps the step instead of
  * jumping back to the first unfinished one when the wizard mounts again.
  */
 let seededFor = '';
@@ -524,7 +524,7 @@ function RackPicture() {
 function BarcodesStep({ ob, busy, save }: StepProps) {
   const { go } = useApp();
   const [pick, setPick] = useState(ob.barcodes);
-  // The answer is saved as soon as it is picked, so it is still there after a trip to Import or Item types.
+  // The answer is saved as soon as it is picked, so it is still there after a trip to Import or Products.
   // Leaving for one of them waits for that save, so the answer is stored before the step closes.
   const saving = useRef<Promise<unknown>>(Promise.resolve());
   const choose = (next: Onboarding['barcodes']) => {
@@ -538,7 +538,7 @@ function BarcodesStep({ ob, busy, save }: StepProps) {
   }, [ob.barcodes]);
   return (
     <>
-      <StepHead icon="barcode" title="Do your pallets already have barcodes?" why="If they do, the app can use them. If not, it prints its own QR labels. You can load barcodes and item types now or as new stock comes in." />
+      <StepHead icon="barcode" title="Do your pallets already have barcodes?" why="If they do, the app can use them. If not, it prints its own QR labels. You can load barcodes and products now or as new stock comes in." />
       <div className="wizard-choices" role="radiogroup">
         <Choice on={pick === 'import'} icon="upload" title="Yes, and I have a list" sub="Import a supplier or inventory spreadsheet with barcodes." onClick={() => choose('import')} />
         <Choice on={pick === 'scan'} icon="scanner" title="Yes, we’ll scan them as they arrive" sub="Each barcode is learned the first time you receive it." onClick={() => choose('scan')} />
@@ -559,10 +559,10 @@ function BarcodesStep({ ob, busy, save }: StepProps) {
       <div className="wizard-tip">
         <Icon name="settings" />
         <div>
-          <strong>Item types (optional)</strong>
+          <strong>Products (optional)</strong>
           <p>Give each product its barcode, size, weight and a home spot, so Move suggests where it goes.</p>
           <button className="btn small" onClick={() => leaveFor('products')}>
-            Set up item types
+            Set up products
           </button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 // An inline camera scanner: the phone's own camera as the scanner, shown in the page rather than a sheet. Each new
 // label goes through the scan router, exactly like a hardware scan, so the screen handles it the same way and logs it
-// as a camera scan. It keeps scanning until it is stopped. Used by the Scan station and the Dashboard.
+// as a camera scan. It keeps scanning until it is stopped. Used by the Dashboard, and through ScanFlow's FlowCamera
+// by every scan-first task screen. Pass `on` and `onChange` to control it (FlowCamera remembers the choice per device);
+// the camera session lives as long as the component stays mounted and on, whatever the prompt says.
 
 import { useEffect, useRef, useState } from 'react';
 import { cameraSupported, startCamera, type CameraSession } from '../../device/scanner';
@@ -21,11 +23,21 @@ export interface InlineCameraProps {
   title?: string;
   hint?: string;
   className?: string;
+  /** Controlled on/off. Without it the camera starts off and keeps its own state. */
+  on?: boolean;
+  onChange?: (on: boolean) => void;
 }
 
-export function InlineCamera({ prompt, testId = 'inline-camera', title = 'Scan with camera', hint = 'Point your phone at a label. It keeps scanning until you stop it.', className }: InlineCameraProps) {
+export function InlineCamera({ prompt, testId = 'inline-camera', title = 'Scan with camera', hint = 'Point your phone at a label. It keeps scanning until you stop it.', className, on: onProp, onChange }: InlineCameraProps) {
   const { emit } = useScanRouter();
-  const [on, setOn] = useState(false);
+  const [onOwn, setOnOwn] = useState(false);
+  const on = onProp ?? onOwn;
+  const setOn = (v: boolean) => {
+    if (onProp === undefined) setOnOwn(v);
+    onChange?.(v);
+  };
+  const setOnRef = useRef(setOn);
+  setOnRef.current = setOn;
   const [error, setError] = useState<string | null>(null);
   const [torch, setTorch] = useState<'none' | 'off' | 'on'>('none');
   const video = useRef<HTMLVideoElement>(null);
@@ -49,7 +61,7 @@ export function InlineCamera({ prompt, testId = 'inline-camera', title = 'Scan w
       (_kind, message) => {
         if (!cancelled) {
           setError(message);
-          setOn(false);
+          setOnRef.current(false);
         }
       },
       abort.signal,

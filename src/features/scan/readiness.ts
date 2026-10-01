@@ -23,7 +23,8 @@ function readPage(): PageState {
     hidden: document.visibilityState === 'hidden',
     modal: modalOpen(),
     unfocused: typeof document.hasFocus === 'function' && !document.hasFocus(),
-    typing: isEditableTarget(document.activeElement),
+    // A task screen's code box takes scanner scans too (it is marked data-scan-field), so it does not pause scanning.
+    typing: isEditableTarget(document.activeElement) && !document.activeElement?.closest('[data-scan-field]'),
   };
 }
 

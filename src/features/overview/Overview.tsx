@@ -4,7 +4,9 @@ import { FirebaseBackend } from '../../data/firebase';
 import { useMemo, useState, useEffect } from 'react';
 import { EVENT_LABEL, STATE_LABEL } from '../../domain/transitions';
 import type { PalletState } from '../../domain/types';
-import { useApp, type RouteName } from '../../app/state';
+import { useApp, type Route, type RouteName } from '../../app/state';
+import { roleAllows } from '../../domain/transitions';
+import type { CommandKind } from '../../domain/types';
 import { Icon, type IconName } from '../../ui/icons';
 import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
@@ -12,13 +14,12 @@ import { ScanReadyPanel } from '../scan/ScanReady';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
-const ACTIONS: { route: RouteName; title: string; hint: string; icon: IconName; write?: boolean }[] = [
-  {route:'receive',title:'Receive',hint:'Record an incoming pallet',icon:'receive',write:true},
-  {route:'move',title:'Move',hint:'Scan a pallet and its new rack',icon:'move',write:true},
-  {route:'find',title:'Find',hint:'Look up a pallet, job or rack',icon:'find'},
-  {route:'locations',title:'Locations',hint:'Racks, areas and their pallets',icon:'locations',write:true},
-  {route:'jobs',title:'Jobs',hint:'Materials grouped by project',icon:'jobs'},
-  {route:'labels',title:'Print labels',hint:'Pallet and rack labels',icon:'labels',write:true},
+/** The everyday tasks, first on the Dashboard after Ready to scan. */
+const ACTIONS: { to: Route; title: string; hint: string; icon: IconName; needs?: CommandKind }[] = [
+  {to:{name:'receive'},title:'Receive',hint:'A delivery came in',icon:'receive',needs:'receive'},
+  {to:{name:'move'},title:'Move',hint:'Put away, move or stage',icon:'move',needs:'move'},
+  {to:{name:'move',q:'ship'},title:'Ship',hint:'Record what left',icon:'truck',needs:'dispatch'},
+  {to:{name:'find'},title:'Find',hint:'Where is it?',icon:'find'},
 ];
 /** The empty dashboard's next step, from what the warehouse actually has so far. */
 function FirstSteps({manager,spots,needsJob}:{manager:boolean;spots:number;needsJob:boolean}){
@@ -45,7 +46,8 @@ export function Overview() {
     for(const p of pallets)counts[p.state]++;
     const today=warehouseDate(ctx.warehouse?.timezone||'UTC');
     const reminders=pallets.filter(p=>reminderDate(p) && reminderDate(p)!<=today).sort((a,b)=>a.receiving!.remind_on.localeCompare(b.receiving!.remind_on));
-    return {ctx,counts,reminders,reminder_count:reminders.length,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000)};
+    const r=e.reconciliation(a,ws);
+    return {ctx,counts,reminders,reminder_count:reminders.length,holds:pallets.filter(p=>p.hold&&p.state!=='RETIRED').length,activity:e.activity(a,ws,5000),attention:r.unplaced.length+r.missing.length+r.holds.length+r.reprint.length};
   }),[v,backend.network,read,minute]);
   if(!data)return null;
   const live=backend instanceof FirebaseBackend;
@@ -57,7 +59,7 @@ export function Overview() {
   // What is really missing before the first pallet: spots to put it in, and a job when jobs are on.
   const spots=data.ctx.locations.filter(l=>l.active!==false&&(l.kind==='RACK'||l.kind==='FLOOR')).length;
   const needsJob=setup.jobs_on&&!data.ctx.jobs.some(j=>j.status==='OPEN');
-  const actions=ACTIONS.filter(a=>(role!=='VIEWER'||!a.write)&&(setup.jobs_on||a.route!=='jobs'));
+  const actions=ACTIONS.filter(a=>!a.needs||roleAllows(role,a.needs));
   if(role==='OPERATOR'&&!crewFull)return <CrewHome name={name} onFull={()=>{setCrewFull(true);try{localStorage.setItem('pl.crewFull','1');}catch{/* this visit only */}}}/>;
   const metrics=[
     {label:'Pallets on hand',value:counts.STORED+counts.RECEIVED,detail:'Stored + waiting to be stored',route:'find'},
@@ -67,35 +69,28 @@ export function Overview() {
   ] as const;
   return <div className="stack warehouse-home">
     <header className="warehouse-home-head">
-      <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><h2 className="warehouse-greeting">Welcome, {name}.</h2><p className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</p></div>
-      <button className="btn" onClick={()=>go('activity')}><Icon name="activity"/>View activity</button>
+      <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><p className="warehouse-greeting">Welcome, {name}. <span className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</span></p></div>
+      {role==='OPERATOR'&&<button className="btn small" onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}
     </header>
-    {role==='OPERATOR'&&<button className="btn small" style={{alignSelf:'flex-start'}} onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}
     <ScanReadyPanel/>
-    <section aria-label="Warehouse analytics" className="warehouse-metrics" data-tour="overview-summary">
-      {metrics.map(m=><button className="warehouse-metric" key={m.label} onClick={()=>go(role==='VIEWER'?'find':m.route)}><span>{m.label}</span><strong>{summary?m.value.toLocaleString():'Unavailable'}</strong><small>{summary?m.detail:'Counts are unavailable. Try Refresh.'}</small></button>)}
-    </section>
-    <section aria-labelledby="warehouse-actions-title"><div className="warehouse-section-head"><h2 id="warehouse-actions-title">What do you need to do?</h2></div><div className="warehouse-actions">
-      {actions.map(a=><button className="warehouse-action" key={a.route} aria-label={a.title} onClick={()=>go(a.route)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
+    <section aria-label="Everyday tasks" data-tour="overview-summary"><div className="warehouse-actions">
+      {actions.map(a=><button className="warehouse-action" key={a.title} aria-label={a.title} onClick={()=>go(a.to)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
     </div></section>
+    {manager&&data.attention>0&&<button type="button" className="panel attention-card" onClick={()=>go('reconcile')} data-testid="attention-card"><span className="attention-count">{data.attention.toLocaleString()}</span><span><strong>Needs attention</strong><small>Pallets waiting for a spot, missing, on hold, or with a label to reprint.</small></span><Icon name="chevronRight"/></button>}
     {summary&&total===0&&<FirstSteps manager={manager} spots={spots} needsJob={needsJob}/>}
-    {summary?.reminder_count>0 && <section className="panel stack" aria-label="Still here reminders"><h2>Still here: {summary.reminder_count} reminder{summary.reminder_count===1?'':'s'}</h2><p className="muted">Due in your warehouse’s timezone. Open a pallet to review, clear or reschedule its date. Missing pallets are included. Updates about once a minute while this dashboard is open.</p>{summary.reminders.map((p:Pallet)=><button className="btn" key={p.id} onClick={()=>go({name:'pallet',id:p.id})}>{p.code} · {palletContents(p)} · {p.receiving?.remind_on}{p.receiving?.destination?` · Going to ${p.receiving.destination}`:''}{p.state==='MISSING'?' · Missing':''}</button>)}{summary.reminder_count>50 && <p>Showing the 50 earliest reminders. Clear or reschedule reviewed dates to see the next ones.</p>}</section>}
+    {summary?.reminder_count>0 && <section className="panel stack" aria-label="Still here reminders"><h2>Still here: {summary.reminder_count} reminder{summary.reminder_count===1?'':'s'}</h2><p className="muted">Due today or earlier. Open a pallet to clear or reschedule its date.</p>{summary.reminders.map((p:Pallet)=><button className="btn" key={p.id} onClick={()=>go({name:'pallet',id:p.id})}>{p.code} · {palletContents(p)} · {p.receiving?.remind_on}{p.receiving?.destination?` · Going to ${p.receiving.destination}`:''}{p.state==='MISSING'?' · Missing':''}</button>)}{summary.reminder_count>50 && <p>Showing the 50 earliest reminders. Clear or reschedule reviewed dates to see the next ones.</p>}</section>}
+    <section aria-label="Warehouse analytics" className="warehouse-metrics">
+      {metrics.map(m=><button className="warehouse-metric" key={m.label} onClick={()=>go(role==='VIEWER'||(m.route==='reconcile'&&!manager)?'find':m.route)}><span>{m.label}</span><strong>{summary?m.value.toLocaleString():'Unavailable'}</strong><small>{summary?m.detail:'Counts are unavailable. Try Refresh.'}</small></button>)}
+    </section>
     <div className="grid-2">
-      <section className="panel stack"><div className="warehouse-section-head"><h2>Pallet status</h2><button className="btn ghost small" onClick={()=>go('find')}>Find pallets</button></div>
+      <section className="panel stack"><div className="warehouse-section-head"><h2>Pallet status</h2><button className="btn ghost small" onClick={()=>go('map')}>Stock</button></div>
         {summary?<StateBar counts={counts} total={total}/>:<p className="muted">Refresh to load warehouse counts.</p>}
-        {summary&&counts.MISSING>0&&<button className="btn" onClick={()=>go(role==='VIEWER'?'find':'reconcile')}>{counts.MISSING} missing: needs attention</button>}
       </section>
       <section className="panel stack"><h2>Recent changes</h2><p className="muted warehouse-chart-note">{live?'Latest 50 recorded changes, grouped by day.':'Recorded changes over the last 14 days.'}</p><ActivityChart events={data.activity.map(e=>e.accepted_at)}/></section>
     </div>
     <section className="panel stack"><div className="warehouse-section-head"><h2>Latest activity</h2><button className="btn ghost small" onClick={()=>go('activity')}>View history</button></div>
       {!data.activity.length?<p className="muted">No pallet activity yet. Receiving a pallet starts its history.</p>:<div className="warehouse-activity">{data.activity.slice(0,6).map(ev=><button key={ev.id} onClick={()=>go({name:'pallet',id:ev.pallet_id})}><span className="warehouse-action-icon"><Icon name="activity"/></span><span><strong>{EVENT_LABEL[ev.type]}{backend.db.pallets[ev.pallet_id]?.code?` · ${backend.db.pallets[ev.pallet_id].code}`:''}</strong><small>{ev.after_state.current_location_code || 'Pallet record'} · {backend.db.users[ev.actor_id]?.name || 'Team member'}</small></span><time dateTime={ev.accepted_at}>{fmtTime(ev.accepted_at)}</time></button>)}</div>}
     </section>
-    <nav className="warehouse-utilities" aria-label="More warehouse tools">
-      <button className="btn" onClick={()=>go('map')}><Icon name="map"/>Warehouse map</button>
-      {manager&&<button className="btn" onClick={()=>go('people')}><Icon name="people"/>Manage team</button>}
-      <button className="btn" onClick={()=>go('more')}><Icon name="more"/>All features</button>
-      <button className="btn ghost" onClick={()=>go('help')}><Icon name="help"/>Get help</button>
-    </nav>
   </div>;
 }
 

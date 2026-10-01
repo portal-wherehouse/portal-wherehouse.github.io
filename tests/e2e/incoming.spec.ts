@@ -68,11 +68,11 @@ test('an unknown barcode becomes a saved product, and the next scan fills it in'
   await expect(page.getByTestId('product-list')).toContainText('Pine kindling, 1 cu ft');
 });
 
-test('a pallet type gets a generated barcode, a size, and prints on a sticker', async ({ page }) => {
+test('a product gets a generated barcode, a size, and prints on a sticker', async ({ page }) => {
   await signInAs(page, 'owner');
   await page.goto('/?demo=1#import');
-  await page.getByTestId('pallet-type-panel').getByRole('button', { name: 'New pallet type' }).click();
-  await page.getByLabel('Pallet type name').fill('Tire crate from Acme Supply');
+  await page.getByTestId('pallet-type-panel').getByRole('button', { name: 'New product' }).click();
+  await page.getByLabel('Product name').fill('Tire crate from Acme Supply');
   await page.getByRole('button', { name: 'Generate barcode' }).click();
   await expect(page.locator('#prod-code')).toHaveValue(/^PT-[A-Z2-9]{6}$/);
   const code = await page.locator('#prod-code').inputValue();
@@ -85,7 +85,7 @@ test('a pallet type gets a generated barcode, a size, and prints on a sticker', 
   await expect(page.getByRole('dialog').locator('.product-label')).toContainText('48 × 40 × 60 in, about 900 lb');
   await page.getByLabel('How many').fill('3');
   await expect(page.locator('#print-root .product-label')).toHaveCount(3);
-  await expect(page.locator('#print-root .product-label').first()).toContainText('PALLET TYPE');
+  await expect(page.locator('#print-root .product-label').first()).toContainText('PRODUCT');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.goto('/?demo=1#products');
   await expect(page.getByTestId('product-list')).toContainText('Tire crate from Acme Supply');

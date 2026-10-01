@@ -45,7 +45,6 @@ test('with jobs off, saved, history, dispatch and hints never ask for a job that
  await expect(page.locator('.big-result')).not.toContainText(/No order/);
  await expect(page.getByRole('button',{name:'Receive another',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:/Receive another for/})).toHaveCount(0);
- await page.getByRole('button',{name:'Place now'}).click();
  await typeCode(page,'A-01-01');
  await page.getByRole('button',{name:'Place: A-01-01'}).click();
  await expect(page.getByText('Placed at A-01-01')).toBeVisible();

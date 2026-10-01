@@ -1,6 +1,7 @@
 import { FirebaseBackend } from '../../data/firebase';
 // CSV import (page 27): template, paste or choose a file, preview with row errors, then one atomic batch.
 
+import { ImportExportTabs } from '../../ui/tabSets';
 import { useEffect, useMemo, useState } from 'react';
 import { hashString } from '../../domain/codes';
 import { IMPORT_TEMPLATES, applyMapping, detectImportKind, guessMapping, headerKey, parseCsv, prepareImport, templateCsv, type ColumnMap, type ImportKind, type SavedImportTemplate } from '../../domain/csv';
@@ -146,18 +147,19 @@ export function Import() {
 
   return (
     <div className="stack">
-      <PageHead title="Import" sub="Two ways to get pallets into your system before they arrive: a delivery list from your supplier, or a pallet type you make yourself." />
+      <ImportExportTabs />
+      <PageHead title="Import" sub="Two ways to get pallets into your system before they arrive: a delivery list from your supplier, or a product barcode you make yourself." />
       <div className="panel stack" data-testid="pallet-type-panel">
         <div className="panel-title">
-          <Icon name="barcode" width={16} height={16} /> Pallet types
+          <Icon name="barcode" width={16} height={16} /> Products
         </div>
-        <p style={{ margin: 0 }}>Pallet coming from somewhere that doesn't label it? Make a pallet type, generate a barcode for it, and print its sticker. Every pallet of that type is recognized when it's scanned in.</p>
+        <p style={{ margin: 0 }}>Pallet coming from somewhere that doesn't label it? Make a product, generate a barcode for it, and print its sticker. Every pallet of that product is recognized when it's scanned in.</p>
         <div className="row" style={{ flexWrap: 'wrap' }}>
           <button className="btn primary" onClick={() => setNewType(true)} disabled={backend.network === 'offline'}>
-            <Icon name="plus" /> New pallet type
+            <Icon name="plus" /> New product
           </button>
           <button className="btn" onClick={() => go('products')}>
-            See all pallet types
+            See all products
           </button>
         </div>
       </div>
@@ -168,7 +170,7 @@ export function Import() {
           onSaved={(p, print) => {
             setNewType(false);
             if (print) setTypeLabel(p);
-            else toast(`Saved ${p.description} with barcode ${p.code}. Print its sticker from Pallet types any time.`);
+            else toast(`Saved ${p.description} with barcode ${p.code}. Print its sticker from Products any time.`);
           }}
         />
       )}

@@ -10,7 +10,7 @@ test('operator receives matching pallets, prints both labels, places and retriev
   await expect(page.getByRole('button', {name:'Take the tour',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button', {name:'Online. Open Sync and offline'})).toHaveCount(0);
   await expect(page.getByText('Local demo', {exact:true})).toHaveCount(0);
-  await expect(sidebar.getByRole('button', {name:'Manager dashboard',exact:true})).toHaveCount(0);
+  await expect(sidebar.getByRole('button', {name:'People',exact:true})).toHaveCount(0);
   await expect(sidebar.getByRole('button', {name:'Integrity lab',exact:true})).toHaveCount(0);
   await page.locator("#rcv-job").waitFor({state:"attached"}); if (await page.getByRole("button", {name:"Add job (optional)", exact:true}).isVisible()) await page.getByRole("button", {name:"Add job (optional)", exact:true}).click();
 await page.locator('#rcv-job').selectOption({label:'J-214 · School renovation'});
@@ -33,7 +33,6 @@ await page.locator('#rcv-job').selectOption({label:'J-214 · School renovation'}
   await expect(labels.getByText('P-000042', {exact:true}).first()).toBeVisible();
   await expect(labels.getByText('P-000043', {exact:true}).first()).toBeVisible();
   await labels.getByRole('button', {name:'Close',exact:true}).click();
-  await page.getByRole('button', {name:'Place now',exact:true}).click();
   await typeCode(page, 'A-03-02');
   await expect(page.getByRole('button', {name:/Demo: another phone/})).toHaveCount(0);
   await page.getByRole('button', {name:'Place: A-03-02',exact:true}).click();

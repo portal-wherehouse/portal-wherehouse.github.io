@@ -125,8 +125,8 @@ export function WarehouseMap() {
     <div className="stack">
       <PageHead
         eyebrow={`${data.ctx.warehouse?.code} · ${data.ctx.warehouse?.name}`}
-        title="Warehouse map"
-        sub={`${recorded} pallets recorded across ${data.locations.filter((l) => l.active).length} active locations. ${empty} have nothing recorded.`}
+        title="Stock"
+        sub={`Warehouse map: ${recorded} pallets recorded across ${data.locations.filter((l) => l.active).length} active spots. ${empty} have nothing recorded.`}
         actions={
           <label className="toggle">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />

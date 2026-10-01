@@ -38,7 +38,7 @@ export function People() {
   return (
     <div className="stack">
       <PageHead
-        title="Manager dashboard"
+        title="People"
         sub={`${members.length} ${members.length === 1 ? 'person has' : 'people have'} access to ${data.ctx.workspace.name}.`}
         actions={
           canAdmin && backend.mode === 'demo' && (
@@ -48,7 +48,7 @@ export function People() {
           )
         }
       />
-      {canAdmin && <div className="manager-shortcuts"><button className="btn" onClick={()=>go('overview')}>Warehouse overview</button><button className="btn" onClick={()=>go('locations')}>Racks & locations</button><button className="btn" onClick={()=>go('labels')}>Print labels</button><button className="btn" onClick={()=>go('activity')}>Movement log</button></div>}
+      {canAdmin && <div className="manager-shortcuts"><button className="btn" onClick={()=>go('overview')}>Dashboard</button><button className="btn" onClick={()=>go('locations')}>Spots and labels</button><button className="btn" onClick={()=>go('activity')}>History</button></div>}
       <IssuesPanel />
       {canAdmin && backend.mode === 'firebase' && <AuthorizedEmails />}
       <h2 className="panel-title">Your team</h2>

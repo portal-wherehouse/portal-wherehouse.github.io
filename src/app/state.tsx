@@ -223,8 +223,8 @@ const ROUTE_TOKENS: RouteName[] = [
 /** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them.
  * The website's #for/<kind of business> pages link the same way. */
 const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive', 'transfer', 'for'];
-/** Screens whose query rides along in the link, e.g. #find?q=J-214 or #station?q=count. */
-const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products'];
+/** Screens whose query rides along in the link, e.g. #find?q=J-214, #station?q=count or #move?q=ship. */
+const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products', 'move'];
 
 /** The address-bar hash for a route: '' for home, or for a screen that has no link of its own. */
 export function hashFor(r: Route): string {

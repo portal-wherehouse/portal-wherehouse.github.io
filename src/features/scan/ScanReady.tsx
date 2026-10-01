@@ -121,12 +121,17 @@ export function ScanReadyPanel() {
             ) : null}
           </span>
         </div>
-        {r.fixInScanners && (
-          <button type="button" className="btn small scan-ready-fix" onClick={() => go('scanners')}>
-            <Icon name="settings" width={16} height={16} /> Open Scanners
+        <div className="scan-ready-links">
+          {r.fixInScanners && (
+            <button type="button" className="btn small scan-ready-fix" onClick={() => go('scanners')}>
+              <Icon name="settings" width={16} height={16} /> Open Scanners
+            </button>
+          )}
+          <button type="button" className="btn small ghost" onClick={() => go('station')} data-testid="open-station">
+            <Icon name="target" width={16} height={16} /> Scan station
           </button>
-        )}
-        <div className="scan-ready-last" aria-live="polite" data-testid="scan-ready-last">
+        </div>
+        <div className={`scan-ready-last${last ? '' : ' is-empty'}`} aria-live="polite" data-testid="scan-ready-last">
           {last && result ? (
             <>
               <span className="scan-ready-last-label">Last scan</span>

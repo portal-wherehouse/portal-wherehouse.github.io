@@ -112,7 +112,7 @@ test('crew see the setup-pending screen until a manager finishes or skips setup'
   await expect(page.getByTestId('setup-pending')).toBeVisible();
   const nav = page.locator('.sidebar');
   await expect(nav.getByTestId('checklist-nav')).toHaveCount(0);
-  await nav.getByRole('button', { name: /^Move/ }).click({ force: true });
+  await nav.getByRole('button', { name: /^Put away and move/ }).click({ force: true });
   const oops = page.getByTestId('setup-oops');
   await expect(oops).toContainText('A manager must complete or skip the setup checklist first.');
   await expect(oops.getByRole('button', { name: 'Go to setup checklist' })).toHaveCount(0);

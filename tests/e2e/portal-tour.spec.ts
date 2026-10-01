@@ -17,30 +17,31 @@ const STOPS: { title: string; hash: string | null; record?: RegExp }[] = [
   { title: 'Welcome to the Wherehouse Portal', hash: null },
   { title: 'The top bar', hash: null },
   { title: 'Getting around', hash: null },
+  { title: 'Dashboard', hash: 'overview' },
+  { title: 'Needs attention', hash: 'reconcile' },
   { title: 'Receive', hash: 'receive' },
-  { title: 'Move', hash: 'move' },
+  { title: 'Put away and move', hash: 'move' },
+  { title: 'Ship', hash: 'move\\?q=ship' },
   { title: 'Find', hash: 'find' },
   { title: 'A pallet record', hash: '', record: /P-\d{6}/ },
   { title: 'Its history', hash: '', record: /P-\d{6}/ },
-  { title: 'Dashboard', hash: 'overview' },
-  { title: 'Warehouse map', hash: 'map' },
-  { title: 'Needs attention', hash: 'reconcile' },
-  { title: 'Activity', hash: 'activity' },
   { title: 'Jobs', hash: 'jobs' },
   { title: 'Pick lists', hash: '', record: /J-\d{3}/ },
-  { title: 'Locations', hash: 'locations' },
+  { title: 'Stock', hash: 'map' },
+  { title: 'History', hash: 'activity' },
+  { title: 'Scan station', hash: 'station' },
+  { title: 'Scanners', hash: 'scanners' },
+  { title: 'Spots and labels', hash: 'locations' },
   { title: 'Labels', hash: 'labels' },
   { title: 'Import', hash: 'import' },
   { title: 'Export', hash: 'export' },
-  { title: 'People and roles', hash: 'people' },
-  { title: 'Scan station', hash: 'station' },
-  { title: 'Scanners', hash: 'scanners' },
+  { title: 'People', hash: 'people' },
+  { title: 'Settings', hash: 'settings' },
+  { title: 'Data and storage', hash: 'data' },
+  { title: 'Help', hash: 'help' },
   { title: 'Sync and offline', hash: 'sync' },
   { title: 'Integrity lab', hash: 'lab' },
   { title: 'Guide', hash: 'guide' },
-  { title: 'Data and storage', hash: 'data' },
-  { title: 'Help', hash: 'help' },
-  { title: 'Settings', hash: 'settings' },
   { title: 'About', hash: 'about' },
   { title: 'You’re ready', hash: null },
 ];
@@ -127,13 +128,13 @@ test.describe('portal walkthrough', () => {
     await expect(page).toHaveURL(/#station$/);
 
     await card.getByRole('button', { name: 'Back' }).click();
-    await expect(card.getByRole('heading', { level: 2 })).toHaveText('People and roles');
-    await expect(page).toHaveURL(/#people$/);
+    await expect(card.getByRole('heading', { level: 2 })).toHaveText('History');
+    await expect(page).toHaveURL(/#activity$/);
 
     await page.keyboard.press('ArrowRight');
     await expect(card.getByRole('heading', { level: 2 })).toHaveText('Scan station');
     await page.keyboard.press('ArrowLeft');
-    await expect(card.getByRole('heading', { level: 2 })).toHaveText('People and roles');
+    await expect(card.getByRole('heading', { level: 2 })).toHaveText('History');
 
     await page.keyboard.press('Escape');
     await expect(page.locator('.ptour')).toHaveCount(0);

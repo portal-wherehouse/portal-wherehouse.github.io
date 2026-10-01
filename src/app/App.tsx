@@ -8,7 +8,7 @@ import { LiveView } from '../data/LiveView';
 
 import { useEffect, useRef, useState } from 'react';
 import { BRAND } from '../brand';
-import { isSiteRoute, quietOpening, useApp, type RouteName, type SiteRouteName } from './state';
+import { isSiteRoute, quietOpening, useApp, type Route, type RouteName, type SiteRouteName } from './state';
 import { IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
 import { Avatar, Empty, Notice, ROLE_DESC, ROLE_LABEL, ROLE_SHORT, Sheet, Toasts, fmtTime } from '../ui/ui';
@@ -25,7 +25,7 @@ import { Guide } from '../features/guide/Guide';
 import { Lab } from '../features/lab/Lab';
 import { LabelStudio } from '../features/labels/LabelStudio';
 import { WarehouseMap } from '../features/map/WarehouseMap';
-import { More, visibleNavGroups } from '../features/more/More';
+import { HOME_ITEM, More, navItemCurrent, navTarget, visibleNav, type NavGroup, type NavItem } from '../features/more/More';
 import { useSetup, useWordSwap } from './words';
 import { Move } from '../features/move/Move';
 import { Overview } from '../features/overview/Overview';
@@ -102,6 +102,8 @@ const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find'
 /** Which top-level tab a detail screen belongs to, for highlighting. */
 function tabFor(name: RouteName): RouteName {
   if (name === 'pallet') return 'find';
+  if (name === 'incoming') return 'receive';
+  if (name === 'reconcile') return 'overview';
   if (['overview', 'receive', 'move', 'find'].includes(name)) return name;
   return 'more';
 }
@@ -167,7 +169,8 @@ function Portal() {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const setupOpen = (r: string) => r === 'checklist' || (manager && SETUP_ROUTES.includes(r));
   const [oops, setOops] = useState(false);
-  const open = (r: RouteName) => (setupLocked ? setOops(true) : go(r));
+  const open = (r: RouteName | Route) => (setupLocked ? setOops(true) : go(r));
+  const nav = visibleNav(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on, transfers);
   const onChecklist = route.name === 'checklist' || (setupLocked && !setupOpen(route.name));
   const counts = read((e, a, ws) => {
     const r = e.reconciliation(a, ws);
@@ -258,33 +261,32 @@ function Portal() {
         {signedIn && (
           <nav className="sidebar" aria-label="Main">
             {checklist.show && <ChecklistNav status={checklist} here={onChecklist} />}
-            <button className={`nav-item dashboard-nav${setupLocked ? ' locked' : ''}`} aria-disabled={setupLocked || undefined} aria-current={route.name === 'overview' && !setupLocked ? 'page' : undefined} onClick={() => open('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
-            {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on, transfers).map((g) => (
+            <button className={`nav-item dashboard-nav${setupLocked ? ' locked' : ''}`} aria-disabled={setupLocked || undefined} aria-current={navItemCurrent(HOME_ITEM, route) && !setupLocked && !onChecklist ? 'page' : undefined} onClick={() => open('overview')} data-tour="nav-overview" title={counts?.reconcile && manager ? `${counts.reconcile} need attention` : undefined}>
+              <Icon name="overview" />Dashboard
+              {!!counts?.reconcile && manager && <span className="count" aria-hidden="true">{counts.reconcile}</span>}
+            </button>
+            {nav.groups.map((g) => {
+              const here = g.items.some((i) => navItemCurrent(i, route));
+              return (
               <div key={g.title} className="nav-group">
-                <details open={!folded.includes(g.title)}>
+                <details open={here || !folded(g)}>
                 {/* Handled on click (not the async toggle event) so the choice is saved before any refresh. */}
                 <summary
                   onClick={(e) => {
                     e.preventDefault();
-                    setFolded(g.title, !folded.includes(g.title));
+                    setFolded(g, !folded(g));
                   }}
                 >
                   {g.title}
                 </summary>
-                {g.items.filter(i => i.route !== 'overview').map((i) => {
-                  const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location') || (i.route === 'transfers' && route.name === 'transfer');
-                  const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
-                  return (
-                    <button key={i.route} className={`nav-item${setupLocked ? ' locked' : ''}`} aria-disabled={setupLocked || undefined} aria-current={current && !onChecklist ? 'page' : undefined} onClick={() => open(i.route)} data-tour={`nav-${i.route}`}>
-                      <Icon name={i.icon} />
-                      {i.label}
-                      {!!count && <span className={`count ${i.route === 'sync' && needsDecision ? 'alert' : ''}`}>{count}</span>}
-                    </button>
-                  );
-                })}
+                {g.items.map((i) => <NavButton key={`${i.route}:${i.q ?? ''}`} item={i} current={navItemCurrent(i, route) && !onChecklist} locked={setupLocked} onOpen={open} />)}
                 </details>
               </div>
-            ))}
+              );
+            })}
+            <div className="nav-foot">
+              {nav.foot.map((i) => <NavButton key={i.route} item={i} current={navItemCurrent(i, route) && !onChecklist} locked={setupLocked} onOpen={open} count={i.route === 'help' && pending > 0 && (backend.mode === 'firebase' || app.prefs.advancedTools) ? pending : undefined} alert={needsDecision > 0} />)}
+            </div>
           </nav>
         )}
         <main key={`${route.name}:${route.id ?? ''}`} className="main page-enter" id="main" style={signedIn ? undefined : { maxWidth: 980 }}>
@@ -444,26 +446,50 @@ function RenewalNotice(){
   return <Notice tone="warn" title="Renewal due · read-only access"><p>You can find pallets, view photos and read history until {new Date(backend.graceEndsAt).toLocaleDateString()}. New changes and uploads are paused. Your records are preserved.</p><div className="row">{(role==='OWNER'||role==='SUPERVISOR')&&<button className="btn" onClick={()=>go('export')}>Export records</button>}<button className="btn" onClick={()=>go('signin')}>Renew warehouse</button></div></Notice>;
 }
 
-/** Sidebar groups stay open unless you fold them; the choice is kept in this browser across refreshes. */
-function useFoldedNav(): [string[], (title: string, fold: boolean) => void] {
-  const [folded, set] = useState<string[]>(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem('pl.navFolded') ?? '[]');
-      return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
-    } catch {
-      return [];
-    }
-  });
-  const update = (title: string, fold: boolean) =>
+/** One menu item: its icon, its label, and a count when something is waiting. */
+function NavButton({ item, current, locked, onOpen, count, alert }: { item: NavItem; current: boolean; locked: boolean; onOpen: (r: Route) => void; count?: number; alert?: boolean }) {
+  return (
+    <button className={`nav-item${locked ? ' locked' : ''}`} aria-disabled={locked || undefined} aria-current={current ? 'page' : undefined} onClick={() => onOpen(navTarget(item))} data-tour={`nav-${item.q ?? item.route}`}>
+      <Icon name={item.icon} />
+      {item.label}
+      {!!count && <span className={`count ${alert ? 'alert' : ''}`}>{count}</span>}
+    </button>
+  );
+}
+
+const FOLDED_KEY = 'pl.navFolded';
+const OPENED_KEY = 'pl.navOpened';
+
+function readTitles(key: string): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Sidebar groups keep the open or folded state you leave them in, in this browser across refreshes. Most start
+ * open; a group marked `folded` (Setup) starts folded until you open it.
+ */
+function useFoldedNav(): [(g: NavGroup) => boolean, (g: NavGroup, fold: boolean) => void] {
+  const [lists, set] = useState(() => ({ folded: readTitles(FOLDED_KEY), opened: readTitles(OPENED_KEY) }));
+  const isFolded = (g: NavGroup) => (g.folded ? !lists.opened.includes(g.title) : lists.folded.includes(g.title));
+  const update = (g: NavGroup, fold: boolean) =>
     set((cur) => {
-      if (fold === cur.includes(title)) return cur;
-      const next = fold ? [...cur, title] : cur.filter((t) => t !== title);
+      // Default-folded groups remember being opened; the others remember being folded.
+      const key = g.folded ? 'opened' : 'folded';
+      const add = g.folded ? !fold : fold;
+      const list = cur[key];
+      if (add === list.includes(g.title)) return cur;
+      const next = add ? [...list, g.title] : list.filter((t) => t !== g.title);
       try {
-        localStorage.setItem('pl.navFolded', JSON.stringify(next));
+        localStorage.setItem(g.folded ? OPENED_KEY : FOLDED_KEY, JSON.stringify(next));
       } catch {
         /* folding still works for this visit */
       }
-      return next;
+      return { ...cur, [key]: next };
     });
-  return [folded, update];
+  return [isFolded, update];
 }

@@ -1,0 +1,299 @@
+/* The scan-first task layout (ScanFlow.tsx): a big prompt, the camera, the step's details, then typing. */
+
+.scan-flow {
+  --flow-go: #1f9d55;
+  --flow-go-soft: #e9f7ef;
+  --flow-stop: var(--bad, #ad3434);
+  --flow-stop-soft: var(--bad-soft, #fff3f3);
+  position: relative;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.flow-prompt {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.flow-prompt.tone-ok {
+  border-left-color: var(--flow-go);
+}
+.flow-prompt.tone-warn {
+  border-left-color: var(--warn);
+}
+.flow-prompt.tone-busy {
+  border-left-color: var(--ink-3);
+}
+/* A good scan: the card washes green for a moment. */
+.flow-prompt.flashed {
+  animation: flow-go 0.9s ease-out;
+}
+@keyframes flow-go {
+  0% {
+    background: #c9efd8;
+    border-color: var(--flow-go);
+  }
+  100% {
+    background: var(--surface);
+  }
+}
+
+.flow-prompt-text {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.flow-prompt-sub {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.flow-flash {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.4;
+}
+.flow-flash svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-top: 1px;
+}
+.flow-flash.is-ok {
+  background: var(--flow-go-soft);
+  color: var(--ok);
+}
+.flow-flash.is-error {
+  background: var(--flow-stop-soft);
+  color: var(--flow-stop);
+  animation: flow-stop 0.35s ease-out;
+}
+.flow-flash.is-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.flow-flash.is-info {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+@keyframes flow-stop {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+/* The camera: a wide, not too tall picture, so the prompt and the step stay in view. */
+.flow-camera .viewfinder {
+  aspect-ratio: 16 / 10;
+  max-width: 560px;
+}
+.flow-camera .inline-camera-start {
+  min-height: 64px;
+  max-width: 560px;
+  padding: 12px 16px;
+}
+.flow-camera .inline-camera-start strong {
+  font-size: 17px;
+}
+.flow-camera .inline-camera-start small {
+  font-size: 13px;
+}
+.flow-camera .inline-camera-start > svg {
+  width: 26px;
+  height: 26px;
+}
+
+.flow-manual {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.flow-manual .input.code {
+  font-size: 17px;
+  min-width: 0;
+}
+.flow-photo {
+  justify-self: start;
+  align-self: flex-start;
+  cursor: pointer;
+}
+.flow-photo svg {
+  width: 16px;
+  height: 16px;
+}
+.flow-photo-error {
+  margin: 0;
+  color: var(--bad);
+  font-size: 14px;
+}
+.flow-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.flow-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-listen .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.flow-listen.on .dot {
+  background: var(--flow-go);
+}
+.flow-last {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.flow-last.ok .mono {
+  color: var(--ok);
+}
+.flow-last.bad .mono {
+  color: var(--bad);
+}
+.flow-demo > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-3);
+  width: fit-content;
+}
+.flow-demo .demo-labels {
+  margin-top: 4px;
+}
+
+/* The current item and where it is going, under the prompt. */
+.flow-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.flow-item .grow {
+  min-width: 0;
+}
+.flow-item .pcode {
+  font-size: 22px;
+}
+.flow-item-desc {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.flow-route {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.flow-route .arrow {
+  width: 24px;
+  height: 24px;
+  color: var(--ink-3);
+  flex: none;
+}
+
+/* Modes of one task screen, such as Move, Stage and Ship. */
+.flow-modes {
+  display: inline-flex;
+  justify-self: start;
+  align-self: flex-start;
+  width: fit-content;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  max-width: 100%;
+  overflow-x: auto;
+}
+.flow-modes button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.flow-modes button svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.flow-modes button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 2px #1b345014;
+}
+
+@media (max-width: 520px) {
+  .flow-prompt {
+    padding: 14px;
+  }
+  .flow-prompt-text {
+    font-size: 25px;
+  }
+  .flow-flash {
+    font-size: 14px;
+  }
+  /* The item card stacks: code and details on top, where it is now and Start over under them. */
+  .flow-item {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .flow-item > .row {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .flow-item .grow {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-prompt.flashed,
+  .flow-flash.is-error {
+    animation: none;
+  }
+}

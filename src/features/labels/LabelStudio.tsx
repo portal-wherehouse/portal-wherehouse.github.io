@@ -1,4 +1,5 @@
 import { where } from 'firebase/firestore';
+import { SpotsTabs } from '../../ui/tabSets';
 import { useJobsOn } from '../../app/words';
 import { FirebaseBackend } from '../../data/firebase';
 // Label studio: build a print run of pallet or rack labels, check calibration, and learn what a label carries (page 16).
@@ -67,6 +68,7 @@ export function LabelStudio() {
 
   return (
     <div className="stack">
+      <SpotsTabs />
       <PageHead title="Labels" sub="Print pallet and rack labels in batches, at the right size, with a calibration check." />
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="panel stack" data-tour="labels-source">

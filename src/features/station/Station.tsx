@@ -1,7 +1,7 @@
 // Scan station: a hands-free screen for someone holding a hardware scanner, readable from a few feet away.
 // Four modes (Look up, Move, Put-away, Count); the rules live in logic.ts, this file wires them to the app.
 
-import { InlineCamera } from '../scan/InlineCamera';
+import { FlowCamera } from '../scan/ScanFlow';
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import './station.css';
 import { useApp } from '../../app/state';
@@ -319,7 +319,7 @@ export function Station() {
       <PageHead
         eyebrow={offline ? 'Scanning · offline' : 'Scanning'}
         title="Scan station"
-        sub="Hands on the scanner, eyes on the big line. Pick a mode, then scan labels and command barcodes."
+        sub="Pick a mode, then keep scanning. The big line says what to scan next."
         actions={
           <>
             <button className="btn" onClick={() => go('scanners')}>
@@ -370,7 +370,8 @@ export function Station() {
 
       <div className="st-layout">
         <div className="st-main">
-          <InlineCamera prompt={prompt.text} testId="station-camera" />
+          {/* The same camera as the other task screens: it stays on across modes, and the choice is remembered. */}
+          <FlowCamera prompt={prompt.text} testId="station-camera" className="st-camera" />
           <div className="st-modes-box">
             <div className="st-modes" role="group" aria-label="Station mode" data-tour="station-modes">
               {STATION_MODES.map((m) => {

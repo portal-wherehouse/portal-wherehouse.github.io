@@ -1,5 +1,6 @@
 // Settings: display preferences (per device), demo data controls, storage and build information.
 
+import { SettingsTabs } from "../../ui/tabSets";
 import { useState } from "react";
 import type { FixtureName } from "../../demo/seed";
 import { useApp, type Prefs } from "../../app/state";
@@ -59,6 +60,7 @@ function DemoSettings() {
 
   return (
     <div className="stack">
+      <SettingsTabs />
       <PageHead
         title="Settings"
         sub="Display choices are saved on this device only."

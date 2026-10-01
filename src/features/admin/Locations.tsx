@@ -1,5 +1,6 @@
 // Locations: racks and areas, their labels, and what is recorded at each (pages 9, 16, 34 C02).
 
+import { SpotsTabs } from '../../ui/tabSets';
 import { useMemo, useState } from 'react';
 import { normalizeCode, rackFields } from '../../domain/codes';
 import { roleAllows } from '../../domain/transitions';
@@ -43,8 +44,9 @@ export function Locations() {
 
   return (
     <div className="stack">
+      <SpotsTabs />
       <PageHead
-        title="Locations"
+        title="Spots"
         sub={`${data.ctx.locations.filter((l) => l.active).length} active in ${data.ctx.warehouse?.code}. Each has its own printed QR label.`}
         actions={
           <>

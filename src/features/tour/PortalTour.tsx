@@ -7,7 +7,7 @@ import { isSiteRoute, useApp, type Route, type RouteName } from '../../app/state
 import { MIN_ROLE, roleAllows } from '../../domain/transitions';
 import { Icon } from '../../ui/icons';
 import { ROLE_LABEL } from '../../ui/ui';
-import { NAV_GROUPS, visibleNavGroups } from '../more/More';
+import { HELP_ITEM, NAV_GROUPS, reachableRoutes, visibleNav } from '../more/More';
 import { STOPS, copy, type TourStop, type Chapter } from './stops';
 
 interface Box {
@@ -284,33 +284,53 @@ function rich(text: string | undefined): ReactNode {
   return out;
 }
 
-const sameRoute = (a: Route, b: Route) => a.name === b.name && (a.id ?? '') === (b.id ?? '');
+/** Whether the screen on show is the stop's screen; a stop that names a mode (Ship) needs that mode too. */
+const sameRoute = (a: Route, b: Route) => a.name === b.name && (a.id ?? '') === (b.id ?? '') && (!b.q || a.q === b.q);
 
-/** "Sidebar › Warehouse › Map", or the phone equivalent. */
+/** Pages reached through a menu item that covers them, by the name on their tab or link. */
+const COVERED_NAME: Partial<Record<RouteName, string>> = {
+  incoming: 'Incoming',
+  labels: 'Labels',
+  export: 'Export',
+  data: 'Data and storage',
+  lab: 'Integrity lab',
+  guide: 'Guide',
+  about: 'About',
+  sync: 'Sync and offline',
+  station: 'Scan station',
+};
+
+/** "Sidebar › Inventory › Stock", or the phone equivalent. */
 function whereLine(stop: TourStop, route: RouteName | null, sidebar: boolean): string | null {
   if (stop.where) return stop.where;
   const name = stop.nav ?? route;
   if (!name) return null;
   if (name === 'overview') return sidebar ? 'Top of sidebar › Dashboard' : 'Bottom tabs › Dashboard';
-  const group = NAV_GROUPS.find((g) => g.items.some((i) => i.route === name));
-  const item = group?.items.find((i) => i.route === name);
+  if (name === 'reconcile') return sidebar ? 'Top of sidebar › Dashboard › Needs attention' : 'Bottom tabs › Dashboard › Needs attention';
+  const groups = [...NAV_GROUPS, { title: '', items: [HELP_ITEM] }];
+  const own = (g: (typeof groups)[number]) => g.items.find((i) => i.route === name && !i.q) ?? g.items.find((i) => i.covers?.includes(name));
+  const group = groups.find((g) => own(g));
+  const item = group && own(group);
   if (!group || !item) return null;
-  if (sidebar) return `Sidebar › ${group.title} › ${item.label}`;
-  if (name === 'receive' || name === 'move' || name === 'find') return `Bottom tabs › ${item.label}`;
-  return `More › ${group.title} › ${item.label}`;
+  const tail = item.route === name ? item.label : `${item.label} › ${COVERED_NAME[name] ?? name}`;
+  if (sidebar) return group.title ? `Sidebar › ${group.title} › ${tail}` : `Bottom of sidebar › ${tail}`;
+  if (item.route === 'receive' || item.route === 'move' || item.route === 'find') return `Bottom tabs › ${tail}`;
+  return `More › ${tail}`;
 }
 
 export function PortalTour() {
   const { guideStep, actorId, route, blockedNav, stopGuide, backend, role, prefs } = useApp();
   const stops = useMemo(() => {
     if (backend.mode === 'demo' && !backend.sampleMode && prefs.advancedTools) return STOPS;
-    const allowed = new Set(visibleNavGroups(role, false, backend.mode === 'firebase').flatMap(g => g.items.map(i => i.route)));
+    const allowed = reachableRoutes(visibleNav(role, false, backend.mode === 'firebase'));
+    // About is a link inside Help, not a stop of its own on the everyday tour.
+    allowed.delete('about');
     const updates: Record<string, Partial<TourStop>> = {
       intro: { body: 'See the screens available to your account and what each one does. You can leave at any point. The tour itself does not change records.' },
       topbar: { body: 'The top bar shows your warehouse, connection and account. Open your account menu to check who you are signed in as.', tip: backend.sampleMode ? 'This is a sample saved in your browser. Use Sample views to switch between management and employee views.' : 'Everyone uses their own verified account. Your manager controls access to this warehouse.' },
       nav: { body: 'Use the navigation to receive, move and find pallets, or open the other warehouse tools available to your account. On a phone, More holds the pages that do not fit in the bottom tabs.', tip: 'You can start this tour again from Help.' },
       move: { tip: 'No label handy? Type the printed pallet and rack codes instead.' },
-      people: { title: 'Manager dashboard', body: 'Authorize employee and manager email addresses, review access and remove people who no longer need it. Each person signs in with their own account.', tip: backend.sampleMode ? 'These are example accounts. No invitations are sent from the sample.' : 'Authorizing an email does not send an invitation. Give the person the sign-in link and have them verify their email.' },
+      people: { title: 'People', body: 'Authorize employee and manager email addresses, review access and remove people who no longer need it. Each person signs in with their own account.', tip: backend.sampleMode ? 'These are example accounts. No invitations are sent from the sample.' : 'Authorizing an email does not send an invitation. Give the person the sign-in link and have them verify their email.' },
       export: { body: 'Prepare a complete export of pallets, jobs, racks and movement history, then download the files for the office. Preparing it loads every page of records.' },
       data: { body: 'The sample records live in this browser. You can save or restore a sample backup here. Customer warehouse records use a separate shared Firebase database.' },
       settings: { body: 'Adjust this device’s display and text size, choose your starting screen, and manage your session.' },
