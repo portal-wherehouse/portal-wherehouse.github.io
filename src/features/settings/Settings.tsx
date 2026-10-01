@@ -17,6 +17,7 @@ import {
 } from "../../ui/ui";
 import { OrdersSetting } from "../orders/OrdersSetting";
 import { ApprovalSetting } from "../stock/ApprovalSetting";
+import { LotsSetting } from "../stock/LotsSetting";
 
 export function Settings() {
   const { backend } = useApp();
@@ -70,6 +71,7 @@ function DemoSettings() {
 
       {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
       {(role === "OWNER" || role === "SUPERVISOR") && <ApprovalSetting />}
+      {(role === "OWNER" || role === "SUPERVISOR") && <LotsSetting />}
 
       <div className="panel stack" data-tour="settings-display">
         <div className="panel-title">Display</div>
@@ -336,6 +338,7 @@ function LiveSettings() {
       </div>
       {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
       {(role === "OWNER" || role === "SUPERVISOR") && <ApprovalSetting />}
+      {(role === "OWNER" || role === "SUPERVISOR") && <LotsSetting />}
       <div className="panel stack">
         <Setting label="Theme">
           <Seg<Prefs["theme"]>

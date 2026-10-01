@@ -116,6 +116,18 @@ service cloud.firestore {
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
+      // Scheduled counts and move tasks: every member sees the lists (the crew works from them). Every change
+      // goes through the command function.
+      match /counts/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
+      match /tasks/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
       match /pallets/{id} {
         allow get: if isMember(ws);
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;

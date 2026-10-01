@@ -127,6 +127,13 @@ class Driver {
     return r.current_state;
   }
 
+  /** A command that is not about one pallet but still carries the version of what it changes (a count). */
+  runAt(actor: string, kind: CommandKind, payload: Record<string, unknown>, expected_version: number) {
+    const r = this.engine.execute(actor, { schema_version: 1, command_id: uuid(this.rand), workspace_id: this.ws, kind, payload, expected_version });
+    if (!r.ok) throw new Error(`fixture command ${kind} failed: ${r.code} ${r.message}`);
+    return r;
+  }
+
   setupWorkspace(owner: User, name: string, others: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][], facility = { code: 'WH-01', name: 'Main yard' }) {
     const { workspace } = this.engine.createWorkspace(owner, name, { ...facility, timezone: 'America/Chicago' });
     this.ws = workspace.id;
@@ -355,7 +362,7 @@ export function seedSample():Db{
  seedLowStock(d,manager.id,employee.id);
  // A second warehouse in the same account, so Transfers can be tried. Its pallet numbers start at 101,
  // so codes stay distinct from the main yard's while pallets move between the two.
- const main=d.ws;d.jobs=new Map();d.locs=new Map();
+ const main=d.ws;const mainLocs=d.locs;d.jobs=new Map();d.locs=new Map();
  d.setupWorkspace(owner,'Overflow yard',[[manager,'SUPERVISOR'],[employee,'OPERATOR'],[viewer,'VIEWER']],{code:'WH-02',name:'Overflow yard'});
  d.addJobs(manager.id,[['JOB-1','Example job 1','Example delivery address']]);
  d.addLocations(owner.id,[['RECEIVING-01','RECEIVING'],['C-01-01','RACK'],['C-01-02','RACK']]);
@@ -369,8 +376,65 @@ export function seedSample():Db{
   const p=d.run(employee.id,'receive',{description:LOW_ZIP[1],receiving:{product_code:LOW_ZIP[0],quantity:'20',unit:'bags'}})!;
   d.run(employee.id,'place',{location_id:d.locs.get('C-01-02')!.id},p);
  }
- d.ws=main;
+ const overflow=d.ws;d.ws=main;d.locs=mainLocs;
+ seedWork(d,owner.id,manager.id,employee.id,viewer.id,overflow);
  return db;
+}
+
+const LOT_PRODUCT = ['SAN-500', 'Hand sanitizer, case of 12'] as const;
+
+/**
+ * Lots with expiry dates (two expiring soon, one expired, one later), a scheduled count for the operator, one count
+ * waiting for a manager's review, three move tasks, a quarantine spot for damaged returns, and the viewer limited to
+ * the main warehouse.
+ */
+function seedWork(d: Driver, owner: string, manager: string, employee: string, viewer: string, overflow: string) {
+  const day = (offset: number) => new Date(dayStart(Date.now(), -offset, 12)).toISOString().slice(0, 10);
+  d.run(manager, 'set_lots', { on: true });
+  d.addLocations(owner, [['QUARANTINE-01', 'QUARANTINE']]);
+  // Numbered from P-000401, so the next pallet received in the sample is still P-000007.
+  const next = d.db.counters[d.ws];
+  d.db.counters[d.ws] = 400;
+  d.run(manager, 'save_product', { code: LOT_PRODUCT[0], description: LOT_PRODUCT[1], unit: 'cases', create: true });
+  const lots: [string, number, string][] = [
+    ['L-2405', -5, 'A-02-01'],
+    ['L-2409', 9, 'A-02-01'],
+    ['L-2410', 24, 'B-01-01'],
+    ['L-2502', 140, 'B-01-01'],
+  ];
+  for (const [lot, days, spot] of lots) {
+    d.tick(1, 3);
+    const p = d.run(employee, 'receive', { description: LOT_PRODUCT[1], receiving: { product_code: LOT_PRODUCT[0], quantity: '12', unit: 'cases', lot, expires_on: day(days) } })!;
+    d.run(employee, 'place', { location_id: d.locs.get(spot)!.id }, p);
+  }
+  d.db.counters[d.ws] = next;
+  const pallet = (code: string) => Object.values(d.db.pallets).find((p) => p.workspace_id === d.ws && p.code === code)!;
+  // A count of zone B for the operator, every week, due today.
+  d.tick(1, 3);
+  d.run(manager, 'schedule_count', { scope: 'zone', zone: 'B', assigned_to: employee, due_on: day(0), repeat: 'weekly', note: 'Weekly check of zone B.' });
+  // A count of A-01-02 the operator already sent: one pallet on record there was not found, so it waits for review.
+  d.tick(1, 3);
+  const spot = d.locs.get('A-01-02')!;
+  d.run(manager, 'schedule_count', { scope: 'spot', location_id: spot.id, assigned_to: employee, due_on: day(0), repeat: 'none' });
+  const sent = Object.values(d.db.counts).find((c) => c.name === 'A-01-02')!;
+  const here = Object.values(d.db.pallets).filter((p) => p.workspace_id === d.ws && p.state === 'STORED' && p.current_location_id === spot.id).sort((a, b) => a.code.localeCompare(b.code));
+  d.tick(5, 10);
+  d.runAt(employee, 'submit_count', { count_id: sent.id, spots: [{ location_id: spot.id, pallet_ids: here.slice(1).map((p) => p.id), unknown: [] }] }, sent.version);
+  // Moves for the crew: put away the pallet waiting for a spot, and two moves.
+  d.tick(1, 3);
+  d.run(manager, 'queue_moves', {
+    lines: [
+      { pallet_id: pallet('P-000002').id, to_location_id: d.locs.get('A-01-01')!.id },
+      { pallet_id: pallet('P-000003').id, to_location_id: d.locs.get('B-02-01')!.id },
+    ],
+    assigned_to: employee,
+  });
+  d.tick(1, 3);
+  d.run(manager, 'queue_moves', { lines: [{ pallet_id: pallet('P-000401').id, to_location_id: d.locs.get('QUARANTINE-01')!.id }], note: 'Expired lot. Keep it away from picking.' });
+  // The viewer works in the main warehouse only.
+  d.tick(1, 3);
+  d.run(owner, 'set_access', { user_id: viewer, workspace_ids: [d.ws] });
+  void overflow;
 }
 
 const LOW_BAT = ['BAT-AA', 'AA batteries, case of 24'] as const;

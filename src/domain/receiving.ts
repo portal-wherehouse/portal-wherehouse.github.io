@@ -3,6 +3,10 @@ import { z } from "zod";
 import type { Pallet } from "./types";
 
 const short = (n: number) => z.string().trim().max(n);
+/** A real calendar date written YYYY-MM-DD, between 2000 and 2199. */
+export function validDate(v: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) && Number(v.slice(0, 4)) >= 2000 && Number(v.slice(0, 4)) <= 2199 && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
+}
 export const receivingSchema = z.object({
   product_code: short(80).default(""),
   quantity: short(40).default(""),
@@ -14,6 +18,13 @@ export const receivingSchema = z.object({
   length_in: short(8).default(""),
   width_in: short(8).default(""),
   height_in: short(8).default(""),
+  /** Lot or batch number, when the warehouse tracks lots. */
+  lot: short(60).default(""),
+  /** Use-by or expiry date, YYYY-MM-DD. Find and picking take the oldest first. */
+  expires_on: z
+    .string()
+    .refine((v) => !v || validDate(v), "Enter a real expiry date between 2000 and 2199.")
+    .default(""),
   remind_on: z
     .string()
     .refine(
@@ -58,6 +69,8 @@ export const blankInfo = (): PalletInfo => ({
   length_in: "",
   width_in: "",
   height_in: "",
+  lot: "",
+  expires_on: "",
   remind_on: "",
   fields: [],
   contents: [],
@@ -133,6 +146,12 @@ export function warehouseDate(timezone: string, now = new Date()): string {
 export function reminderDate(p: Pallet): string | null {
   return !p.archived_at && ["RECEIVED", "STORED", "MISSING"].includes(p.state)
     ? p.receiving?.remind_on || null
+    : null;
+}
+/** The expiry date Firestore indexes (expiry_due): set while the pallet is here, so expired stock that left drops off the list. */
+export function expiryDate(p: Pallet): string | null {
+  return !p.archived_at && ["RECEIVED", "STORED", "MISSING"].includes(p.state)
+    ? p.receiving?.expires_on || null
     : null;
 }
 export function palletContents(p: Pallet): string {

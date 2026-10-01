@@ -53,9 +53,11 @@ import type {
   Warehouse,
   Workspace,
 } from '../domain/types';
-import { ORDER_COMMANDS, TRANSFER_COMMANDS, type TransferCommandKind } from '../domain/types';
+import { ORDER_COMMANDS, TRANSFER_COMMANDS, WORK_COMMANDS, type CountTask, type MoveTask, type TransferCommandKind } from '../domain/types';
 import { ordersOf, parseOrderCode, parsePackageCode, parseToteCode, type Order, type Package, type PickBatch } from '../domain/orders';
 import { importOrders, orderCommand } from './orderEngine';
+import { workCommand } from './workEngine';
+import { moveTaskId, sortCounts, taskDoneBy } from '../domain/work';
 import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type Onboarding, type WarehouseSetup } from '../domain/types';
 
 export const DB_SCHEMA_VERSION = 2;
@@ -90,6 +92,9 @@ export interface Db {
   orders: Record<string, Order>;
   batches: Record<string, PickBatch>;
   packages: Record<string, Package>;
+  /** Scheduled counts and move tasks (src/demo/workEngine.ts). */
+  counts: Record<string, CountTask>;
+  tasks: Record<string, MoveTask>;
 }
 
 export function emptyDb(): Db {
@@ -119,6 +124,8 @@ export function emptyDb(): Db {
     orders: {},
     batches: {},
     packages: {},
+    counts: {},
+    tasks: {},
   };
 }
 
@@ -147,7 +154,7 @@ export class Tx {
   private undo: Undo[] = [];
   constructor(private db: Db) {}
 
-  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports' | 'transfers' | 'orders' | 'batches' | 'packages'>(
+  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports' | 'transfers' | 'orders' | 'batches' | 'packages' | 'counts' | 'tasks'>(
     table: K,
     key: string,
     value: Db[K][string],
@@ -219,7 +226,10 @@ export class Tx {
   updateMembership(m: Membership, patch: Partial<Membership>) {
     const prev = { ...m };
     Object.assign(m, patch);
-    this.undo.push(() => Object.assign(m, prev));
+    this.undo.push(() => {
+      for (const k of Object.keys(patch)) if (!(k in prev)) delete (m as unknown as Record<string, unknown>)[k];
+      Object.assign(m, prev);
+    });
   }
 
   lineage(l: PalletLineage) {
@@ -264,6 +274,8 @@ export class Engine {
     this.db.orders ??= {};
     this.db.batches ??= {};
     this.db.packages ??= {};
+    this.db.counts ??= {};
+    this.db.tasks ??= {};
     this.clock = opts.clock ?? (() => new Date().toISOString());
     this.newId = opts.newId ?? (() => uuid());
     this.newToken = opts.newToken ?? (() => generateToken());
@@ -406,6 +418,7 @@ export class Engine {
       this.commandId = cmd.command_id;
       return orderCommand(this, tx, actorId, cmd, now, reject);
     }
+    if ((WORK_COMMANDS as readonly string[]).includes(cmd.kind) || cmd.kind === 'set_access') return workCommand(this, tx, actorId, cmd, now, reject);
     switch (cmd.kind) {
       case 'receive':
         return this.receive(tx, actorId, cmd, now, reject);
@@ -589,6 +602,13 @@ export class Engine {
     }
     tx.put('pallets', next.id, next);
     this.adjustLoad(tx, pallet, next);
+    // A move task for this pallet is done once it lands where the task said (or anywhere, for a put-away).
+    const task = this.db.tasks[moveTaskId(pallet.id)];
+    if (next.state === 'STORED' && next.current_location_id && next.current_location_id !== pallet.current_location_id && taskDoneBy(task, pallet.id, next.current_location_id)) {
+      const spot = this.db.locations[next.current_location_id];
+      tx.put('tasks', task.id, { ...task, status: 'DONE', done_at: now, done_by_name: actorName, done_location_code: spot?.code ?? null, updated_at: now });
+      detail.task_done = true;
+    }
     if (this.faults.failEventInsert) throw new Error('forced event insert failure');
     const event: PalletEvent = {
       id: this.newId(),
@@ -861,7 +881,7 @@ export class Engine {
         const user: User = existingUser ?? { id: this.newId(), name, email };
         if (!existingUser) tx.put('users', user.id, user);
         const prior = this.db.memberships.find((m) => m.workspace_id === ws && m.user_id === user.id);
-        if (prior) tx.updateMembership(prior, { role, active: true });
+        if (prior) tx.updateMembership(prior, { role, active: true, ...(prior.limited ? { limited: false } : {}) });
         else tx.membership({ workspace_id: ws, user_id: user.id, role, active: true });
         const a = audit(user.id, null, { email, role });
         return this.accepted(cmd, now, a.id, null, user.id);
@@ -1777,6 +1797,47 @@ export class Engine {
     }
     const ext = mine.filter((o) => o.external_ref === raw && o.status !== 'CANCELLED');
     return ext.length === 1 ? { order: ext[0], package: null } : null;
+  }
+
+  // ---------------------------------------------------------------- counts, move tasks and access
+
+  /** Scheduled counts here: open ones by due day, then those waiting for review, then the rest. */
+  countTasks(actorId: string, workspaceId: string): CountTask[] {
+    this.requireMember(actorId, workspaceId);
+    return sortCounts(Object.values(this.db.counts).filter((c) => c.workspace_id === workspaceId));
+  }
+
+  countRecord(actorId: string, workspaceId: string, id: string): CountTask {
+    this.requireMember(actorId, workspaceId);
+    const c = this.db.counts[id];
+    if (!c || c.workspace_id !== workspaceId) throw new ReadError('NOT_FOUND', 'Count not found.');
+    return c;
+  }
+
+  /** Move tasks here, oldest first. */
+  moveTasks(actorId: string, workspaceId: string): MoveTask[] {
+    this.requireMember(actorId, workspaceId);
+    return Object.values(this.db.tasks)
+      .filter((t) => t.workspace_id === workspaceId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.code.localeCompare(b.code));
+  }
+
+  /**
+   * Which of the account's warehouses each teammate here can open, as far as this person can see: the warehouses
+   * they belong to themselves, and whether they manage each one.
+   */
+  accessMap(actorId: string, workspaceId: string): { warehouses: { workspace_id: string; name: string; manage: boolean }[]; access: Record<string, string[]> } {
+    this.requireMember(actorId, workspaceId);
+    const account = this.db.workspaces[workspaceId]?.account_id;
+    const mine = this.db.memberships.filter((m) => m.user_id === actorId && m.active && (m.workspace_id === workspaceId || (!!account && this.db.workspaces[m.workspace_id]?.account_id === account)));
+    const warehouses = mine
+      .map((m) => ({ workspace_id: m.workspace_id, name: this.activeWarehouse(m.workspace_id)?.name ?? this.db.workspaces[m.workspace_id]?.name ?? 'Warehouse', manage: ROLE_RANK[m.role] >= ROLE_RANK.SUPERVISOR }))
+      .sort((a, b) => (a.workspace_id === workspaceId ? -1 : b.workspace_id === workspaceId ? 1 : a.name.localeCompare(b.name)));
+    const ids = new Set(warehouses.map((w) => w.workspace_id));
+    const access: Record<string, string[]> = {};
+    for (const m of this.db.memberships) if (m.workspace_id === workspaceId) access[m.user_id] = [];
+    for (const m of this.db.memberships) if (m.active && ids.has(m.workspace_id) && access[m.user_id]) access[m.user_id].push(m.workspace_id);
+    return { warehouses, access };
   }
 
   // ---------------------------------------------------------------- transfer reads

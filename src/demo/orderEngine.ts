@@ -11,6 +11,7 @@
 // loadCommand); keep the two in step.
 
 import { productKey } from '../domain/receiving';
+import { compareExpiry } from '../domain/work';
 import { setupOf } from '../domain/terms';
 import { checkTransition, ROLE_RANK } from '../domain/transitions';
 import {
@@ -53,12 +54,12 @@ export function findProduct(e: Engine, ws: string, code: string): { code: string
   return unit ? { code: palletProduct(unit), description: unit.description } : null;
 }
 
-/** Stock of a product that can be picked: stored, not on hold, oldest received first within each spot, spots in walk order. */
+/** Stock of a product that can be picked: stored, not on hold; the earliest expiry first (first expired, first out), then spots in walk order, oldest received first. */
 export function pickableStock(e: Engine, ws: string, product: string, exclude: Set<string>): Pallet[] {
   const code = (id: string | null) => (id ? e.db.locations[id]?.code ?? '' : '');
   return Object.values(e.db.pallets)
     .filter((p) => p.workspace_id === ws && p.state === 'STORED' && !p.hold && !p.archived_at && !exclude.has(p.id) && sameProduct(palletProduct(p), product))
-    .sort((a, b) => code(a.current_location_id).localeCompare(code(b.current_location_id), 'en', { numeric: true }) || a.received_at.localeCompare(b.received_at) || a.code.localeCompare(b.code));
+    .sort((a, b) => compareExpiry(a, b) || code(a.current_location_id).localeCompare(code(b.current_location_id), 'en', { numeric: true }) || a.received_at.localeCompare(b.received_at) || a.code.localeCompare(b.code));
 }
 
 /** Units chosen for open stops of batches being picked: other batches leave them alone. */

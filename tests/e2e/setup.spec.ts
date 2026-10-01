@@ -23,7 +23,7 @@ test('crew get a simple Find, Move, Add screen, with the full dashboard a tap aw
   await page.goto('/?demo=1#overview');
   const home = page.getByTestId('crew-home');
   await expect(home.locator('.crew-tile')).toHaveCount(3);
-  await home.getByRole('button', { name: 'Move' }).click();
+  await home.getByRole('button', { name: 'Move', exact: true }).click();
   await expect(page).toHaveURL(/#move/);
   await page.goto('/?demo=1#overview');
   await page.getByRole('button', { name: 'Show the full dashboard' }).click();

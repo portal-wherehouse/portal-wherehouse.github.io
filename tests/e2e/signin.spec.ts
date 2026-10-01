@@ -6,11 +6,12 @@ test('sample entry offers management and employee views plus setup practice',asy
  await expect(page.locator('.sample-choice')).toHaveCount(3);await expect(page.getByRole('radio')).toHaveCount(0);
  await page.getByRole('button',{name:'View a management dashboard'}).click();await portalReady(page);
  await expect(page).toHaveURL(/#overview$/);await expect(page.locator('.sample-note').first()).toBeVisible();
- await page.locator('.sidebar').getByRole('button',{name:'Find',exact:true}).click();await expect(page.locator('.result')).toHaveCount(22);
- // Six example pallets, the stock that the sample customer orders are picked from, and three running-low pallets.
+ await page.locator('.sidebar').getByRole('button',{name:'Find',exact:true}).click();await expect(page.locator('.result')).toHaveCount(26);
+ // Six example pallets, the stock that the sample customer orders are picked from, three running-low pallets and four
+ // lots of hand sanitizer with expiry dates.
  const descriptions=await page.locator('.result .desc').allTextContents();
  expect(descriptions.filter((d)=>/^Example pallet [1-6]$/.test(d))).toHaveLength(6);
- for(const description of descriptions)expect(description).toMatch(/^(Example pallet [1-6]|Work gloves|Packing tape|USB-C cable|LED work light|AA batteries|Zip ties)/);
+ for(const description of descriptions)expect(description).toMatch(/^(Example pallet [1-6]|Work gloves|Packing tape|USB-C cable|LED work light|AA batteries|Zip ties|Hand sanitizer)/);
  expect(errors).toEqual([]);
 });
 test('employee sample keeps floor actions and explains them without a tour overlay',async({page})=>{
@@ -52,7 +53,7 @@ for (const [view, width] of [['management',1280],['employee',390]] as const) {
   if(width<700)await page.getByRole('button',{name:'Expand practice shift'}).click();
   await expect(page.getByRole('complementary',{name:'Practice shift'})).toContainText('JOB-1');
   await page.getByRole('button',{name:'Close practice shift'}).click();
-  await page.goto('/?demo=1#find');await expect(page.locator('.result')).toHaveCount(22);await expect(page.locator('.sample-note').first()).toBeVisible();
+  await page.goto('/?demo=1#find');await expect(page.locator('.result')).toHaveCount(26);await expect(page.locator('.sample-note').first()).toBeVisible();
   // It can be restarted and dismissed without forcing another tour.
   await page.goto('/?demo=1#help');await page.locator('.help-quick').getByRole('button',{name:/^Take the tour/}).click();
   await expect(card).toBeVisible();await page.keyboard.press('Escape');await expect(card).toHaveCount(0);

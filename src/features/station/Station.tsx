@@ -37,6 +37,8 @@ import {
   type Step,
 } from './logic';
 import { SessionLog, TestLabels, TypeCode } from './side';
+import { CountRunBar, ScheduledCounts, type CountRun } from './ScheduledCounts';
+import type { CountTask } from '../../domain/types';
 import { Codes, CountView, LookupView, MoveView, PutawayView, ReasonSheet } from './views';
 
 const MODE_ICON: Record<StationMode, IconName> = { lookup: 'find', move: 'move', putaway: 'stack', count: 'checklist' };
@@ -82,6 +84,14 @@ export function Station() {
     return s;
   });
   const [ask, setAsk] = useState<ReasonAsk | null>(null);
+  // A scheduled count being run: each spot's scans are kept here when the person finishes the spot, and sent together.
+  const [run, setRunState] = useState<CountRun | null>(null);
+  const runRef = useRef<CountRun | null>(null);
+  const setRun = (r: CountRun | null) => {
+    runRef.current = r;
+    setRunState(r);
+  };
+  const [sendingRun, setSendingRun] = useState(false);
 
   // The latest state and context live in refs so scans arriving back to back never see a stale screen.
   const sRef = useRef(state);
@@ -93,7 +103,22 @@ export function Station() {
   askRef.current = ask;
 
   const dispatch = useCallback((a: StationAction): Step => {
-    const step = stationReducer(sRef.current, a, ctxRef.current());
+    let step = stationReducer(sRef.current, a, ctxRef.current());
+    // During a scheduled count, finishing a spot keeps its scans for the count instead of offering fixes one by one.
+    const r = runRef.current;
+    const c = step.state.count;
+    if (r && step.state.mode === 'count' && c.phase === 'review' && c.rack && sRef.current.count.phase !== 'review' && r.task.location_ids.includes(c.rack.id)) {
+      const done = { ...r.done, [c.rack.id]: { pallet_ids: c.scanned.map((p) => p.id), unknown: c.unknown.map((u) => u.raw).slice(0, 50) } };
+      const next = { ...r, done };
+      runRef.current = next;
+      setRunState(next);
+      const left = r.task.location_ids.filter((id) => !done[id]);
+      const nextCode = left.length ? r.task.location_codes[r.task.location_ids.indexOf(left[0])] : null;
+      const n = c.scanned.length + c.unknown.length;
+      const reset = stationReducer(step.state, { type: 'RESET_MODE' }, ctxRef.current()).state;
+      const text = `${c.rack.code} counted: ${n} scanned. ${nextCode ? `Scan ${nextCode} next.` : 'Every spot is counted. Send the count.'}`;
+      step = { ...step, state: { ...reset, flash: { tone: 'ok', text }, seq: reset.seq + 1 }, effect: null };
+    }
     sRef.current = step.state;
     setState(step.state);
     if (step.effect) void effectRef.current(step.effect);
@@ -115,7 +140,7 @@ export function Station() {
   }, [state.mode]);
 
   // Warn before leaving with unsaved scans.
-  const unsaved = unsavedWork(state);
+  const unsaved = unsavedWork(state) ?? (run && Object.keys(run.done).length ? `Your count ${run.task.name} is not sent.` : null);
   const { setLeaveGuard } = app;
   useEffect(() => {
     setLeaveGuard(unsaved ? `${unsaved} Leaving the Scan station discards it.` : null);
@@ -126,6 +151,14 @@ export function Station() {
   useScanTarget('station', (e) => {
     if (!actorId || !workspaceId) return false;
     const scanned = readScan(e.text, (t) => backend.reader.resolve(actorId, workspaceId, t));
+    // A scheduled count covers its own spots only.
+    const r = runRef.current;
+    if (r && sRef.current.mode === 'count' && scanned.type === 'location' && sRef.current.count.phase === 'rack' && !r.task.location_ids.includes(scanned.location.id)) {
+      const left = r.task.location_ids.findIndex((id) => !r.done[id]);
+      dispatch({ type: 'FLASH', tone: 'error', text: `${scanned.location.code} is not on ${r.task.name}.${left >= 0 ? ` Scan ${r.task.location_codes[left]}.` : ''}` });
+      if (prefs.haptics) buzz([40, 60, 40]);
+      return 'error';
+    }
     const step = dispatch({ type: 'SCAN', raw: e.text, source: e.source, at: e.at, scanned });
     lastScanAt.current = Date.now();
     if (prefs.haptics) buzz(step.verdict === true ? 25 : [40, 60, 40]);
@@ -277,6 +310,32 @@ export function Station() {
     dispatch({ type: 'LINE_RESULT', list, key, result });
   };
 
+  const startRun = (task: CountTask) => {
+    setRun({ task, done: {} });
+    dispatch({ type: 'MODE', mode: 'count' });
+    dispatch({ type: 'RESET_MODE' });
+    dispatch({ type: 'FLASH', tone: 'info', text: `${task.name} started. Scan ${task.location_codes[0]}, then every pallet on it.` });
+  };
+
+  const sendRun = async () => {
+    const r = runRef.current;
+    if (!r || sendingRun) return;
+    setSendingRun(true);
+    const spots = r.task.location_ids.map((id) => ({ location_id: id, pallet_ids: r.done[id]?.pallet_ids ?? [], unknown: r.done[id]?.unknown ?? [] }));
+    const o = await app.send('submit_count', { count_id: r.task.id, spots }, null, { commandId: uuid(), expectedVersion: r.task.version });
+    setSendingRun(false);
+    if (o.status === 'result' && o.result.ok) {
+      const after = backend.reader.db.counts[r.task.id];
+      setRun(null);
+      dispatch({ type: 'RESET_MODE' });
+      dispatch({ type: 'FLASH', tone: 'ok', text: after?.status === 'DONE' ? `${r.task.name} matched the records and is saved.` : `${r.task.name} is sent. A manager reviews the differences before they are saved.` });
+      feedback(true);
+    } else {
+      dispatch({ type: 'FLASH', tone: 'error', text: o.status === 'result' && !o.result.ok ? o.result.message : o.status === 'offline' ? o.message : 'No answer from the server. Check Scheduled counts before sending again.' });
+      feedback(false);
+    }
+  };
+
   effectRef.current = async (e: Effect) => {
     if (e.kind === 'save-move') await saveMove();
     else if (e.kind === 'recover-move') await recoverMove();
@@ -309,7 +368,15 @@ export function Station() {
   };
 
   const s = state;
-  const prompt = promptFor(s, settings);
+  let prompt = promptFor(s, settings);
+  if (run && s.mode === 'count' && s.count.phase === 'rack') {
+    const left = run.task.location_ids.findIndex((id) => !run.done[id]);
+    const n = Object.keys(run.done).length;
+    prompt =
+      left >= 0
+        ? { text: `Scan ${run.task.location_codes[left]}`, sub: `${run.task.name} · ${n} of ${run.task.location_ids.length} spots counted. Then scan every pallet on it.`, tone: 'idle' }
+        : { text: 'Send the count', sub: `${run.task.name} · every spot is counted. Tap Send the count.`, tone: 'ok' };
+  }
   const canChange = modeAccess(role, 'move').ok;
   const viewer = !canChange;
   const scannerNote = settings.wedge ? 'Listening for scanners' : 'Keyboard scanners are off';
@@ -353,6 +420,9 @@ export function Station() {
             </li>
             <li>
               <strong>Count</strong>: scan a rack, then every pallet physically on it. Finish compares your scans with the records: matched, missing from the scan, unexpected, and unknown codes.
+            </li>
+            <li>
+              <strong>Scheduled counts</strong>: a manager assigns a count of a zone or a spot to someone. That person starts it under Count, scans each spot and every pallet on it, then sends it. A manager reviews the differences before anything is saved; a count that matches is saved at once.
             </li>
             <li>Command barcodes (print them from Scanners) do the same as the buttons: Confirm, Cancel, Finish, and one for each mode.</li>
             <li>Every save carries the version you scanned. If someone else changed a pallet first, you see a conflict and the newer record. Nothing is overwritten.</li>
@@ -430,6 +500,8 @@ export function Station() {
               )}
             </div>
           </section>
+
+          {s.mode === 'count' && canChange && (run ? <CountRunBar run={run} current={s.count.rack?.id ?? null} busy={sendingRun} onSend={() => void sendRun()} onStop={() => setRun(null)} /> : <ScheduledCounts onStart={startRun} />)}
 
           <div className="st-work-wrap">
             {s.mode === 'lookup' && (

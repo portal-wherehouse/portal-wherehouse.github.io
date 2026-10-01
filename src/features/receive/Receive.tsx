@@ -27,6 +27,7 @@ export function Receive() {
   const { read, role, go, setLeaveGuard, toast, backend, prefs, workspaceId, route, v, actorId } = useApp();
   const jobsOn = useJobsOn();
   const jobs = read((e, _a, ws) => Object.values(e.db.jobs).filter((j) => j.workspace_id === ws)) ?? [];
+  const lots = !!read((e, a, ws) => e.context(a, ws).warehouse?.lots);
   const openJobs = jobs.filter((j) => j.status === 'OPEN').sort((a, b) => a.code.localeCompare(b.code));
   const [jobId, setJobId] = useState('');
   const [showJob, setShowJob] = useState(false);
@@ -400,7 +401,7 @@ export function Receive() {
           </div>
           <label className="toggle"><input type="checkbox" checked={remember} disabled={locked || !info.product_code.trim()} onChange={e=>setRemember(e.target.checked)}/>Save as a product, so the next scan of this code fills in the name, unit, category and size</label>
           <p className="hint">This doesn't copy quantities, destinations or reminders, and it doesn't change older pallets. Saved ones are listed under Products.</p>
-          <PalletFields value={info} onChange={setInfo} disabled={locked}/>
+          <PalletFields value={info} onChange={setInfo} disabled={locked} lots={lots}/>
         </>}
         <Field label="Note (optional)" htmlFor="rcv-note" count={notes.length} max={1000}>
           <textarea id="rcv-note" className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1200} disabled={locked} placeholder="Damage, packaging, who delivered it…" />

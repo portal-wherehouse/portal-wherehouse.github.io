@@ -70,8 +70,9 @@ export function nearWord(a: string, b: string, max: number): boolean {
   return Math.min(...prev.slice(Math.max(0, a.length - max))) <= max;
 }
 
+/** Best match first; among equal matches the earliest expiry first (first expired, first out), then by code. */
 function sortKey(r: RankedRow): string {
-  return `${r.rank}|${r.pallet.code}`;
+  return `${r.rank}|${r.pallet.receiving?.expires_on || '9999-12-31'}|${r.pallet.code}`;
 }
 
 export function searchRows(rows: SearchRow[], f: SearchFilters): { items: RankedRow[]; next_cursor: string | null; total: number } {

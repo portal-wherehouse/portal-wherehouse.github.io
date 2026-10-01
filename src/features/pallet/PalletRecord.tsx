@@ -20,6 +20,7 @@ import { History } from './History';
 import { SplitSheet } from './SplitSheet';
 import { DispatchSlip } from '../stock/DispatchSlip';
 import { ReviewAdjust } from '../stock/Adjust';
+import { LotTags } from '../find/Find';
 
 const ACTION_ICON: Partial<Record<PalletCommandKind, IconName>> = {
   place: 'pin',
@@ -242,6 +243,8 @@ export function PalletRecord() {
             )}
             {p.receiving && <>
               {p.receiving.product_code && <><dt>Product barcode</dt><dd>{p.receiving.product_code}</dd></>}
+              {p.receiving.lot && <><dt>Lot</dt><dd className="mono">{p.receiving.lot}</dd></>}
+              {p.receiving.expires_on && <><dt>Expiry date</dt><dd>{p.receiving.expires_on} <LotTags pallet={{ ...p, receiving: { ...p.receiving, lot: '' } }} /></dd></>}
               {(p.receiving.quantity || p.receiving.unit) && <><dt>Quantity</dt><dd>{p.receiving.quantity} {p.receiving.unit}</dd></>}
               {p.receiving.destination && <><dt>Going to</dt><dd>{p.receiving.destination}</dd></>}
               {p.receiving.remind_on && <><dt>Still-here reminder</dt><dd>{p.receiving.remind_on} · Dashboard alert while received, stored or missing</dd></>}

@@ -9,6 +9,8 @@ import { levenshtein, normalizeCode, parseLabelPayload, parsePalletCode } from '
 import { PALLET_STATES, type PalletState } from '../../domain/types';
 import { STATE_LABEL } from '../../domain/transitions';
 import type { RankedRow } from '../../domain/search';
+import { expiryDate, warehouseDate } from '../../domain/receiving';
+import { expiryState, expiryText } from '../../domain/work';
 import { useApp } from '../../app/state';
 import { parseScanCommand } from '../../device/scanCommands';
 import { modalOpen, useScanTarget } from '../../device/scanRouter';
@@ -300,7 +302,27 @@ export function ResultRow({
         </span>
         {p.hold && <HoldBadge title={p.hold.reason} />}
         {p.label_needs_reprint && <span className="tag warn">Reprint label</span>}
+        <LotTags pallet={p} />
       </div>
     </button>
+  );
+}
+
+/** Lot number and expiry on a pallet row: red once expired, amber within 30 days. */
+export function LotTags({ pallet }: { pallet: RankedRow['pallet'] }) {
+  const lot = pallet.receiving?.lot;
+  const day = expiryDate(pallet);
+  if (!lot && !day) return null;
+  const today = warehouseDate(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const state = expiryState(day, today);
+  return (
+    <>
+      {lot && <span className="tag">Lot {lot}</span>}
+      {day && (
+        <span className={`tag${state === 'expired' ? ' bad' : state === 'soon' ? ' warn' : ''}`} title={`Expiry date ${day}`} data-testid="expiry-tag">
+          {state === 'ok' ? `Expires ${day}` : expiryText(day, today)}
+        </span>
+      )}
+    </>
   );
 }

@@ -30,6 +30,8 @@ export interface Membership {
   user_id: string;
   role: Role;
   active: boolean;
+  /** Set when a manager limited this person to other warehouses of the account: no access here until it is given back. */
+  limited?: boolean;
 }
 
 export interface Warehouse {
@@ -47,6 +49,8 @@ export interface Warehouse {
   orders?: OrdersSettings;
   /** Quantity changes by operators wait for a manager's approval. Off unless a manager turns it on. See domain/stock.ts. */
   adjust_approval?: boolean;
+  /** Lot numbers and expiry dates on Receive, an Expiring soon list, and oldest expiry first in Find and picking. */
+  lots?: boolean;
   /** A new self-serve warehouse is locked to the setup checklist until it is done or skipped; see features/onboarding. */
   onboarding?: Onboarding;
   id: string;
@@ -430,6 +434,14 @@ export const ADMIN_COMMANDS = [
   'hand_off',
   'note_reorder',
   'set_adjust_approval',
+  'schedule_count',
+  'cancel_count',
+  'submit_count',
+  'review_count',
+  'queue_moves',
+  'cancel_move',
+  'set_lots',
+  'set_access',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 
@@ -445,6 +457,91 @@ export type TransferCommandKind = (typeof TRANSFER_COMMANDS)[number];
 /** Commands of orders and picking, handled together by the order engine (src/demo/orderEngine.ts). */
 export const ORDER_COMMANDS = ['set_orders', 'create_order', 'cancel_order', 'start_batch', 'assign_tote', 'short_pick', 'finish_batch', 'decide_sub', 'pack', 'stage_package', 'hand_off', 'pick', 'substitute'] as const;
 export type OrderCommandKind = (typeof ORDER_COMMANDS)[number];
+
+/** Scheduled counts, move tasks and the lots setting, handled together by the work engine (src/demo/workEngine.ts). */
+export const WORK_COMMANDS = ['schedule_count', 'cancel_count', 'submit_count', 'review_count', 'queue_moves', 'cancel_move', 'set_lots'] as const;
+export type WorkCommandKind = (typeof WORK_COMMANDS)[number];
+
+export type CountRepeat = 'none' | 'weekly' | 'monthly';
+/** OPEN: waiting to be counted. REVIEW: counted with differences, waiting for a manager. DONE: saved. */
+export type CountStatus = 'OPEN' | 'REVIEW' | 'DONE' | 'CANCELLED';
+export type CountLineKind = 'matched' | 'missing' | 'unexpected';
+
+/** One pallet of a submitted count, as the records stood when the count was sent. */
+export interface CountLine {
+  pallet_id: string;
+  code: string;
+  description: string;
+  location_id: string;
+  location_code: string;
+  kind: CountLineKind;
+  /** Where the records had it, for an unexpected pallet. */
+  from_code: string | null;
+  state: PalletState;
+  /** The pallet's version when the count was sent. A pallet that changed after that is skipped on approval. */
+  version: number;
+  /** After review: saved, or skipped because it changed after the count. */
+  result: 'saved' | 'skipped' | null;
+}
+
+/** A count a manager scheduled for a zone or one spot, assigned to one person. */
+export interface CountTask {
+  id: string;
+  workspace_id: string;
+  warehouse_id: string;
+  /** "Zone A" or the spot code. */
+  name: string;
+  scope: 'zone' | 'spot';
+  zone: string | null;
+  location_ids: string[];
+  location_codes: string[];
+  assigned_to: string;
+  assigned_name: string;
+  /** The day it is due, YYYY-MM-DD in the warehouse's time zone. */
+  due_on: string;
+  repeat: CountRepeat;
+  status: CountStatus;
+  note: string | null;
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  submitted_at: string | null;
+  submitted_by_name: string | null;
+  lines: CountLine[];
+  /** Codes scanned during the count that matched nothing, by spot. */
+  unknown: { location_code: string; raw: string }[];
+  reviewed_at: string | null;
+  reviewed_by_name: string | null;
+  review_note: string | null;
+  /** The next count of a repeating series, created when this one is saved. */
+  next_id: string | null;
+  version: number;
+  updated_at: string;
+}
+
+/** "Move this pallet to that spot", or "put it away" when no spot is named. One open task per pallet. */
+export interface MoveTask {
+  id: string;
+  workspace_id: string;
+  pallet_id: string;
+  code: string;
+  description: string;
+  /** The spot it goes to; null means any rack or floor spot. */
+  to_location_id: string | null;
+  to_location_code: string | null;
+  from_location_code: string | null;
+  assigned_to: string | null;
+  assigned_name: string | null;
+  note: string | null;
+  status: 'OPEN' | 'DONE' | 'CANCELLED';
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  done_at: string | null;
+  done_by_name: string | null;
+  done_location_code: string | null;
+  updated_at: string;
+}
 
 export interface PalletLineage {
   workspace_id: string;

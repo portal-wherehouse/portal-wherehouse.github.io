@@ -1,6 +1,7 @@
 // People and access (pages 5, 9, 20): who can do what, invitations, role changes, removal, and the admin audit log.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { FirebaseBackend } from '../../data/firebase';
 import { COMMAND_LABEL, ROLE_RANK, roleAllows } from '../../domain/transitions';
 import type { AdminAudit, Role } from '../../domain/types';
 import { useApp } from '../../app/state';
@@ -13,7 +14,27 @@ import { IssuesPanel } from '../bulk/Issues';
 const ROLES: Role[] = ['OWNER', 'SUPERVISOR', 'OPERATOR', 'VIEWER'];
 
 export function People() {
-  const { read, role, actorId, signIn, backend, v, go } = useApp();
+  const { read, role, actorId, signIn, backend, v, go, workspaceId } = useApp();
+  const [access, setAccess] = useState<{ userId: string; name: string } | null>(null);
+  const [liveMapKey, setLiveMapKey] = useState(0);
+  const [liveMap, setLiveMap] = useState<AccessMap | null>(null);
+  const live = backend instanceof FirebaseBackend;
+  const demoMap = useMemo(() => (live ? null : read((e, a, ws) => e.accessMap(a, ws))), [v, live]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!(backend instanceof FirebaseBackend) || !roleAllows(role, 'set_access')) return;
+    let on = true;
+    backend.accessMap().then(
+      (m) => on && setLiveMap(m),
+      () => on && setLiveMap(null),
+    );
+    return () => {
+      on = false;
+    };
+  }, [backend, role, workspaceId, liveMapKey]);
+  const map = live ? liveMap : demoMap;
+  // Warehouse access only matters when the account has more than one warehouse.
+  const multi = !!map && map.warehouses.length > 1;
+  const nameOf = (id: string) => map?.warehouses.find((w) => w.workspace_id === id)?.name ?? 'another warehouse';
   const [invite, setInvite] = useState(false);
   const [change, setChange] = useState<{ userId: string; name: string; role: Role } | null>(null);
   const [remove, setRemove] = useState<{ userId: string; name: string } | null>(null);
@@ -29,7 +50,8 @@ export function People() {
   );
   if (!data) return null;
   const members = data.ctx.members.filter((m) => m.active).sort((a, b) => ROLE_RANK[b.role] - ROLE_RANK[a.role] || a.user.name.localeCompare(b.user.name));
-  const removed = data.ctx.members.filter((m) => !m.active);
+  const removed = data.ctx.members.filter((m) => !m.active && !m.limited);
+  const limited = data.ctx.members.filter((m) => !m.active && m.limited);
   const canAdmin = roleAllows(role, 'invite_member');
   const isOwner = role === 'OWNER';
   const offline = backend.network === 'offline';
@@ -74,6 +96,12 @@ export function People() {
               <div className="muted" style={{ fontSize: 12.5 }}>
                 {ROLE_DESC[m.role]}
               </div>
+              {multi && map.access[m.user_id] && (
+                <div className="muted m-access" style={{ fontSize: 12.5 }} data-testid="member-access">
+                  <Icon name="building" width={14} height={14} />{' '}
+                  {map.access[m.user_id].length >= map.warehouses.length ? 'All warehouses' : map.access[m.user_id].length <= 1 ? 'Only this warehouse' : map.access[m.user_id].map(nameOf).join(', ')}
+                </div>
+              )}
             </div>
             <div className="row m-actions" style={{ gap: 6 }}>
               {backend.mode === 'demo' && m.user_id !== actorId && (
@@ -86,6 +114,11 @@ export function People() {
                   <button className="btn small" onClick={() => setChange({ userId: m.user_id, name: m.user.name, role: m.role })} disabled={offline}>
                     <Icon name="swap" /> Role
                   </button>
+                  {multi && (
+                    <button className="btn small" onClick={() => setAccess({ userId: m.user_id, name: m.user.name })} disabled={offline} aria-label={`Warehouses for ${m.user.name}`}>
+                      <Icon name="building" /> Warehouses
+                    </button>
+                  )}
                   <button className="btn small danger" onClick={() => setRemove({ userId: m.user_id, name: m.user.name })} disabled={offline}>
                     <Icon name="trash" /> Remove
                   </button>
@@ -95,6 +128,11 @@ export function People() {
           </div>
         ))}
       </div>
+      {limited.length > 0 && (
+        <p className="muted" style={{ fontSize: 13.5 }} data-testid="limited-people">
+          No access here: {limited.map((m) => m.user.name).join(', ')}. A manager limited them to other warehouses of this account. Their past actions stay in history.
+        </p>
+      )}
       {removed.length > 0 && (
         <p className="muted" style={{ fontSize: 13.5 }}>
           Removed: {removed.map((m) => m.user.name).join(', ')}. Their past actions stay in history under their name.
@@ -116,6 +154,15 @@ export function People() {
       )}
 
       {invite && <InviteSheet isOwner={isOwner} onClose={() => setInvite(false)} />}
+      {access && map && (
+        <AccessSheet
+          target={access}
+          map={map}
+          here={workspaceId ?? ''}
+          onDone={() => setLiveMapKey((k) => k + 1)}
+          onClose={() => setAccess(null)}
+        />
+      )}
       {change && <RoleSheet target={change} isOwner={isOwner} onClose={() => setChange(null)} />}
       {remove && (
         <AdminSheet
@@ -209,6 +256,42 @@ function RoleSheet({ target, isOwner, onClose }: { target: { userId: string; nam
   );
 }
 
+type AccessMap = { warehouses: { workspace_id: string; name: string; manage: boolean }[]; access: Record<string, string[]> };
+
+/** Which of the account's warehouses a teammate can open. The server enforces it on every read and change. */
+function AccessSheet({ target, map, here, onDone, onClose }: { target: { userId: string; name: string }; map: AccessMap; here: string; onDone: () => void; onClose: () => void }) {
+  const before = map.access[target.userId] ?? [here];
+  const [on, setOn] = useState<string[]>(() => [...new Set([here, ...before])]);
+  const changed = on.length !== before.length || on.some((id) => !before.includes(id));
+  const toggle = (id: string) => setOn((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  return (
+    <AdminSheet
+      title={`Warehouses for ${target.name}`}
+      kind="set_access"
+      verb="Save access"
+      done={`${target.name} can open ${on.length === map.warehouses.length ? 'every warehouse' : on.length === 1 ? 'this warehouse only' : `${on.length} warehouses`}`}
+      valid={changed && on.length > 0}
+      intro="Choose which warehouses they can open. In the others they see nothing and can change nothing, and the server refuses their requests there. Their role stays the same everywhere."
+      payload={() => ({ user_id: target.userId, workspace_ids: on })}
+      onDone={onDone}
+      onClose={onClose}
+    >
+      <fieldset className="stack access-list" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <legend className="sr-only">Warehouses</legend>
+        {map.warehouses.map((w) => (
+          <label key={w.workspace_id} className="toggle">
+            <input type="checkbox" checked={on.includes(w.workspace_id)} disabled={w.workspace_id === here || !w.manage} onChange={() => toggle(w.workspace_id)} />
+            <span>
+              {w.name}
+              {w.workspace_id === here ? <span className="muted"> · this warehouse (use Remove to take away access here)</span> : !w.manage ? <span className="muted"> · only its managers can change this</span> : null}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+    </AdminSheet>
+  );
+}
+
 const MATRIX: { what: string; min: Role }[] = [
   { what: 'Search, view pallets, history and the map', min: 'VIEWER' },
   { what: 'Receive, place, move, verify, dispatch, return', min: 'OPERATOR' },
@@ -216,7 +299,9 @@ const MATRIX: { what: string; min: Role }[] = [
   { what: 'Clear holds, record where a missing pallet was found', min: 'SUPERVISOR' },
   { what: 'Correct history, change job, split, retire, replace labels', min: 'SUPERVISOR' },
   { what: 'Manage jobs and locations, import, export', min: 'SUPERVISOR' },
-  { what: 'Authorize employees and managers', min: 'SUPERVISOR' },
+  { what: 'Run counts assigned to them, work through moves to do', min: 'OPERATOR' },
+  { what: 'Schedule counts and review them, queue moves', min: 'SUPERVISOR' },
+  { what: 'Authorize employees and managers, choose their warehouses', min: 'SUPERVISOR' },
   { what: 'Grant owner access', min: 'OWNER' },
 ];
 

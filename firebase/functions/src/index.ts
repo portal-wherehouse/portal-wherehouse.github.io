@@ -3,6 +3,7 @@ import { registerAccount } from "./registration";
 import { sendCode, verifyCode } from "./emailCode";
 import { warehouseSummary, directoryCounts } from "./summary";
 import { transferCommand } from "./transfers";
+import { accessCommand } from "./work";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
   reservePhoto,
@@ -326,6 +327,8 @@ export const command = onCall(options, async (request) => {
   // Transfers read and write two warehouses of the same account.
   if ((TRANSFER_COMMANDS as readonly string[]).includes(cmd.kind))
     return transferCommand(user, cmd);
+  // Warehouse access changes a teammate's membership in several warehouses of the account.
+  if (cmd.kind === "set_access") return accessCommand(user, cmd);
   const memberRef = firestore.doc(
     `workspaces/${cmd.workspace_id}/members/${user.id}`,
   );

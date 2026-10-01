@@ -54,7 +54,8 @@ test('Move suggests the location with the most room, and a weight limit asks for
 test('a pallet without a weight is stopped at a weight-limited location, with a fix', async ({ page }) => {
   await signInAs(page, 'owner');
   await turnOnMeasurements(page);
-  const heavy = await setCapacity(page, 2, '4', '5000');
+  // Room for more than the five pallets the sample keeps there, so only the weight limit stops the move.
+  const heavy = await setCapacity(page, 2, '8', '5000');
   await page.goto('/?demo=1#move');
   await page.getByTestId('needs-placement').locator('.result').first().click();
   await page.getByPlaceholder('A-03-02').fill(heavy);
