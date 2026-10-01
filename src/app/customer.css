@@ -1,4 +1,6 @@
 /* The working application has its own quiet interface, independent of the marketing site. */
+/* The page behind the app matches it, so an installed iPhone app has no dark bands above or below it in dark mode. */
+html:has(.customer-app, .auth-shell), html:has(.customer-app, .auth-shell) body { background:#f7f9fc; color-scheme:light; }
 .customer-app, .auth-shell {
  --ground:#f7f9fc; --surface:#fff; --surface-2:#f8fafc; --surface-3:#eef2f6;
  --ink:#243247; --ink-2:#536277; --ink-3:#65748a; --line:#e0e6ed; --line-strong:#bbc8d6;
