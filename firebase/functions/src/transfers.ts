@@ -10,7 +10,7 @@ import {
 } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { Engine, emptyDb, type Db } from "../../../src/demo/engine";
-import { reminderDate } from "../../../src/domain/receiving";
+import { expiryDate, reminderDate } from "../../../src/domain/receiving";
 import { MAX_TRANSFER_LINES } from "../../../src/domain/transfers";
 import type {
   CommandEnvelope,
@@ -308,6 +308,7 @@ export async function transferCommand(
           v = {
             ...v,
             reminder_due: reminderDate(v),
+            expiry_due: expiryDate(v),
             has_hold: !!v.hold,
             search_terms: searchTerms({
               ...v,

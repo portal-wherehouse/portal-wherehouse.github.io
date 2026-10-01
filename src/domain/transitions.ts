@@ -79,6 +79,16 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   review_adjust: 'SUPERVISOR',
   note_reorder: 'SUPERVISOR',
   set_adjust_approval: 'SUPERVISOR',
+  // Managers schedule counts and review their differences; the person a count is assigned to runs it (the engine checks).
+  schedule_count: 'SUPERVISOR',
+  cancel_count: 'SUPERVISOR',
+  submit_count: 'OPERATOR',
+  review_count: 'SUPERVISOR',
+  // Managers queue moves; the crew completes them by moving the pallet, which needs no extra command.
+  queue_moves: 'SUPERVISOR',
+  cancel_move: 'SUPERVISOR',
+  set_lots: 'SUPERVISOR',
+  set_access: 'SUPERVISOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -151,6 +161,14 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   review_adjust: 'Quantity change reviewed',
   note_reorder: 'Reorder noted',
   set_adjust_approval: 'Quantity approval changed',
+  schedule_count: 'Count scheduled',
+  cancel_count: 'Count cancelled',
+  submit_count: 'Count sent for review',
+  review_count: 'Count reviewed',
+  queue_moves: 'Moves queued',
+  cancel_move: 'Move task cancelled',
+  set_lots: 'Lot tracking changed',
+  set_access: 'Warehouse access changed',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {
@@ -333,10 +351,32 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
       const holdReason = str(payload.hold_reason);
       const condition = str(payload.condition_note);
       if (condition.length > 1000) return reject('INVALID_INPUT', 'Condition note is limited to 1,000 characters.');
-      const patch: PalletPatch = { state: 'RECEIVED', current_location_id: null };
+      const why = str(payload.reason);
+      if (why.length > 500) return reject('INVALID_INPUT', 'Reasons are limited to 500 characters.');
+      const kind = payload.condition === 'restock' || payload.condition === 'damaged' ? payload.condition : null;
+      // Restock: back into stock on a spot. Damaged: held with the reason, in a quarantine spot when one is chosen.
+      // The spot counts only with a condition; a plain return waits for placement as before.
+      const spot = kind ? location : null;
+      if (kind === 'restock' && !spot) return reject('INVALID_INPUT', 'Choose the spot it goes back to.');
+      if (kind === 'damaged' && !why && !holdReason) return reject('INVALID_INPUT', 'Say what is wrong with it.');
+      if (spot) {
+        const g = locationGuard(pallet, spot);
+        if (g) return g;
+        if (kind === 'damaged' && spot.kind !== 'QUARANTINE') return reject('INVALID_INPUT', `${spot.code} is not a quarantine spot. Choose a quarantine spot for damaged returns.`);
+        if (kind === 'restock' && spot.kind === 'QUARANTINE') return reject('INVALID_INPUT', `${spot.code} is a quarantine spot. Restocked returns go to a spot they can be used from.`);
+      }
+      const patch: PalletPatch = spot
+        ? { state: 'STORED', current_location_id: spot.id, last_confirmed_location_id: spot.id, last_confirmed_at: now }
+        : { state: 'RECEIVED', current_location_id: null };
+      const holdText = kind === 'damaged' ? `Returned damaged: ${why || holdReason}` : holdReason;
       // A return may add a hold but never silently clears one.
-      if (holdReason && !pallet.hold) patch.hold = { reason: holdReason, applied_by: actorId, applied_at: now };
-      return { ok: true, patch, reason: condition || null, detail: { hold_added: !!patch.hold } };
+      if (holdText && !pallet.hold) patch.hold = { reason: holdText, applied_by: actorId, applied_at: now };
+      return {
+        ok: true,
+        patch,
+        reason: [why, condition].filter(Boolean).join(' · ') || null,
+        detail: { hold_added: !!patch.hold, condition: kind, return_reason: why || null, to_location: spot?.code ?? null },
+      };
     }
     case 'mark_missing': {
       if (pallet.state !== 'STORED' && pallet.state !== 'RECEIVED') {

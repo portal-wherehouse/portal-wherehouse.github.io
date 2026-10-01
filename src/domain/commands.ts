@@ -1,5 +1,6 @@
 import { SETUP_PRESETS } from './terms';
-import { receivingSchema } from './receiving';
+import { receivingSchema, validDate } from './receiving';
+import { MAX_COUNT_LINES, MAX_COUNT_SPOTS, MAX_QUEUE } from './work';
 // Command envelope validation at the boundary (page 22). The server derives actor identity;
 // the client never supplies a trusted role, location, timestamp, or revision.
 
@@ -9,6 +10,8 @@ import { ADMIN_COMMANDS, PALLET_COMMANDS, type CommandEnvelope, type CommandKind
 const id = z.string().min(1).max(64);
 const text = (max: number) => z.string().max(max);
 const reason = text(500).optional();
+/** A calendar day, YYYY-MM-DD. */
+const day = z.string().refine(validDate, 'Enter a real date.');
 /** A count or quantity: 0 or more, up to three decimals (2.5 cords). */
 const quantity = z.number().nonnegative().max(1_000_000_000).refine((n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6, 'Use at most three decimals.');
 /** Pallets picked for a transfer, each with the version the person saw when picking it. */
@@ -29,7 +32,8 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   verify_location: z.object({ location_id: id }),
   // A send gets a new dispatch reference (D-000012) unless it joins one this warehouse already issued.
   dispatch: z.object({ destination: text(400), note: text(1000).optional(), join_ref: z.string().regex(/^D-\d{6,9}$/).optional() }),
-  return: z.object({ condition_note: text(2000).optional(), hold_reason: text(500).optional() }),
+  // A return can say what came back: restock (onto a spot) or damaged (held, in quarantine), with a reason.
+  return: z.object({ condition_note: text(2000).optional(), hold_reason: text(500).optional(), condition: z.enum(['restock', 'damaged']).optional(), location_id: id.optional(), reason }),
   mark_missing: z.object({ reason }),
   locate: z.object({ location_id: id, reason }),
   apply_hold: z.object({ reason }),
@@ -165,6 +169,30 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   review_adjust: z.object({ approve: z.boolean(), note: text(500).optional() }),
   note_reorder: z.object({ product_id: text(400).min(1), note: text(300).optional(), clear: z.boolean().optional() }),
   set_adjust_approval: z.object({ on: z.boolean() }),
+  // Scheduled counts, move tasks, lots and warehouse access (src/demo/workEngine.ts).
+  schedule_count: z.object({
+    scope: z.enum(['zone', 'spot']),
+    zone: z.string().trim().regex(/^[A-Za-z0-9]{1,8}$/).optional(),
+    location_id: id.optional(),
+    assigned_to: id,
+    due_on: day,
+    repeat: z.enum(['none', 'weekly', 'monthly']),
+    note: text(500).optional(),
+  }),
+  cancel_count: z.object({ count_id: id, reason }),
+  submit_count: z.object({
+    count_id: id,
+    spots: z.array(z.object({ location_id: id, pallet_ids: z.array(id).max(MAX_COUNT_LINES), unknown: z.array(text(128)).max(50) })).min(1).max(MAX_COUNT_SPOTS),
+  }),
+  review_count: z.object({ count_id: id, approve: z.boolean(), note: text(500).optional() }),
+  queue_moves: z.object({
+    lines: z.array(z.object({ pallet_id: id, to_location_id: id.nullable() })).min(1).max(MAX_QUEUE),
+    assigned_to: id.or(z.literal('')).optional(),
+    note: text(300).optional(),
+  }),
+  cancel_move: z.object({ task_id: z.string().min(1).max(80), reason }),
+  set_lots: z.object({ on: z.boolean() }),
+  set_access: z.object({ user_id: id, workspace_ids: z.array(id).min(1).max(50) }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];
@@ -196,7 +224,7 @@ export function validateEnvelope(
   if (c.kind === 'receive_transfer' && (!c.pallet_id || c.expected_version === undefined)) {
     return { ok: false, message: 'receive_transfer requires pallet_id and expected_version.' };
   }
-  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer' || c.kind === 'cancel_order' || c.kind === 'hand_off') && c.expected_version === undefined) {
+  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer' || c.kind === 'cancel_order' || c.kind === 'hand_off' || c.kind === 'submit_count' || c.kind === 'review_count') && c.expected_version === undefined) {
     return { ok: false, message: `${c.kind} requires expected_version.` };
   }
   if ((VERSIONED_PALLET_COMMANDS as readonly string[]).includes(c.kind)) {

@@ -1,5 +1,6 @@
 import { FirebaseBackend } from '../../data/firebase';
 import { PalletFields, blankInfo } from '../receive/PalletFields';
+import { DAMAGE_REASONS, type ReturnCondition } from '../../domain/work';
 // Contextual pallet actions (blueprint pages 14-15). Each action is one confirmed command with
 // the expected version, a reason where the blueprint requires one, and an honest result.
 
@@ -18,7 +19,7 @@ import { AdjustSheet, ReviewAdjust } from '../stock/Adjust';
 export const ACTION_META: Partial<Record<PalletCommandKind, { title: string; verb: string; explain: string; danger?: boolean }>> = {
   verify_location: { title: 'Confirm still here', verb: 'Confirm location', explain: 'You checked and the pallet is physically where it is recorded. This adds a verification event and refreshes “last confirmed” without inventing a move.' },
   dispatch: { title: 'Dispatch pallet', verb: 'Dispatch', explain: 'Dispatch means the pallet left the warehouse according to your entry. It is not proof it arrived. The rack is cleared and the destination is saved on the event.' },
-  return: { title: 'Record return', verb: 'Record return', explain: 'The same intact pallet came back. It keeps its identity and becomes Received with no location. Placing it is a separate step. Existing holds stay.' },
+  return: { title: 'Record return', verb: 'Record return', explain: 'The same pallet came back and keeps its identity. Restock puts it back on a spot. Damaged puts it on hold with the reason, in quarantine. Check later leaves it waiting for a spot. Existing holds stay.' },
   mark_missing: { title: 'Mark missing', verb: 'Mark missing', explain: 'The pallet is not where it was recorded. Its current location is cleared, the last confirmed rack is kept as history, and it appears in Needs attention until a supervisor records where it was found.', danger: true },
   locate: { title: 'Found pallet', verb: 'Record found', explain: 'Record where the missing pallet was physically observed. It becomes Stored there.' },
   apply_hold: { title: 'Put on hold', verb: 'Apply hold', explain: 'A hold flags damage or inspection. The pallet keeps its rack and can still be moved (for example, to quarantine), but it cannot be dispatched. Only a supervisor can clear it.' },
@@ -70,6 +71,9 @@ function GeneralActionSheet({ kind, detail, onClose, presetEvent, joinRef, prese
   const [destination, setDestination] = useState(presetDestination || p.receiving?.destination || detail.job?.destination_notes || '');
   const [note, setNote] = useState('');
   const [holdReason, setHoldReason] = useState('');
+  const [condition, setCondition] = useState<'later' | ReturnCondition>('later');
+  const [returnSpot, setReturnSpot] = useState('');
+  const [damage, setDamage] = useState('');
   const [locationId, setLocationId] = useState(detail.pallet.last_confirmed_location_id ?? '');
   const [jobId, setJobId] = useState('');
   const [desc, setDesc] = useState(p.description);
@@ -91,7 +95,15 @@ function GeneralActionSheet({ kind, detail, onClose, presetEvent, joinRef, prese
     (kind !== 'locate' || !!locationId) &&
     (kind !== 'reassign_job' || !!jobId) &&
     (kind !== 'edit_details' || (desc.trim().length > 0 && desc.length <= 160)) &&
-    (kind !== 'correct' || target !== 'STORED' || !!locationId);
+    (kind !== 'correct' || target !== 'STORED' || !!locationId) &&
+    (kind !== 'return' || condition === 'later' || (condition === 'restock' ? !!returnSpot : damage.trim().length > 0));
+  const stockSpots = activeLocs.filter((l) => l.kind !== 'QUARANTINE');
+  const quarantineSpots = activeLocs.filter((l) => l.kind === 'QUARANTINE');
+  const chooseCondition = (c: 'later' | ReturnCondition) => {
+    setCondition(c);
+    const last = stockSpots.find((l) => l.id === p.last_confirmed_location_id);
+    setReturnSpot(c === 'restock' ? (last?.id ?? '') : c === 'damaged' ? (quarantineSpots[0]?.id ?? '') : '');
+  };
 
   const payload = (): Record<string, unknown> => {
     switch (kind) {
@@ -100,7 +112,9 @@ function GeneralActionSheet({ kind, detail, onClose, presetEvent, joinRef, prese
       case 'dispatch':
         return { destination, note: note || undefined, ...(joinRef ? { join_ref: joinRef } : {}) };
       case 'return':
-        return { condition_note: note || undefined, hold_reason: holdReason || undefined };
+        return condition === 'later'
+          ? { condition_note: note || undefined, hold_reason: holdReason || undefined }
+          : { condition, location_id: returnSpot || undefined, reason: condition === 'damaged' ? damage.trim() : undefined, condition_note: note || undefined };
       case 'locate':
         return { location_id: locationId, reason };
       case 'reassign_job':
@@ -204,10 +218,59 @@ function GeneralActionSheet({ kind, detail, onClose, presetEvent, joinRef, prese
         {kind === 'return' && (
           <>
             {detail.job && detail.job.status !== 'OPEN' && <Notice tone="warn">Job {detail.job.code} is closed. A supervisor must reopen it (Jobs screen) before this return can be recorded.</Notice>}
+            <div className="flow-modes return-choice" role="group" aria-label="Condition">
+              {(
+                [
+                  ['restock', 'Restock', 'checkCircle'],
+                  ['damaged', 'Damaged', 'alert'],
+                  ['later', 'Check later', 'clock'],
+                ] as const
+              ).map(([c, label, icon]) => (
+                <button key={c} type="button" aria-pressed={condition === c} onClick={() => chooseCondition(c)}>
+                  <Icon name={icon} /> {label}
+                </button>
+              ))}
+            </div>
+            {condition === 'restock' && (
+              <Field label="Spot it goes back to" htmlFor="act-ret-spot" hint={err(!returnSpot) ?? 'It is stored there and can be picked again.'}>
+                <select id="act-ret-spot" className="select" value={returnSpot} onChange={(e) => setReturnSpot(e.target.value)}>
+                  <option value="">Choose a spot…</option>
+                  {stockSpots.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.code}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {condition === 'damaged' && (
+              <>
+                <Field label="What is wrong with it" htmlFor="act-damage" hint={err(!damage.trim()) ?? 'It goes on hold with this reason, so it is not picked or shipped.'}>
+                  <input id="act-damage" className="input" value={damage} onChange={(e) => setDamage(e.target.value)} maxLength={300} placeholder="Choose below or type a reason" />
+                </Field>
+                <div className="reason-chips" role="group" aria-label="Common reasons">
+                  {DAMAGE_REASONS.map((r) => (
+                    <button key={r} type="button" className="chip" aria-pressed={damage === r} onClick={() => setDamage(r)}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <Field label="Quarantine spot" htmlFor="act-ret-spot" hint={quarantineSpots.length ? 'Keeps it apart from stock that can be picked.' : 'No quarantine spot yet. Add one under Locations, or it waits for a spot.'}>
+                  <select id="act-ret-spot" className="select" value={returnSpot} onChange={(e) => setReturnSpot(e.target.value)}>
+                    <option value="">No spot yet</option>
+                    {quarantineSpots.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.code}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
+            )}
             <Field label="Condition note (optional)" htmlFor="act-cond">
               <textarea id="act-cond" className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Unused, wrap intact" maxLength={1000} />
             </Field>
-            {!p.hold && (
+            {!p.hold && condition === 'later' && (
               <Field label="Put on hold (optional)" htmlFor="act-hold" hint="Fill in only if it came back damaged or needs inspection.">
                 <input id="act-hold" className="input" value={holdReason} onChange={(e) => setHoldReason(e.target.value)} placeholder="Hold reason" maxLength={300} />
               </Field>
@@ -295,7 +358,7 @@ function GeneralActionSheet({ kind, detail, onClose, presetEvent, joinRef, prese
           </>
         )}
 
-        {kind==='edit_details' && enhanced && <PalletFields value={info} onChange={setInfo} disabled={cmd.busy||cmd.locked}/>}
+        {kind==='edit_details' && enhanced && <PalletFields value={info} onChange={setInfo} disabled={cmd.busy||cmd.locked} lots={!!ctx?.warehouse?.lots}/>}
         {(needsReason || kind === 'archive' || kind === 'edit_details') && (
           <Field label={needsReason ? 'Reason' : 'Reason (optional)'} htmlFor="act-reason" hint={err(needsReason && !reason.trim()) ?? 'Saved in the history with your name.'}>
             <textarea id="act-reason" className="textarea" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} style={{ minHeight: 64 }} />

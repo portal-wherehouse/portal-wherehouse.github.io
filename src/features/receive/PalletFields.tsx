@@ -5,10 +5,13 @@ export function PalletFields({
   value,
   onChange,
   disabled = false,
+  lots = false,
 }: {
   value: PalletInfo;
   onChange: (v: PalletInfo) => void;
   disabled?: boolean;
+  /** Show the lot number and expiry date (Settings: Track lots and expiry, or a pallet that already has them). */
+  lots?: boolean;
 }) {
   const update = (key: keyof PalletInfo, v: string) =>
     onChange({ ...value, [key]: v });
@@ -23,6 +26,38 @@ export function PalletFields({
         These values belong to this pallet. Future deliveries can have different
         quantities, sizes or destinations.
       </p>
+      {(lots || !!value.lot || !!value.expires_on) && (
+        <div className="grid-2">
+          <Field
+            label="Lot number (optional)"
+            htmlFor="pallet-lot"
+            hint="The batch printed on the case or pallet."
+          >
+            <input
+              id="pallet-lot"
+              className="input"
+              value={value.lot ?? ""}
+              maxLength={60}
+              onChange={(e) => update("lot", e.target.value)}
+              placeholder="L-2409"
+              autoComplete="off"
+            />
+          </Field>
+          <Field
+            label="Expiry date (optional)"
+            htmlFor="pallet-expires"
+            hint="The oldest expiry is picked first."
+          >
+            <input
+              id="pallet-expires"
+              className="input"
+              type="date"
+              value={value.expires_on ?? ""}
+              onChange={(e) => update("expires_on", e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
       <ContentsEditor value={value} onChange={onChange} />
       <div className="grid-2">
         <Field label="Quantity (optional)" htmlFor="pallet-quantity">

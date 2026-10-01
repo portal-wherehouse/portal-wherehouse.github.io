@@ -12,6 +12,7 @@ import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
 import { ScanReadyPanel } from '../scan/ScanReady';
 import { useLowStock } from '../stock/useStock';
+import { MyWork } from './MyWork';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'PICKED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', PICKED: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -78,6 +79,7 @@ export function Overview() {
     <section aria-label="Everyday tasks" data-tour="overview-summary"><div className="warehouse-actions">
       {actions.map(a=><button className="warehouse-action" key={a.title} aria-label={a.title} onClick={()=>go(a.to)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
     </div></section>
+    <MyWork/>
     {manager&&data.attention>0&&<button type="button" className="panel attention-card" onClick={()=>go('reconcile')} data-testid="attention-card"><span className="attention-count">{data.attention.toLocaleString()}</span><span><strong>Needs attention</strong><small>Pallets waiting for a spot, missing, on hold, with a label to reprint, or with a quantity change to approve.</small></span><Icon name="chevronRight"/></button>}
     {manager&&!!low?.length&&<button type="button" className="panel attention-card low-stock-card" onClick={()=>go({name:'reconcile',q:'low'})} data-testid="low-stock-card"><span className="attention-count">{low.length.toLocaleString()}</span><span><strong>Running low</strong><small>Products below the minimum you set. Bring more from another warehouse, or note a reorder.</small></span><Icon name="chevronRight"/></button>}
     {summary&&total===0&&<FirstSteps manager={manager} spots={spots} needsJob={needsJob}/>}
@@ -212,6 +214,7 @@ function CrewHome({ name, onFull }: { name: string; onFull: () => void }) {
     <div className="stack crew-home" data-testid="crew-home">
       <h1 style={{ margin: 0 }}>Hi, {name}.</h1>
       <ScanReadyPanel />
+      <MyWork />
       <div className="crew-tiles" data-tour="overview-summary">
         {tiles.map((t) => (
           <button key={t.route} className="crew-tile" onClick={() => go(t.route)} aria-label={t.title}>

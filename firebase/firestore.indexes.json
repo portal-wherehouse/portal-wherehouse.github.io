@@ -465,6 +465,48 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updated_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "counts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updated_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pallets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "current_location_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -596,6 +638,16 @@
     {
       "collectionGroup": "transfers",
       "fieldPath": "note",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "counts",
+      "fieldPath": "lines",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "counts",
+      "fieldPath": "unknown",
       "indexes": []
     }
   ]

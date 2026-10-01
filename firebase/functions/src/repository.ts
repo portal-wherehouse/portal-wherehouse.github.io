@@ -1,4 +1,8 @@
-import { productKey, reminderDate } from "../../../src/domain/receiving";
+import {
+  expiryDate,
+  productKey,
+  reminderDate,
+} from "../../../src/domain/receiving";
 import {
   getFirestore,
   type Transaction,
@@ -10,9 +14,11 @@ import { emptyDb, type Db } from "../../../src/demo/engine";
 import { normalizeCode } from "../../../src/domain/codes";
 import {
   ORDER_COMMANDS,
+  WORK_COMMANDS,
   type CommandEnvelope,
 } from "../../../src/domain/types";
 import { loadOrderCommand, SEQ_LETTERS } from "./orders";
+import { loadMoveTask, loadWorkCommand } from "./work";
 
 // Pallet numbers share one sequence. Queue allocations within an instance so a burst
 // of receivers does not repeatedly collide. Firestore still serializes across instances.
@@ -150,6 +156,7 @@ export function putSnapshot(db: Db, table: string, snap: DocumentSnapshot) {
       user_id: v.user_id,
       role: v.role,
       active: v.active,
+      ...(v.limited ? { limited: true } : {}),
     });
     db.users[v.user_id] = v.user;
   } else if (table === "events") (db.events[v.pallet_id] ??= []).push(v);
@@ -342,6 +349,9 @@ export async function loadCommand(
     (k === "import_batch" && p.import_kind === "orders")
   )
     await loadOrderCommand({ tx, root, db, ws, cmd, one, query });
+  if ((WORK_COMMANDS as readonly string[]).includes(k))
+    await loadWorkCommand({ tx, root, db, ws, cmd, one, query });
+  await loadMoveTask({ tx, root, db, ws, cmd, one, query });
   return db;
 }
 
@@ -361,6 +371,8 @@ export function rows(db: Db, ws: string): Map<string, any> {
     "orders",
     "batches",
     "packages",
+    "counts",
+    "tasks",
   ] as const)
     for (const [id, v] of Object.entries(db[table]))
       out.set(`${table}/${id}`, v);
@@ -397,6 +409,7 @@ export function persist(
       v = {
         ...v,
         reminder_due: reminderDate(v),
+        expiry_due: expiryDate(v),
         has_hold: !!v.hold,
         has_pending_adjust: !!v.pending_adjust,
         search_terms: searchTerms({

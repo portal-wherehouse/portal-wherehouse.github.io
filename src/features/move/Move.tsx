@@ -1,6 +1,7 @@
-// Put away and move: the scan-first task screen (blueprint page 12). Three modes share one camera that stays on:
-// Move (scan the pallet, scan the spot, saved), Stage (the same, onto a staging spot) and
-// Ship (scan the pallet, record where it went). The flow itself lives in MoveFlow.tsx.
+// Put away and move: the scan-first task screen (blueprint page 12). Four modes share one camera that stays on:
+// Move (scan the pallet, scan the spot, saved), Stage (the same, onto a staging spot),
+// Ship (scan the pallet, record where it went) and Moves to do (the list a manager queued, in MoveTasks.tsx).
+// The flow itself lives in MoveFlow.tsx.
 
 import { useMemo, useState } from 'react';
 import { roleAllows } from '../../domain/transitions';
@@ -10,10 +11,14 @@ import { Explain, PageHead, PermissionDenied } from '../../ui/ui';
 import { ResultRow } from '../find/Find';
 import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
 import { MoveFlow, type MoveMode } from './MoveFlow';
+import { MoveTasks } from './MoveTasks';
 import '../scan/scan-flow.css';
 
-const MODES: { id: MoveMode; label: string; icon: IconName; title: string }[] = [
+type ScreenMode = MoveMode | 'tasks';
+
+const MODES: { id: ScreenMode; label: string; icon: IconName; title: string }[] = [
   { id: 'move', label: 'Move', icon: 'move', title: 'Move pallet' },
+  { id: 'tasks', label: 'To do', icon: 'checklist', title: 'Moves to do' },
   { id: 'stage', label: 'Stage', icon: 'stack', title: 'Stage pallet' },
   { id: 'ship', label: 'Ship', icon: 'truck', title: 'Ship pallet' },
 ];
@@ -22,10 +27,14 @@ export function modeFromRoute(q: string | undefined): MoveMode {
   return q === 'stage' || q === 'ship' ? q : 'move';
 }
 
+function screenFromRoute(q: string | undefined): ScreenMode {
+  return q === 'tasks' ? 'tasks' : modeFromRoute(q);
+}
+
 export function Move() {
   const app = useApp();
   const { backend, actorId, workspaceId, role, route, go } = app;
-  const mode = modeFromRoute(route.q);
+  const mode = screenFromRoute(route.q);
   // A pallet opened from its record (or Needs placement) starts the move already scanned.
   const start = useMemo(() => {
     if (!route.id || !actorId || !workspaceId) return null;
@@ -63,6 +72,8 @@ export function Move() {
       </div>
       {mode === 'ship' && !canShip ? (
         <PermissionDenied what="Shipping pallets" need="Operator" />
+      ) : mode === 'tasks' ? (
+        <MoveTasks />
       ) : (
         <MoveFlow mode={mode} start={mode === 'ship' ? null : start} />
       )}
@@ -71,6 +82,7 @@ export function Move() {
         <ul>
           <li>Scanning the spot saves the move straight away, so your hands stay on the scanner. Only an unusual move (already recorded there, or on hold) asks you to scan the spot again or tap Save.</li>
           <li>The same label seen by the camera many times in a row counts once.</li>
+          <li>To do lists the moves a manager queued. Scan a pallet from the list, then the spot it goes to: the move saves and ticks itself off.</li>
           <li>Offline, moves of stored pallets are queued on this device and are not confirmed until the server accepts them.</li>
         </ul>
       </Explain>

@@ -1249,3 +1249,51 @@
   }
 }
 
+
+/* Scheduled counts */
+.sc-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.sc-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.sc-run {
+  border-color: var(--accent);
+}
+.sc-spots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sc-spot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  background: var(--surface);
+}
+.sc-spot svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.sc-spot.done {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.sc-spot.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}

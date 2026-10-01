@@ -83,7 +83,7 @@ export class Backend {
 
   private async init() {
     try {
-      this.store = createStore(this.sampleMode?'wherehouse-sample-v4':'pallet-locator-demo', 'kv');
+      this.store = createStore(this.sampleMode?'wherehouse-sample-v5':'pallet-locator-demo', 'kv');
       const [db, meta, pending] = await Promise.all([get<Db>(DB_KEY, this.store), get<Meta>(META_KEY, this.store), get<PendingSend[]>(PENDING_KEY, this.store)]);
       if (db && meta && db.schema === DB_SCHEMA_VERSION) {
         this.db = db;

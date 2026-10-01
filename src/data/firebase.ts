@@ -1166,6 +1166,9 @@ export class FirebaseBackend extends Backend {
         await this.loadCounts("jobs");
       if (["receive", "import", "pallet", "reconcile"].includes(name))
         await this.refreshSummary();
+      // Scheduled counts and move tasks: the Dashboard, the Counts page (Scan station) and Put away and move.
+      if (["overview", "station", "move"].includes(name))
+        await this.loadWork(name !== "station", name !== "move");
       if (name === "overview") {
         await this.refreshSummary();
         await this.page(
@@ -1190,6 +1193,93 @@ export class FirebaseBackend extends Backend {
         this.bump(false);
       }
     }
+  }
+  /** Open move tasks (and the pallets they name) and counts not yet saved. */
+  private async loadWork(tasks: boolean, counts: boolean) {
+    if (counts) {
+      this.db.counts = {};
+      await this.page(
+        "counts",
+        "counts",
+        query(
+          this.col("counts"),
+          where("status", "in", ["OPEN", "REVIEW"]),
+          limit(PAGE_SIZE),
+        ),
+        true,
+      );
+    }
+    if (tasks) {
+      this.db.tasks = {};
+      await Promise.all([
+        this.page(
+          "tasks",
+          "tasks",
+          query(this.col("tasks"), where("status", "==", "OPEN"), limit(PAGE_SIZE)),
+          true,
+        ),
+        this.page(
+          "tasks-done",
+          "tasks",
+          query(
+            this.col("tasks"),
+            where("status", "==", "DONE"),
+            orderBy("updated_at", "desc"),
+            limit(10),
+          ),
+        ),
+      ]);
+      const open = Object.values(this.db.tasks).filter((t) => t.status === "OPEN");
+      await Promise.all(open.map((t) => this.one("pallets", t.pallet_id)));
+      await this.hydrate(open.map((t) => this.db.pallets[t.pallet_id]).filter(Boolean));
+    }
+  }
+  /** Expiring soon: pallets here whose expiry date is within the window or past, soonest first. */
+  async expiringList(until: string) {
+    if (this.network === "offline") return;
+    this.viewGeneration++;
+    this.pages.delete("records");
+    this.viewStops.forEach((s) => s());
+    this.viewStops = [];
+    this.db.pallets = {};
+    try {
+      await this.page(
+        "records",
+        "pallets",
+        query(
+          this.col("pallets"),
+          where("expiry_due", "<=", until),
+          orderBy("expiry_due"),
+          limit(PAGE_SIZE),
+        ),
+        true,
+      );
+    } catch (e) {
+      this.viewError = cloudMessage(e);
+      this.bump(false);
+    }
+  }
+  /**
+   * Who can open which of the account's warehouses, as far as this person can see: the warehouses they belong to
+   * (same license owner), whether they manage each one, and the active members of each.
+   */
+  async accessMap(): Promise<{ warehouses: { workspace_id: string; name: string; manage: boolean }[]; access: Record<string, string[]> }> {
+    if (this.network === "offline" || !this.firestore || !this.activeWorkspace || !this.authUid)
+      throw Error("Reconnect to see warehouse access.");
+    const ws = this.activeWorkspace;
+    const here = this.db.memberships.filter((m) => m.workspace_id === ws || !m.workspace_id);
+    const mine = here.find((m) => m.user_id === this.authUid);
+    const name = this.engine.activeWarehouse(ws)?.name ?? this.db.workspaces[ws]?.name ?? "Warehouse";
+    const warehouses = [{ workspace_id: ws, name, manage: ["OWNER", "SUPERVISOR"].includes(mine?.role ?? "") }];
+    const access: Record<string, string[]> = {};
+    for (const m of here) access[m.user_id] = m.active ? [ws] : [];
+    for (const t of await this.transferTargets()) {
+      const s = await this.docs(query(collection(this.firestore, "workspaces", t.workspace_id, "members"), limit(100)));
+      const me = s.docs.find((d) => d.id === this.authUid);
+      warehouses.push({ workspace_id: t.workspace_id, name: t.name, manage: ["OWNER", "SUPERVISOR"].includes(me?.get("role")) });
+      for (const d of s.docs) if (d.get("active") && access[d.id]) access[d.id].push(t.workspace_id);
+    }
+    return { warehouses, access };
   }
   private searchGeneration = 0;
   async search(f: LiveFilter) {

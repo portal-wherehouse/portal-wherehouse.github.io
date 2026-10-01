@@ -162,3 +162,6 @@ html:has(.customer-app, .auth-shell), html:has(.customer-app, .auth-shell) body 
 .warehouse-menu-label{display:flex;justify-content:space-between;padding:12px 12px 4px;}.warehouse-add{border-top:1px solid var(--line);border-radius:0;margin-top:4px;}
 .label-4x6 .l-foot>span:first-child,.label-rack .l-foot>span:first-child{min-width:0;max-width:58%;overflow-wrap:anywhere;}
 @media(max-width:600px){.customer-app .topbar .brand-name{display:none;}.customer-app .topbar{gap:5px;padding-left:12px;padding-right:12px;}.customer-app .warehouse-name-button{max-width:min(205px,52vw);font-size:13px;padding:7px 8px;gap:5px;}.warehouse-name-button>svg:first-child{display:none;}.warehouse-settings-button{min-width:32px;}.customer-app .topbar .acct-chip{flex-shrink:0;}}
+.work-cards{display:grid;gap:12px;}.work-card{border-left-color:var(--accent)!important;background:var(--accent-soft,var(--surface));}.work-card .attention-count{color:var(--accent);border-color:var(--line);background:var(--surface);}
+.reason-chips{display:flex;flex-wrap:wrap;gap:6px;}.reason-chips .chip{white-space:normal;text-align:left;}.reason-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft,var(--surface));}.return-choice{max-width:100%;}
+.m-access{margin-top:2px;}.m-access svg{width:14px;height:14px;vertical-align:-2px;}
