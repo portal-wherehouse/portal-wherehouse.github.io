@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { BarcodeFormat, BinaryBitmap, DecodeHintType, HybridBinarizer, MultiFormatReader, RGBLuminanceSource } from '@zxing/library';
-import { encodeCode128 } from '../../src/device/code128';
-import { decodeBarcodePixels, decodeFramePixels, middleRows } from '../../src/device/barcodeDecoder';
+import { QUIET_ZONE, code128Values, encodeCode128 } from '../../src/device/code128';
+import { formatPalletCode } from '../../src/domain/codes';
+import { readSupplierBarcode } from '../../src/domain/supplierBarcode';
+import { cleanCode128Text, decodeBarcodePixels, decodeFramePixels, middleRows } from '../../src/device/barcodeDecoder';
 import { DECODE_BOX, createPacer, decodeSize, scanRegion } from '../../src/device/scanFrame';
 
 type Pixels = { data: Uint8ClampedArray; width: number; height: number };
@@ -227,5 +229,108 @@ describe('scan pacer', () => {
     expect(p.misses).toBe(0);
     expect(p.ready(299)).toBe(false);
     expect(p.ready(300)).toBe(true);
+  });
+});
+
+/** A label's Code 128, drawn the way Barcode128 draws it (quiet zones included), a few pixel rows tall. */
+function labelStrip(text: string, module = 2, rows = 6): Pixels {
+  const { widths, modules } = encodeCode128(text);
+  const width = (modules + 2 * QUIET_ZONE) * module;
+  const data = new Uint8ClampedArray(width * rows * 4).fill(255);
+  let x = QUIET_ZONE * module;
+  widths.forEach((w, i) => {
+    if (i % 2 === 0)
+      for (let px = x; px < x + w * module; px++)
+        for (let y = 0; y < rows; y++) {
+          const o = (y * width + px) * 4;
+          data[o] = data[o + 1] = data[o + 2] = 0;
+        }
+    x += w * module;
+  });
+  return { data, width, height: rows };
+}
+
+const EAN_L = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+const EAN_PARITY = ['LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG', 'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'];
+
+/** An EAN-13 product barcode (13 digits, check digit included), drawn like labelStrip. */
+function ean13Strip(digits: string, module = 2, rows = 6): Pixels {
+  const d = [...digits].map(Number);
+  const right = (n: number) => [...EAN_L[n]].map((b) => (b === '1' ? '0' : '1')).join('');
+  let bits = '101';
+  for (let i = 1; i <= 6; i++) bits += EAN_PARITY[d[0]][i - 1] === 'L' ? EAN_L[d[i]] : [...right(d[i])].reverse().join('');
+  bits += '01010';
+  for (let i = 7; i <= 12; i++) bits += right(d[i]);
+  bits += '101';
+  const quiet = 11;
+  const width = (bits.length + 2 * quiet) * module;
+  const data = new Uint8ClampedArray(width * rows * 4).fill(255);
+  [...bits].forEach((b, i) => {
+    if (b !== '1') return;
+    for (let px = (quiet + i) * module; px < (quiet + i + 1) * module; px++)
+      for (let y = 0; y < rows; y++) {
+        const o = (y * width + px) * 4;
+        data[o] = data[o + 1] = data[o + 2] = 0;
+      }
+  });
+  return { data, width, height: rows };
+}
+
+describe('printed labels round-trip through the browser decoder', () => {
+  const FNC1 = 102;
+
+  it('A-01-02-1 has FNC1 as its check value, and still reads as itself', () => {
+    expect(code128Values('A-01-02-1').at(-1)).toBe(FNC1);
+    // ZXing on its own, with the GS1 option the app needs for supplier labels, adds a trailing separator.
+    const raw = new MultiFormatReader();
+    const img = labelStrip('A-01-02-1');
+    const lum = new Uint8ClampedArray(img.width * img.height).map((_, i) => img.data[i * 4]);
+    const hints = new Map<DecodeHintType, unknown>([
+      [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128]],
+      [DecodeHintType.ASSUME_GS1, true],
+    ]);
+    expect(raw.decode(new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(lum, img.width, img.height))), hints).getText()).toBe('A-01-02-1\x1d');
+    expect(decodeFramePixels(img)).toBe('A-01-02-1');
+    expect(decodeBarcodePixels(img)).toBe('A-01-02-1');
+    expect(decodeFramePixels(code128Frame('A-01-02-1'))).toBe('A-01-02-1');
+  });
+
+  it('reads a spot label whose bars also form a valid EAN-13 as the spot, and real product barcodes as products', () => {
+    expect(decodeFramePixels(labelStrip('H-01-20'))).toBe('H-01-20');
+    expect(decodeBarcodePixels(labelStrip('H-01-20'))).toBe('H-01-20');
+    expect(newFrame(code128Frame('H-01-20'))).toBe('H-01-20');
+    expect(newFrame(code128Frame('H-01-20'), true)).toBe('H-01-20');
+    expect(decodeFramePixels(ean13Strip('0420261000043'))).toBe('420261000043');
+    expect(decodeBarcodePixels(ean13Strip('4006381333931'))).toBe('4006381333931');
+    expect(decodeFramePixels(ean13Strip('5901234123457'))).toBe('5901234123457');
+  });
+
+  it('keeps supplier GS1 fields intact and only drops a trailing separator', () => {
+    expect(cleanCode128Text(']C1001234567890123456789\x1d')).toBe(']C1001234567890123456789');
+    expect(cleanCode128Text(']C10112345678901231\x1d10ABC')).toBe(']C10112345678901231\x1d10ABC');
+    expect(cleanCode128Text('P-000042')).toBe('P-000042');
+  });
+
+  it('reads every spot code A-01-01-1 to Z-20-20-4 and item codes P-000001 to P-001000', { timeout: 300_000 }, () => {
+    const codes: string[] = [];
+    for (let z = 0; z < 26; z++)
+      for (let a = 1; a <= 20; a++)
+        for (let b = 1; b <= 20; b++) {
+          const base = `${String.fromCharCode(65 + z)}-${String(a).padStart(2, '0')}-${String(b).padStart(2, '0')}`;
+          codes.push(base);
+          for (let l = 1; l <= 4; l++) codes.push(`${base}-${l}`);
+        }
+    for (let n = 1; n <= 1000; n++) codes.push(formatPalletCode(n));
+    const failed: string[] = [];
+    let fnc1Checks = 0;
+    for (const code of codes) {
+      if (code128Values(code).at(-1) === FNC1) fnc1Checks++;
+      const read = decodeFramePixels(labelStrip(code));
+      if (read !== code) failed.push(`${code} -> ${JSON.stringify(read)}`);
+      // What the scan screen does with the text: a Wherehouse code is never taken for a GS1 label.
+      else if (!code.startsWith('P-')) expect(readSupplierBarcode(read).reference).toBe(code);
+    }
+    expect(fnc1Checks).toBeGreaterThan(100);
+    expect(failed.slice(0, 10)).toEqual([]);
   });
 });

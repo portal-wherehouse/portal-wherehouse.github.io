@@ -493,6 +493,50 @@ export function surveyWords(a: SurveyAnswers): { thing: string; things: string; 
   return { thing, things, noun: typed ? things.toLowerCase() : p.noun };
 }
 
+/** Nouns the survey can use that are not counted one by one: "how much equipment", but "how many parts". */
+const MASS_NOUNS = new Set(['equipment', 'inventory', 'stock', 'gear', 'furniture', 'lumber', 'merchandise', 'freight', 'clothing', 'apparel', 'hardware', 'luggage']);
+
+/** "much" or "many" for a noun, for questions like "About how many parts do you keep on hand?" */
+export function muchOrMany(noun: string): 'much' | 'many' {
+  return MASS_NOUNS.has(noun.trim().toLowerCase()) ? 'much' : 'many';
+}
+
+/** "1 hour", "1.5 hours", "12 hours". */
+export function hoursText(hours: number): string {
+  return `${fmt(hours)} hour${hours === 1 ? '' : 's'}`;
+}
+
+/** Levels tried for a rack zone, best first; the one that lands closest to the planned count wins. */
+const RACK_LEVELS = [3, 4, 2, 5];
+/** Bays per aisle before the builder starts another aisle. */
+const BAYS_PER_AISLE = 20;
+
+/**
+ * Starting numbers for one zone in the setup wizard's spot builder, from the spots the survey planned for it.
+ * Floor zones get one spot per lane; rack zones get levels and bays that come to the planned count, or just
+ * over it, in as few aisles as fit.
+ */
+export function builderDefaults(kind: string, spots: number): { aisles: number; bays: number; levels: number } {
+  const want = Math.max(1, Math.round(spots));
+  if (kind !== 'RACK') return { aisles: 1, bays: Math.min(200, want), levels: 1 };
+  let best = { aisles: 1, bays: 1, levels: 1, total: Infinity };
+  for (const levels of RACK_LEVELS.filter((l) => l <= want).concat(want < 2 ? [1] : [])) {
+    const columns = Math.ceil(want / levels);
+    const aisles = Math.min(30, Math.ceil(columns / BAYS_PER_AISLE));
+    const bays = Math.min(60, Math.ceil(columns / aisles));
+    const total = aisles * bays * levels;
+    if (Math.abs(total - want) < Math.abs(best.total - want)) best = { aisles, bays, levels, total };
+  }
+  return { aisles: best.aisles, bays: best.bays, levels: best.levels };
+}
+
+/** Spots the survey planned for each zone letter: a group's spots split evenly over its areas. */
+export function plannedSpotsByZone(a: SurveyAnswers): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const z of planZones(a)) for (const letter of z.letters) out[letter] = Math.ceil(z.spots / z.letters.length);
+  return out;
+}
+
 export function recommend(a: SurveyAnswers): Recommendation {
   const p = profileOf(a);
   const preset: SetupPreset = p.preset;

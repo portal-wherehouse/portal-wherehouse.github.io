@@ -44,8 +44,10 @@ export function rankRow(row: SearchRow, rawQuery: string): number {
   const words = q.split(' ').filter(Boolean);
   if (words.every((w) => hay.includes(w))) return 2;
   // Near misses: every word the person typed is one slip (two for long words) from a word on the record.
+  // Only for words: a code or barcode with digits in it is exact or nothing, because 420261000043 and
+  // 420261000044 are two different products, not a typo, and a scan is never misspelled.
   const tokens = hay.split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 2);
-  if (words.every((w) => w.length >= 4 && tokens.some((t) => nearWord(w, t, w.length >= 7 ? 2 : 1)))) return 3;
+  if (words.every((w) => w.length >= 4 && !/\p{N}/u.test(w) && tokens.some((t) => nearWord(w, t, w.length >= 7 ? 2 : 1)))) return 3;
   return -1;
 }
 

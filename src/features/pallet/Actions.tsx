@@ -8,6 +8,7 @@ import type { PalletCommandKind, PalletEvent, PalletState } from '../../domain/t
 import { STATE_LABEL } from '../../domain/transitions';
 import type { PalletDetail } from '../../demo/engine';
 import { useApp } from '../../app/state';
+import { useJobsOn } from '../../app/words';
 import { CommandFeedback } from '../../ui/CommandFeedback';
 import { Icon } from '../../ui/icons';
 import { useCommand } from '../../ui/useCommand';
@@ -15,7 +16,7 @@ import { Field, HoldBadge, Notice, Plate, Sheet, Spinner, fmtTime } from '../../
 
 export const ACTION_META: Partial<Record<PalletCommandKind, { title: string; verb: string; explain: string; danger?: boolean }>> = {
   verify_location: { title: 'Confirm still here', verb: 'Confirm location', explain: 'You checked and the pallet is physically where it is recorded. This adds a verification event and refreshes “last confirmed” without inventing a move.' },
-  dispatch: { title: 'Dispatch pallet', verb: 'Dispatch', explain: 'Dispatch means the pallet left the warehouse according to your entry. It is not proof the jobsite received it. The rack is cleared and the destination is saved on the event.' },
+  dispatch: { title: 'Dispatch pallet', verb: 'Dispatch', explain: 'Dispatch means the pallet left the warehouse according to your entry. It is not proof it arrived. The rack is cleared and the destination is saved on the event.' },
   return: { title: 'Record return', verb: 'Record return', explain: 'The same intact pallet came back. It keeps its identity and becomes Received with no location. Placing it is a separate step. Existing holds stay.' },
   mark_missing: { title: 'Mark missing', verb: 'Mark missing', explain: 'The pallet is not where it was recorded. Its current location is cleared, the last confirmed rack is kept as history, and it appears in Needs attention until a supervisor records where it was found.', danger: true },
   locate: { title: 'Found pallet', verb: 'Record found', explain: 'Record where the missing pallet was physically observed. It becomes Stored there.' },
@@ -24,8 +25,8 @@ export const ACTION_META: Partial<Record<PalletCommandKind, { title: string; ver
   reassign_job: { title: 'Change job', verb: 'Change job', explain: 'Moves the pallet to another open job. Both jobs stay in the history, the version changes so nobody can dispatch against the old job, and the label is flagged for reprinting.' },
   edit_details: { title: 'Edit details', verb: 'Save changes', explain: 'Corrections to description, notes, or supplier reference are recorded as an event. Changing the description flags the printed label for reprinting.' },
   correct: { title: 'Correct the record', verb: 'Save correction', explain: 'A correction is a new event. It never edits or deletes the earlier entry. Review everything that happened after the mistaken entry, then state where the pallet actually is now.' },
-  retire: { title: 'Retire pallet', verb: 'Retire', explain: 'The identity stops being an active handling unit. History is kept, and the code is never reused. A supervisor can correct a mistaken retirement.', danger: true },
-  archive: { title: 'Archive', verb: 'Archive', explain: 'Hides a retired pallet from default search. History stays available and “Include archived” brings it back.' },
+  retire: { title: 'Retire pallet', verb: 'Retire', explain: 'The identity stops being an active handling unit and drops out of searches. History is kept, and the code is never reused. A supervisor can correct a mistaken retirement.', danger: true },
+  archive: { title: 'Archive', verb: 'Archive', explain: 'Hides a retired pallet from lists and counts. History stays available, and “Include retired and archived” in Find brings it back.' },
   label_applied: { title: 'New label applied', verb: 'Confirm label applied', explain: 'Confirms the freshly printed label is stuck on this pallet, so it leaves the reprint list. Nothing else changes.' },
   rotate_label: { title: 'Replace label', verb: 'Replace label', explain: 'For a compromised or duplicated label: the old QR token is revoked and a new one issued. The old QR stops working, but its barcode and printed code still find the pallet, so print and stick the new label right away and remove the old one. Ordinary reprints do not need this.', danger: true },
 };
@@ -37,6 +38,7 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
   const enhanced=!(backend instanceof FirebaseBackend)||backend.summary?.receiving_version===1;
   const [info,setInfo]=useState(p.receiving ?? blankInfo());
   const meta = ACTION_META[kind]!;
+  const jobsOn = useJobsOn();
   const ctx = read((e, a, ws) => e.context(a, ws));
   const events = read((e, a, ws) => e.history(a, ws, p.id)) ?? [];
   const users = read((e) => e.db.users) ?? {};
@@ -120,7 +122,16 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
           </span>
           <span style={{ fontWeight: 600 }}>{p.description}</span>
           <span className="muted">
-            · <span className="jcode">{detail.job?.code ?? 'No job'}</span> · v{p.version}
+            {detail.job ? (
+              <>
+                · <span className="jcode">{detail.job.code}</span>{' '}
+              </>
+            ) : jobsOn ? (
+              <>
+                · <span className="jcode">No job</span>{' '}
+              </>
+            ) : null}
+            · v{p.version}
           </span>
           {p.hold && <HoldBadge title={p.hold.reason} />}
         </div>
@@ -143,14 +154,27 @@ export function ActionSheet({ kind, detail, onClose, presetEvent }: { kind: Pall
               <input id="act-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Truck, driver, bill of lading…" maxLength={500} />
             </Field>
             <Notice tone="info" icon="truck">
-              Leaving from <strong>{detail.location?.code}</strong> for job <strong>{detail.job?.code ?? 'No job'}</strong> {detail.job?.name}. The result will read “Dispatched from WH-01”, never “Delivered”.
+              {detail.location ? (
+                <>
+                  Leaving from <strong>{detail.location.code}</strong>
+                </>
+              ) : (
+                'Leaving the warehouse'
+              )}
+              {detail.job ? (
+                <>
+                  {' '}
+                  for job <strong>{detail.job.code}</strong> {detail.job.name}
+                </>
+              ) : null}
+              . The result will read “Dispatched from {ctx?.warehouse?.code ?? 'your warehouse'}”, never “Delivered”.
             </Notice>
           </>
         )}
 
         {kind === 'return' && (
           <>
-            {detail.job && detail.job.status !== 'OPEN' && <Notice tone="warn">Job {detail.job?.code ?? 'No job'} is closed. A supervisor must reopen it (Jobs screen) before this return can be recorded.</Notice>}
+            {detail.job && detail.job.status !== 'OPEN' && <Notice tone="warn">Job {detail.job.code} is closed. A supervisor must reopen it (Jobs screen) before this return can be recorded.</Notice>}
             <Field label="Condition note (optional)" htmlFor="act-cond">
               <textarea id="act-cond" className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Unused, wrap intact" maxLength={1000} />
             </Field>

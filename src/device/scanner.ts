@@ -59,7 +59,12 @@ async function tuneTrack(track: MediaStreamTrack | undefined): Promise<boolean> 
   return caps.torch === true;
 }
 
-export async function startCamera(video: HTMLVideoElement, onText: (text: string) => void, onError: (e: CameraError, message: string) => void): Promise<CameraSession | null> {
+/**
+ * Open the camera on `video` and read codes from it. Aborting `signal` (the screen closed before the camera
+ * opened) releases the camera quietly and leaves the video element alone, so a second start on the same
+ * element, as React's development mode does on every mount, is never cut off by the first.
+ */
+export async function startCamera(video: HTMLVideoElement, onText: (text: string) => void, onError: (e: CameraError, message: string) => void, signal?: AbortSignal): Promise<CameraSession | null> {
   if (typeof isSecureContext !== 'undefined' && !isSecureContext) {
     onError('insecure', 'The camera needs a secure (https) page. Type the printed code instead.');
     return null;
@@ -84,10 +89,20 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
+  /** Clear the video only while it still shows this session's camera, never another session's. */
+  const release = () => {
+    stream?.getTracks().forEach((t) => t.stop());
+    if (stream && video.srcObject === stream) video.srcObject = null;
+  };
   const open = async () => {
     stream?.getTracks().forEach((t) => t.stop());
     torchOn = false;
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    const next = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    if (signal?.aborted || stopped) {
+      next.getTracks().forEach((t) => t.stop());
+      throw new DOMException('The scanner closed before the camera opened.', 'AbortError');
+    }
+    stream = next;
     video.setAttribute('playsinline', 'true');
     video.muted = true;
     video.srcObject = stream;
@@ -98,8 +113,8 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
   try {
     await open();
   } catch (err) {
-    (stream as MediaStream | null)?.getTracks().forEach((t) => t.stop());
-    video.srcObject = null;
+    release();
+    if (signal?.aborted) return null;
     const name = (err as DOMException)?.name;
     if (name === 'NotAllowedError' || name === 'SecurityError') onError('denied', 'Camera access was blocked. Allow the camera in your browser settings, or type the printed code.');
     else if (name === 'NotFoundError' || name === 'OverconstrainedError') onError('unavailable', 'No camera was found. Type the printed code instead.');
@@ -176,8 +191,7 @@ export async function startCamera(video: HTMLVideoElement, onText: (text: string
     stop() {
       stopped = true;
       cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
-      video.srcObject = null;
+      release();
     },
     async switchCamera() {
       facing = facing === 'environment' ? 'user' : 'environment';

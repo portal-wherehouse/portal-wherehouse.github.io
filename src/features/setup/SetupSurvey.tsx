@@ -13,9 +13,11 @@ import {
   defaultLayout,
   groupById,
   groupsFor,
+  hoursText,
   keptLabels,
   loadSavedSurvey,
   loadSurveyProgress,
+  muchOrMany,
   PLACE_NAME,
   PLACE_SUB,
   PLACES,
@@ -60,6 +62,11 @@ type Step = {
   only?: string;
   placeholder?: string;
   show?: (a: SurveyAnswers) => boolean;
+  /**
+   * A follow-up that only some answers bring up ("Which printer is it?"). It shares the number of the
+   * question before it, so "Question 7 of 8" never turns into "8 of 9" partway through.
+   */
+  followUp?: boolean;
   /** Only in the plan survey on the website, or only in the setup survey in the portal. Both when unset. */
   part?: 'plan' | 'setup';
   numeric?: boolean;
@@ -90,6 +97,7 @@ const STEPS: Step[] = [
     kind: 'text',
     placeholder: 'Unit, tote, crate, kit…',
     show: (a) => a.profile === 'custom',
+    followUp: true,
   },
   {
     id: 'groups',
@@ -104,7 +112,7 @@ const STEPS: Step[] = [
   {
     id: 'size',
     part: 'plan',
-    q: (a) => `About how much ${noun(a)} do you keep on hand?`,
+    q: (a) => `About how ${muchOrMany(noun(a))} ${noun(a)} do you keep on hand?`,
     why: 'A rough idea of size lets us estimate your setup time and whether a tech visit is the bigger or smaller job. You’ll enter real numbers during setup.',
     kind: 'one',
     options: [
@@ -118,7 +126,7 @@ const STEPS: Step[] = [
     id: 'layout',
     part: 'setup',
     q: 'Where does each kind go, and how much is there?',
-    why: 'Each row becomes its own storage zones. An area is one rack row, one room or one section of floor. The quantities decide how many spots and labels you need.',
+    why: 'Each row becomes one or more storage zones, one for each area. An area is one rack row, one room or one section of floor. The quantities decide how many spots and labels you need.',
     hint: 'A guess is fine. You can change all of it during setup.',
     kind: 'layout',
     show: (a) => a.groups.length > 0,
@@ -165,7 +173,7 @@ const STEPS: Step[] = [
       { id: 'other', title: 'Yes, something else', sub: 'You name it', icon: 'sparkle' },
     ],
   },
-  { id: 'holdWord', part: 'setup', q: 'What do you reserve them for?', why: 'The app groups reserved inventory under this word. A caterer might say “event”, a builder “build”, a rental shop “rental”. You’d see screens like “Items for this rental”.', hint: 'One word, like Rental, Build or Delivery.', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.hold === 'other' },
+  { id: 'holdWord', part: 'setup', q: 'What do you reserve them for?', why: 'The app groups reserved inventory under this word. A caterer might say “event”, a builder “build”, a rental shop “rental”. You’d see screens like “Items for this rental”.', hint: 'One word, like Rental, Build or Delivery.', kind: 'text', placeholder: 'Build, rental, delivery…', show: (a) => a.hold === 'other', followUp: true },
   {
     id: 'hasPrinter',
     part: 'setup',
@@ -178,7 +186,7 @@ const STEPS: Step[] = [
       { id: 'no', title: 'No, not yet', icon: 'x' },
     ],
   },
-  { id: 'printer', part: 'setup', q: 'Which printer is it?', why: 'Our labels need a 4-inch-wide label printer or a regular letter page. We’ll tell you if yours works.', kind: 'one', options: PRINTERS.map((p) => ({ id: p.id, title: p.title, sub: p.examples, icon: PRINTER_ICON[p.id] ?? 'labels' })), show: (a) => a.hasPrinter === 'yes' },
+  { id: 'printer', part: 'setup', q: 'Which printer is it?', why: 'Our labels need a 4-inch-wide label printer or a regular letter page. We’ll tell you if yours works.', kind: 'one', options: PRINTERS.map((p) => ({ id: p.id, title: p.title, sub: p.examples, icon: PRINTER_ICON[p.id] ?? 'labels' })), show: (a) => a.hasPrinter === 'yes', followUp: true },
   {
     id: 'scanner',
     part: 'setup',
@@ -223,7 +231,10 @@ export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site'
   const resume = useMemo(() => loadSurveyProgress(mode), [mode]);
   const planned = useMemo(() => (mode === 'portal' ? loadSavedSurvey() : null), [mode]);
   const [a, setA] = useState<SurveyAnswers>(resume?.answers ?? planned ?? BLANK_ANSWERS);
-  const visible = (x: SurveyAnswers) => STEPS.filter((s) => (!s.part || (s.part === 'plan') === (mode === 'site')) && (!s.show || s.show(x)));
+  const inMode = (s: Step) => !s.part || (s.part === 'plan') === (mode === 'site');
+  const visible = (x: SurveyAnswers) => STEPS.filter((s) => inMode(s) && (!s.show || s.show(x)));
+  // Numbered questions: every one in this survey except follow-ups, so the total never moves.
+  const total = STEPS.filter((s) => inMode(s) && !s.followUp).length;
   const [i, setI] = useState(() => (resume ? visible(resume.answers).findIndex((s) => s.id === resume.step) : -1)); // -1 is the intro
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
   const [phase, setPhase] = useState<'loading' | 'ask' | 'curate' | 'result'>(() => (resume?.step === 'result' ? 'result' : mode === 'portal' ? 'loading' : 'ask'));
@@ -236,6 +247,7 @@ export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site'
   const timer = useRef<number | undefined>(undefined);
   const steps = visible(a);
   const step = i >= 0 ? steps[i] : null;
+  const number = Math.max(1, steps.slice(0, i + 1).filter((s) => !s.followUp).length);
   const rec = useMemo(() => recommend(a), [a]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   useEffect(() => {
@@ -280,7 +292,7 @@ export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site'
     if (s.id !== 'printer') timer.current = window.setTimeout(() => next(answers), 320);
   };
   const answered = (s: Step) => (s.kind === 'many' ? (a[s.id as ListField] as string[]).length > 0 : s.kind === 'layout' ? true : s.kind === 'text' ? (s.valid ? s.valid(String(a[s.id])) : String(a[s.id]).trim().length > 0) : a[s.id] !== null);
-  const progress = phase === 'loading' ? 0 : phase === 'ask' ? Math.max(0, i) / steps.length : 1;
+  const progress = phase === 'loading' ? 0 : phase === 'ask' ? (step ? number - 1 : 0) / total : 1;
   const close = () => {
     if (phase === 'result') saveSurveyProgress(mode, null);
     onClose();
@@ -323,7 +335,7 @@ export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site'
           <Results rec={rec} mode={mode} onBack={back} onRestart={restart} onClose={close} onApplied={onApplied} answers={a} />
         ) : !step ? (
           <Card k="intro" dir={dir}>
-            <p className="survey-eyebrow">{mode === 'site' ? 'Find your plan · about 1 minute' : 'Set up your warehouse · about 5 minutes'}</p>
+            <p className="survey-eyebrow">{mode === 'site' ? 'Find your plan · about 2 minutes' : 'Set up your warehouse · about 5 minutes'}</p>
             <h1 className="survey-q">{mode === 'site' ? 'Let’s find the right plan for your business.' : planned ? 'Now let’s get into your space.' : 'Let’s put your warehouse in Wherehouse.'}</h1>
             <p className="survey-hint">
               {mode === 'site'
@@ -363,7 +375,7 @@ export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site'
         ) : (
           <Card k={String(step.id)} dir={dir}>
             <p className="survey-eyebrow">
-              {mode === 'site' ? 'Find your plan' : 'Setting up your warehouse'} · Question {i + 1} of {steps.length}
+              {mode === 'site' ? 'Find your plan' : 'Setting up your warehouse'} · Question {number} of {total}
             </p>
             <p className="survey-why">
               <Icon name="info" /> {say(step.why, a)}
@@ -754,7 +766,7 @@ function mailto(subject: string, a: SurveyAnswers, extra = '') {
       const l = a.layout[id];
       return x && l ? `- ${x.name}: ${PLACE_NAME[l.place]}, ${l.areas} area${l.areas === 1 ? '' : 's'}, ${QTY[x.size][l.qty].label}, ${keptLabels(x)[l.kept].toLowerCase()}` : '';
     }),
-    `- Estimate: ${n.zones} zones, ${n.spots} spots, ${n.spots + n.unitLabels} labels, about ${n.hours} hours to set up`,
+    `- Estimate: ${n.zones} zones, ${n.spots} spots, ${n.spots + n.unitLabels} labels, about ${hoursText(n.hours)} to set up`,
     `- People: ${a.people ?? 'not answered'}`,
     `- Printer: ${a.hasPrinter === 'yes' ? (PRINTERS.find((p) => p.id === a.printer)?.title ?? 'yes') : 'none yet'}`,
     `- Scanning: ${a.scanner ?? 'not answered'}`,
@@ -855,7 +867,7 @@ function PlanChoice({ answers }: { answers: SurveyAnswers }) {
           <p className="survey-warn">
             <Icon name="alert" />
             <span>
-              Heads up: this can be a difficult process. From your answers, expect about <b>{pick.hours} hours</b> to create every zone and spot, print and hang every label, and load your inventory.
+              Heads up: this can be a difficult process. From your answers, expect about <b>{hoursText(pick.hours)}</b> to create every zone and spot, print and hang every label, and load your inventory.
             </span>
           </p>
           <button

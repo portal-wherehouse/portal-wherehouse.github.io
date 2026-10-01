@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLANK_ANSWERS, groupsFor, planZones, recommend, surveyNumbers, surveyZones, type SurveyAnswers } from '../../src/domain/survey';
+import { BLANK_ANSWERS, PROFILE_IDS, builderDefaults, groupsFor, hoursText, muchOrMany, planZones, plannedSpotsByZone, recommend, surveyNumbers, surveyWords, surveyZones, type SurveyAnswers } from '../../src/domain/survey';
 
 const auto: SurveyAnswers = {
   ...BLANK_ANSWERS,
@@ -78,5 +78,43 @@ describe('zone letters', () => {
     const more = groupsFor('auto').more.map((x) => x.id);
     expect(more).not.toContain('small');
     expect(more).not.toContain('liquids');
+  });
+});
+
+describe('survey wording', () => {
+  it('asks "how many" for nouns counted one by one and "how much" for the rest', () => {
+    expect(muchOrMany('parts')).toBe('many');
+    expect(muchOrMany('pallets')).toBe('many');
+    expect(muchOrMany('Totes')).toBe('many');
+    expect(muchOrMany('equipment')).toBe('much');
+    expect(muchOrMany('inventory')).toBe('much');
+    const byProfile = Object.fromEntries(PROFILE_IDS.map((id) => [id, muchOrMany(surveyWords({ ...BLANK_ANSWERS, profile: id }).noun)]));
+    expect(byProfile).toMatchObject({ auto: 'many', pallets: 'many', equipment: 'much', custom: 'much' });
+  });
+  it('says "1 hour" but "1.5 hours"', () => {
+    expect(hoursText(1)).toBe('1 hour');
+    expect(hoursText(1.5)).toBe('1.5 hours');
+    expect(hoursText(12)).toBe('12 hours');
+  });
+});
+
+describe('spot builder defaults from the survey', () => {
+  it('splits each group over its zones', () => {
+    const planned = plannedSpotsByZone(auto);
+    const zones = planZones(auto);
+    expect(Object.keys(planned)).toEqual(surveyZones(auto).map((z) => z.letter));
+    for (const z of zones) for (const l of z.letters) expect(planned[l]).toBe(Math.ceil(z.spots / z.letters.length));
+  });
+  it('starts the builder at the planned count, not a fixed 15', () => {
+    expect(builderDefaults('FLOOR', 8)).toEqual({ aisles: 1, bays: 8, levels: 1 });
+    expect(builderDefaults('RACK', 8)).toEqual({ aisles: 1, bays: 2, levels: 4 });
+    expect(builderDefaults('RACK', 1)).toEqual({ aisles: 1, bays: 1, levels: 1 });
+    for (const n of [1, 2, 3, 5, 7, 8, 13, 40, 75, 160, 750]) {
+      const d = builderDefaults('RACK', n);
+      const total = d.aisles * d.bays * d.levels;
+      expect(total).toBeGreaterThanOrEqual(n);
+      expect(total - n).toBeLessThanOrEqual(Math.max(2, Math.ceil(n * 0.1)));
+      expect(d.bays).toBeLessThanOrEqual(60);
+    }
   });
 });

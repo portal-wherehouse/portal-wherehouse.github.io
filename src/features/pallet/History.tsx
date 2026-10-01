@@ -39,7 +39,14 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
   if (!before) {
     parts.push(
       <span key="new">
-        Created as <strong>{after.state.toLowerCase()}</strong> for <span className="jcode">{after.job_code}</span>
+        Created as <strong>{after.state.toLowerCase()}</strong>
+        {/* Snapshots of a pallet with no job still carry "No job" as its code, so the job is named only when there is one. */}
+        {after.job_id ? (
+          <>
+            {' '}
+            for <span className="jcode">{after.job_code}</span>
+          </>
+        ) : null}
         {after.current_location_code ? (
           <>
             {' '}
@@ -64,7 +71,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
     if (before.job_id !== after.job_id)
       parts.push(
         <span key="job">
-          job {before.job_code} <span className="arrow">→</span> <strong>{after.job_code}</strong>
+          job {before.job_id ? before.job_code : 'none'} <span className="arrow">→</span> <strong>{after.job_id ? after.job_code : 'none'}</strong>
         </span>,
       );
     if (before.hold !== after.hold) parts.push(<span key="hold">{after.hold ? <strong>hold on</strong> : <strong>hold cleared</strong>}</span>);

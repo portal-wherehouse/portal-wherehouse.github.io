@@ -4,6 +4,7 @@ import { FirebaseBackend } from '../../data/firebase';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../../app/state';
+import { useJobsOn } from '../../app/words';
 import { canPrint, IS_PREVIEW, printNow } from '../../device/output';
 import { Icon } from '../../ui/icons';
 import { Notice, Sheet } from '../../ui/ui';
@@ -65,6 +66,7 @@ export function LabelSheet({ palletIds = [], locationIds = [], onClose, closeHin
 
 export function LabelSet({ palletIds, locationIds, format, forPrint }: { palletIds: string[]; locationIds: string[]; format: LabelFormat; forPrint?: boolean }) {
   const { read } = useApp();
+  const jobsOn = useJobsOn();
   const data = read((e, _a, ws) => {
     const wh = e.activeWarehouse(ws);
     return {
@@ -78,7 +80,7 @@ export function LabelSet({ palletIds, locationIds, format, forPrint }: { palletI
   return (
     <div className="label-grid" style={forPrint ? { gap: 0 } : undefined}>
       {data.pallets.map(({ p, job, token }) => (
-        <PalletLabel key={p.id} pallet={p} job={job} token={token} format={format} warehouse={data.wh} />
+        <PalletLabel key={p.id} pallet={p} job={job} token={token} format={format} warehouse={data.wh} jobsOn={jobsOn} />
       ))}
       {data.locs.map(({ l, token }) => (
         <RackLabel key={l.id} location={l} token={token} warehouse={data.wh} format={format} />

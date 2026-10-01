@@ -19,6 +19,18 @@ const ACTIONS: { route: RouteName; title: string; hint: string; icon: IconName; 
   {route:'jobs',title:'Jobs',hint:'Materials grouped by project',icon:'jobs'},
   {route:'labels',title:'Print labels',hint:'Pallet and rack labels',icon:'labels',write:true},
 ];
+/** The empty dashboard's next step, from what the warehouse actually has so far. */
+function FirstSteps({manager,spots,needsJob}:{manager:boolean;spots:number;needsJob:boolean}){
+  const {go}=useApp();
+  if(!manager)return <section className="panel warehouse-empty"><Icon name="locations"/><div><h2>Your warehouse is ready.</h2><p>Your team’s pallets will appear here as deliveries are recorded.</p></div></section>;
+  const [text,label,route,icon]:[string,string,RouteName,IconName]=!spots
+    ?[needsJob?'Add your spots and a job, then receive your first pallet.':'Add your spots, then receive your first pallet.','Set up locations','locations','locations']
+    :needsJob
+      ?[`You have ${spots.toLocaleString()} spot${spots===1?'':'s'}. Add a job, then receive your first pallet.`,'Add a job','jobs','jobs']
+      :[`You have ${spots.toLocaleString()} spot${spots===1?'':'s'}. Receive your first pallet, then move it into a spot.`,'Receive a pallet','receive','receive'];
+  return <section className="panel warehouse-empty" data-testid="first-steps"><Icon name={icon}/><div><h2>Your warehouse is ready.</h2><p>{text}</p></div><button className="btn primary" onClick={()=>go(route)}>{label}</button></section>;
+}
+
 export function Overview() {
   const {read,go,backend,v,role} = useApp();
   const setup=useSetup();
@@ -41,6 +53,9 @@ export function Overview() {
   const total=Object.values(counts).reduce((sum,n)=>sum+n,0);
   const name=data.ctx.user?.name || 'there';
   const manager=role==='OWNER'||role==='SUPERVISOR';
+  // What is really missing before the first pallet: spots to put it in, and a job when jobs are on.
+  const spots=data.ctx.locations.filter(l=>l.active!==false&&(l.kind==='RACK'||l.kind==='FLOOR')).length;
+  const needsJob=setup.jobs_on&&!data.ctx.jobs.some(j=>j.status==='OPEN');
   const actions=ACTIONS.filter(a=>(role!=='VIEWER'||!a.write)&&(setup.jobs_on||a.route!=='jobs'));
   if(role==='OPERATOR'&&!crewFull)return <CrewHome name={name} onFull={()=>{setCrewFull(true);try{localStorage.setItem('pl.crewFull','1');}catch{/* this visit only */}}}/>;
   const metrics=[
@@ -61,7 +76,7 @@ export function Overview() {
     <section aria-labelledby="warehouse-actions-title"><div className="warehouse-section-head"><h2 id="warehouse-actions-title">What do you need to do?</h2></div><div className="warehouse-actions">
       {actions.map(a=><button className="warehouse-action" key={a.route} aria-label={a.title} onClick={()=>go(a.route)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}
     </div></section>
-    {summary&&total===0&&<section className="panel warehouse-empty"><Icon name="locations"/><div><h2>Your warehouse is ready.</h2><p>{manager?'Add your rack locations and a job, then receive your first pallet.':'Your team’s pallets will appear here as deliveries are recorded.'}</p></div>{manager&&<button className="btn primary" onClick={()=>go('locations')}>Set up locations</button>}</section>}
+    {summary&&total===0&&<FirstSteps manager={manager} spots={spots} needsJob={needsJob}/>}
     {summary?.reminder_count>0 && <section className="panel stack" aria-label="Still here reminders"><h2>Still here: {summary.reminder_count} reminder{summary.reminder_count===1?'':'s'}</h2><p className="muted">Due in your warehouse’s timezone. Open a pallet to review, clear or reschedule its date. Missing pallets are included. Updates about once a minute while this dashboard is open.</p>{summary.reminders.map((p:Pallet)=><button className="btn" key={p.id} onClick={()=>go({name:'pallet',id:p.id})}>{p.code} · {palletContents(p)} · {p.receiving?.remind_on}{p.receiving?.destination?` · Going to ${p.receiving.destination}`:''}{p.state==='MISSING'?' · Missing':''}</button>)}{summary.reminder_count>50 && <p>Showing the 50 earliest reminders. Clear or reschedule reviewed dates to see the next ones.</p>}</section>}
     <div className="grid-2">
       <section className="panel stack"><div className="warehouse-section-head"><h2>Pallet status</h2><button className="btn ghost small" onClick={()=>go('find')}>Find pallets</button></div>

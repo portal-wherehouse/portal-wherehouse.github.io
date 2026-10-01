@@ -222,7 +222,7 @@ export function Receive() {
             </span>
           </div>
           <div>
-            <strong>{live.description}</strong>{job ? <> for <span className="jcode">{job.code}</span> {job.name}</> : <span className="muted"> · No job assigned</span>}
+            <strong>{live.description}</strong>{job ? <> for <span className="jcode">{job.code}</span> {job.name}</> : jobsOn ? <span className="muted"> · No job assigned</span> : null}
           </div>
           <div className="muted">
             This is a new pallet with its own code. Print and attach its label before placement.
@@ -272,7 +272,7 @@ export function Receive() {
           <div className="row">
             <button className="btn primary" onClick={() => another(true)}>Receive another like this</button>
             <button className="btn" onClick={() => another()}>
-              <Icon name="plus" /> Receive another for {job?.code}
+              <Icon name="plus" /> {job ? `Receive another for ${job.code}` : 'Receive another'}
             </button>
             <button className="btn ghost" onClick={() => go({ name: 'pallet', id: live.id })}>
               Open record
@@ -280,7 +280,7 @@ export function Receive() {
           </div>
         </div>
         {sessionIds.length > 1 && <button className="btn" onClick={() => setLabelIds(sessionIds)}>Print all {sessionIds.length} labels from this receiving session</button>}
-        <p className="muted">“Receive another like this” keeps the job and description. Quantity, custom values, destination, reminder, supplier reference, photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
+        <p className="muted">“Receive another like this” keeps {job ? 'the job and description' : 'the description'}. Quantity, custom values, destination, reminder, supplier reference, photos and notes are cleared for the next pallet. Review it, then save to create its own identity.</p>
         {labelIds.length > 0 && <LabelSheet palletIds={labelIds} onClose={() => setLabelIds([])} />}
       </div>
     );

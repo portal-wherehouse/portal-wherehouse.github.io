@@ -96,6 +96,7 @@ export function BarcodeSheet({
   useEffect(() => {
     if (!camera || !video.current) return;
     let cancelled = false;
+    const abort = new AbortController();
     void startCamera(
       video.current,
       (text) => {
@@ -107,6 +108,7 @@ export function BarcodeSheet({
           setCamera(false);
         }
       },
+      abort.signal,
     ).then((value) => {
       if (cancelled) value?.stop();
       else {
@@ -116,6 +118,7 @@ export function BarcodeSheet({
     });
     return () => {
       cancelled = true;
+      abort.abort();
       session.current?.stop();
       session.current = null;
       setTorch("none");

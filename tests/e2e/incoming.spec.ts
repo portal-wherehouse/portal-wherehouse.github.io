@@ -58,7 +58,7 @@ test('an unknown barcode becomes a saved product, and the next scan fills it in'
   await page.locator('#rcv-category').fill('Kindling');
   await page.getByRole('button', { name: 'Save pallet', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pallet saved', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Receive another for' }).click();
+  await page.getByRole('button', { name: 'Receive another', exact: true }).click();
   await page.locator('#rcv-desc').fill('');
   await scan(page, 'MY-KINDLING-9');
   await expect(page.locator('#rcv-desc')).toHaveValue('Pine kindling, 1 cu ft');

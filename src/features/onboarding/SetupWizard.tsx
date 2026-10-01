@@ -7,7 +7,7 @@ import { useApp } from '../../app/state';
 import { useSetup } from '../../app/words';
 import { hashString, normalizeCode, uuid } from '../../domain/codes';
 import { SetupSurvey } from '../setup/SetupSurvey';
-import { loadSavedSurvey, recommend, saveSurvey, surveyZones, zoneLetter } from '../../domain/survey';
+import { builderDefaults, loadSavedSurvey, plannedSpotsByZone, recommend, saveSurvey, surveyZones, zoneLetter } from '../../domain/survey';
 import { PRESETS, pluralize, type SetupPreset } from '../../domain/terms';
 import type { LocationKind, Onboarding, OnboardingZone, Warehouse } from '../../domain/types';
 import { CLOUD_ADDON, money } from '../../domain/plans';
@@ -34,6 +34,12 @@ export const SETUP_ROUTES = ['import', 'products', 'labels', 'locations', 'locat
 
 // Which step is open, shared by the sidebar and the wizard.
 let openStep = WIZARD_STEPS[0].id;
+/**
+ * The warehouse whose wizard already opened at its first unfinished step. Kept outside the component, so
+ * coming back from Import or Item types, or picking a step in the sidebar, keeps the step instead of
+ * jumping back to the first unfinished one when the wizard mounts again.
+ */
+let seededFor = '';
 const listeners = new Set<() => void>();
 export function showStep(id: string) {
   openStep = id;
@@ -63,7 +69,7 @@ export function useOnboarding(): { wh: Warehouse | null; ob: Onboarding | null }
 
 /** The wizard's steps, listed under "Setup checklist" in the sidebar while the checklist is open. */
 export function SetupNav({ here }: { here: boolean }) {
-  const { ob } = useOnboarding();
+  const { wh, ob } = useOnboarding();
   const { go } = useApp();
   const open = useOpenStep();
   if (!ob || ob.state === 'done') return null;
@@ -71,7 +77,7 @@ export function SetupNav({ here }: { here: boolean }) {
   return (
     <div className="setup-nav" data-testid="setup-nav">
       {WIZARD_STEPS.map((s, n) => (
-        <button key={s.id} className={`nav-item${done.has(s.id) ? ' done' : ''}`} aria-current={here && open === s.id ? 'step' : undefined} onClick={() => (showStep(s.id), go('checklist'))}>
+        <button key={s.id} className={`nav-item${done.has(s.id) ? ' done' : ''}`} aria-current={here && open === s.id ? 'step' : undefined} onClick={() => ((seededFor = wh?.id ?? ''), showStep(s.id), go('checklist'))}>
           <span className="setup-nav-dot">{done.has(s.id) ? <Icon name="check" /> : n + 1}</span>
           {s.title}
         </button>
@@ -99,15 +105,14 @@ export function SetupWizard() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const seeded = useRef(false);
 
   // First visit: open the first unfinished step and bring in the plan survey's zones.
   useEffect(() => {
-    if (seeded.current || !saved) return;
-    seeded.current = true;
+    if (!saved || !wh || seededFor === wh.id) return;
+    seededFor = wh.id;
     const next = WIZARD_STEPS.find((s) => !saved.done.includes(s.id));
     if (next) showStep(next.id);
-  }, [saved]);
+  }, [saved, wh]);
 
   const save = async (patch: Partial<Onboarding>, stepDone?: string): Promise<boolean> => {
     setBusy(true);
@@ -131,7 +136,9 @@ export function SetupWizard() {
   const props = { ob, save, busy, wh };
 
   return (
-    <div className="wizard" data-testid="setup-wizard" data-keep-words>
+    // The warehouse's own words apply here as everywhere else ("Do your items already have barcodes?");
+    // only the word chooser and the zone names people typed are kept as written.
+    <div className="wizard" data-testid="setup-wizard">
       <header className="wizard-head">
         <p className="eyebrow">Set up your warehouse{idx >= 0 ? ` · Step ${idx + 1} of ${WIZARD_STEPS.length}` : ''}</p>
         <div className="wizard-bar" aria-hidden="true">
@@ -271,7 +278,7 @@ function WordsStep({ busy, save }: StepProps) {
       </StepHead>
       {rec && survey?.layout && Object.keys(survey.layout).length > 0 && (
         <p className="wizard-note" data-testid="setup-numbers">
-          So far: {rec.numbers.zones} zones, about {rec.numbers.spots.toLocaleString('en-US')} spots and {(rec.numbers.spots + rec.numbers.unitLabels).toLocaleString('en-US')} labels. The app says “{rec.setup.thing}”.
+          So far: {rec.numbers.zones} zone{rec.numbers.zones === 1 ? '' : 's'}, about {rec.numbers.spots.toLocaleString('en-US')} spot{rec.numbers.spots === 1 ? '' : 's'} and {(rec.numbers.spots + rec.numbers.unitLabels).toLocaleString('en-US')} labels. The app says “{rec.setup.thing}”.
         </p>
       )}
       <div className="row">
@@ -280,7 +287,7 @@ function WordsStep({ busy, save }: StepProps) {
         </button>
       </div>
       {asking && <SetupSurvey mode="portal" onClose={() => setAsking(false)} onApplied={() => void save({}, 'words')} onSkip={() => (setAsking(false), void go())} />}
-      <details className="wizard-manual">
+      <details className="wizard-manual" data-keep-words>
         <summary>Or just set the words by hand</summary>
         <div className="wizard-choices" role="radiogroup" aria-label="What are you storing?">
           {PRESETS.map((p) => (
@@ -321,7 +328,7 @@ function ZonesStep({ ob, busy, save }: StepProps) {
       <StepHead icon="map" title="Create your storage zones" why="A zone is one part of the building, like a rack row, a shelf room or the yard. Each gets a letter, and every spot code starts with it, so people know where to walk.">
         {fromSurvey && <p className="wizard-note">We started these from your plan survey.</p>}
       </StepHead>
-      <div className="zone-map" aria-label="Your zones" data-testid="zone-map">
+      <div className="zone-map" aria-label="Your zones" data-testid="zone-map" data-keep-words>
         {zones.map((z, i) => (
           <div key={i} className={`zone-tile kind-${z.kind.toLowerCase()}`} style={{ ['--n' as string]: i }}>
             <b>{z.letter}</b>
@@ -383,6 +390,11 @@ function spotsIn(backend: ReturnType<typeof useApp>['backend'], whId: string | u
 
 function SpotsStep({ ob, busy, save, wh }: StepProps) {
   const { backend } = useApp();
+  // What the survey planned for each zone, so the builder starts at the count the survey suggested.
+  const planned = useMemo(() => {
+    const survey = loadSavedSurvey();
+    return survey ? plannedSpotsByZone(survey) : {};
+  }, []);
   const ready = ob.zones.every((z) => spotsIn(backend, wh?.id, z.letter).length > 0);
   if (!ob.zones.length)
     return (
@@ -399,7 +411,7 @@ function SpotsStep({ ob, busy, save, wh }: StepProps) {
       <RackPicture />
       <div className="zone-builds">
         {ob.zones.map((z) => (
-          <ZoneBuild key={z.letter} zone={z} />
+          <ZoneBuild key={z.letter} zone={z} planned={planned[z.letter]} />
         ))}
       </div>
       <Continue busy={busy} disabled={!ready} onClick={() => void save({}, 'spots')} label={ready ? 'Save and continue' : 'Build every zone to continue'} />
@@ -407,13 +419,14 @@ function SpotsStep({ ob, busy, save, wh }: StepProps) {
   );
 }
 
-function ZoneBuild({ zone }: { zone: OnboardingZone }) {
+function ZoneBuild({ zone, planned }: { zone: OnboardingZone; planned?: number }) {
   const { send, backend, workspaceId } = useApp();
   const wh = Object.values(backend.db.warehouses).find((w) => w.workspace_id === workspaceId && w.active);
   const rack = zone.kind === 'RACK';
-  const [aisles, setAisles] = useState('1');
-  const [bays, setBays] = useState(rack ? '5' : '10');
-  const [levels, setLevels] = useState(rack ? '3' : '1');
+  const start = planned ? builderDefaults(zone.kind, planned) : rack ? { aisles: 1, bays: 5, levels: 3 } : { aisles: 1, bays: 10, levels: 1 };
+  const [aisles, setAisles] = useState(String(start.aisles));
+  const [bays, setBays] = useState(String(start.bays));
+  const [levels, setLevels] = useState(String(start.levels));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const have = spotsIn(backend, wh?.id, zone.letter);
@@ -439,7 +452,8 @@ function ZoneBuild({ zone }: { zone: OnboardingZone }) {
     <article className={`zone-build${have.length ? ' built' : ''}`} data-testid={`zone-build-${zone.letter}`}>
       <header>
         <span className="zone-chip">{zone.letter}</span>
-        <strong>{zone.name}</strong>
+        <strong data-keep-words>{zone.name}</strong>
+        {!have.length && planned ? <span className="tag">About {planned.toLocaleString('en-US')} spots planned</span> : null}
         {have.length > 0 && (
           <span className="tag ok">
             <Icon name="check" /> {have.length} spot{have.length === 1 ? '' : 's'}
@@ -510,13 +524,25 @@ function RackPicture() {
 function BarcodesStep({ ob, busy, save }: StepProps) {
   const { go } = useApp();
   const [pick, setPick] = useState(ob.barcodes);
+  // The answer is saved as soon as it is picked, so it is still there after a trip to Import or Item types.
+  // Leaving for one of them waits for that save, so the answer is stored before the step closes.
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+  const choose = (next: Onboarding['barcodes']) => {
+    setPick(next);
+    if (next !== ob.barcodes) saving.current = save({ barcodes: next });
+  };
+  const leaveFor = (route: 'import' | 'products') => void saving.current.then(() => go(route));
+  // A save still on its way when the step opened again shows up once it lands.
+  useEffect(() => {
+    if (ob.barcodes) setPick(ob.barcodes);
+  }, [ob.barcodes]);
   return (
     <>
       <StepHead icon="barcode" title="Do your pallets already have barcodes?" why="If they do, the app can use them. If not, it prints its own QR labels. You can load barcodes and item types now or as new stock comes in." />
       <div className="wizard-choices" role="radiogroup">
-        <Choice on={pick === 'import'} icon="upload" title="Yes, and I have a list" sub="Import a supplier or inventory spreadsheet with barcodes." onClick={() => setPick('import')} />
-        <Choice on={pick === 'scan'} icon="scanner" title="Yes, we’ll scan them as they arrive" sub="Each barcode is learned the first time you receive it." onClick={() => setPick('scan')} />
-        <Choice on={pick === 'print'} icon="print" title="No, we’ll print our own labels" sub="Every pallet gets a Wherehouse QR label when it’s received." onClick={() => setPick('print')} />
+        <Choice on={pick === 'import'} icon="upload" title="Yes, and I have a list" sub="Import a supplier or inventory spreadsheet with barcodes." onClick={() => choose('import')} />
+        <Choice on={pick === 'scan'} icon="scanner" title="Yes, we’ll scan them as they arrive" sub="Each barcode is learned the first time you receive it." onClick={() => choose('scan')} />
+        <Choice on={pick === 'print'} icon="print" title="No, we’ll print our own labels" sub="Every pallet gets a Wherehouse QR label when it’s received." onClick={() => choose('print')} />
       </div>
       {pick === 'import' && (
         <div className="wizard-tip">
@@ -524,7 +550,7 @@ function BarcodesStep({ ob, busy, save }: StepProps) {
           <div>
             <strong>Load your list</strong>
             <p>Open Import, drop in your spreadsheet, and match its columns. Then come back here.</p>
-            <button className="btn small" onClick={() => go('import')}>
+            <button className="btn small" onClick={() => leaveFor('import')}>
               Open Import
             </button>
           </div>
@@ -535,7 +561,7 @@ function BarcodesStep({ ob, busy, save }: StepProps) {
         <div>
           <strong>Item types (optional)</strong>
           <p>Give each product its barcode, size, weight and a home spot, so Move suggests where it goes.</p>
-          <button className="btn small" onClick={() => go('products')}>
+          <button className="btn small" onClick={() => leaveFor('products')}>
             Set up item types
           </button>
         </div>
@@ -599,7 +625,7 @@ function LabelsStep({ busy, save, wh }: StepProps) {
   if (printing) return <LabelSheet locationIds={ids} onClose={() => (setPrinting(false), setPrinted(true))} />;
   return (
     <>
-      <StepHead icon="print" title="Print and hang your spot labels" why="Every spot needs its label before anyone can scan pallets into it. Small Avery 5160 sheets work well for shelves; 4×6 labels suit pallet racks." />
+      <StepHead icon="print" title="Print and hang your spot labels" why="Every spot needs its label before anyone can scan pallets into it. Small Avery 5160 sheets work well for shelves; 4×6 labels suit racks and floor spots." />
       <RackPicture />
       <div className="row">
         <button className="btn primary big" disabled={!ids.length} onClick={() => setPrinting(true)}>

@@ -119,6 +119,7 @@ export function ScanPanel({
   useEffect(() => {
     if (!camOn || !video.current) return;
     let cancelled = false;
+    const abort = new AbortController();
     setCamError(null);
     void startCamera(
       video.current,
@@ -129,6 +130,7 @@ export function ScanPanel({
           setCamOn(false);
         }
       },
+      abort.signal,
     ).then((s) => {
       if (cancelled) s?.stop();
       else {
@@ -139,6 +141,7 @@ export function ScanPanel({
     });
     return () => {
       cancelled = true;
+      abort.abort();
       session.current?.stop();
       session.current = null;
       setTorch('none');

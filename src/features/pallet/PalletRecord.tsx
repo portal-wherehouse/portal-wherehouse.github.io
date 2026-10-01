@@ -118,7 +118,7 @@ export function PalletRecord() {
   return (
     <div className="stack">
       <PageHead
-        eyebrow={`Pallet · ${detail.job?.code ?? 'No job'}`}
+        eyebrow={detail.job ? `Pallet · ${detail.job.code}` : jobsOn ? 'Pallet · No job' : 'Pallet'}
         title={<span style={{ fontSize: '1.25em' }}>{p.code}</span>}
         sub={p.description}
         actions={
@@ -163,7 +163,7 @@ export function PalletRecord() {
                 : p.state === 'MISSING'
                   ? 'Its physical position is uncertain. The last rack is kept as history, not shown as current.'
                   : p.state === 'DISPATCHED'
-                    ? 'It left the warehouse according to an operator. That is not proof the jobsite received it.'
+                    ? 'It left the warehouse according to an operator. That is not proof it arrived.'
                     : 'No longer an active handling unit. History is kept.'}
           </p>
           {p.hold && (

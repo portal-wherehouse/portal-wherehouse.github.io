@@ -120,3 +120,57 @@ test('crew see the setup-pending screen until a manager finishes or skips setup'
   await page.goto('/?demo=1#checklist');
   await expect(page.getByTestId('setup-pending')).toBeVisible();
 });
+
+test('setup uses the warehouse word, starts spots at the survey count, keeps the barcode answer and ends on a true dashboard', async ({ page }) => {
+  // A plan survey for a furniture store with a few sofas on the floor: about 7 spots.
+  await page.goto('/?demo=1#signin');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'pl.survey',
+      JSON.stringify({ profile: 'furniture', word: '', groups: ['sofas'], size: 0, layout: { sofas: { place: 'floor', areas: 1, qty: 0, kept: 'own' } }, limits: [], people: 'solo', hold: 'none', holdWord: '', hasPrinter: 'no', printer: null, scanner: 'phone', files: 'paper', zip: '29403' }),
+    ),
+  );
+  await practiceSetup(page);
+  const wizard = page.getByTestId('setup-wizard');
+  const nav = page.locator('.sidebar');
+  await expect(wizard.getByTestId('setup-numbers')).toContainText('1 zone, about 7 spots');
+  await wizard.getByText('Or just set the words by hand').click();
+  await wizard.getByRole('radio', { name: /Big single items/ }).click();
+  await wizard.getByRole('button', { name: 'Save and continue' }).click();
+  await expect(wizard.getByTestId('zone-map')).toContainText('Sofas and large furniture');
+  await wizard.getByRole('button', { name: 'Save and continue' }).click();
+
+  const zone = wizard.getByTestId('zone-build-A');
+  await expect(zone).toContainText('About 7 spots planned');
+  await zone.getByRole('button', { name: 'Create 7 spots' }).click();
+  await expect(zone).toContainText('7 spots');
+  await wizard.getByRole('button', { name: 'Save and continue' }).click();
+
+  await expect(wizard.getByRole('heading', { name: 'Do your items already have barcodes?' })).toBeVisible();
+  await expect(wizard).not.toContainText(/pallet/i);
+  await wizard.getByRole('radio', { name: /I have a list/ }).click();
+  await wizard.getByRole('button', { name: 'Open Import' }).click();
+  await expect(page).toHaveURL(/#import/);
+  await page.getByRole('button', { name: /Back to setup/ }).click();
+  await expect(wizard.getByRole('radio', { name: /I have a list/ })).toHaveAttribute('aria-checked', 'true');
+  await page.reload();
+  await expect(wizard.getByRole('radio', { name: /I have a list/ })).toHaveAttribute('aria-checked', 'true');
+  await wizard.getByRole('button', { name: 'Save and continue' }).click();
+
+  await expect(nav.getByTestId('setup-nav')).toContainText('When items leave');
+  await expect(wizard.getByRole('heading', { name: 'When an item leaves, what happens to its record?' })).toBeVisible();
+  await wizard.getByTestId('leave-dispatch').click();
+  await wizard.getByRole('button', { name: 'Save and continue' }).click();
+  await wizard.getByRole('radio', { name: /Paper only/ }).click();
+  await wizard.getByRole('button', { name: 'Save and continue' }).click();
+  await wizard.getByRole('button', { name: /printed and hung them/ }).click();
+  await wizard.getByRole('button', { name: /skip for now/ }).click();
+  await wizard.getByRole('button', { name: 'Open my warehouse' }).click();
+
+  // Spots exist and orders are off, so the dashboard asks for the first item, not for racks and an order.
+  const first = page.getByTestId('first-steps');
+  await expect(first).toContainText('You have 7 spots. Receive your first item, then move it into a spot.');
+  await expect(first).not.toContainText(/order|rack locations/i);
+  await first.getByRole('button', { name: 'Receive an item' }).click();
+  await expect(page).toHaveURL(/#receive/);
+});

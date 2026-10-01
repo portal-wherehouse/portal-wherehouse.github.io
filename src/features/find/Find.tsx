@@ -16,6 +16,8 @@ import { Icon } from '../../ui/icons';
 import { BulkBar, SelectButton, SelectRow, pinnedRows, useBulk } from '../bulk/Bulk';
 import { Empty, Explain, HoldBadge, Notice, PageHead, StateBadge, WhereCell, fmtAgo, fmtTime } from '../../ui/ui';
 
+const ACTIVE_STATES = PALLET_STATES.filter((s) => s !== 'RETIRED');
+
 export function Find() {
   const { read, route, go, backend, v, actorId, workspaceId, toast } = useApp();
   const jobsOn = useJobsOn();
@@ -67,13 +69,16 @@ export function Find() {
   useEffect(() => setPages(1), [q, states, jobId, locId, holdOnly, archived]);
 
   const ctx = read((e, a, ws) => e.context(a, ws));
+  // Retired pallets drop out of search, as Retire promises, unless someone asks for them: the Retired
+  // filter, "Include retired and archived" (a scanned label turns that on), or the pallet's exact code.
+  const shownStates = states.length || archived || parsePalletCode(q) ? states : ACTIVE_STATES;
   const result = useMemo(() => {
     return read((e, a, ws) => {
       const items: RankedRow[] = [];
       let cursor: string | null = null;
       let total = 0;
       for (let i = 0; i < (cloud ? Math.ceil(Object.keys(cloud.db.pallets).length/50)+1 : pages); i++) {
-        const r: ReturnType<typeof e.search> = e.search(a, ws, { q, states, job_id: jobId || undefined, location_id: locId || undefined, include_archived: archived, cursor, limit: 50 });
+        const r: ReturnType<typeof e.search> = e.search(a, ws, { q, states: shownStates, job_id: jobId || undefined, location_id: locId || undefined, include_archived: archived, cursor, limit: 50 });
         total = r.total;
         items.push(...r.items);
         cursor = r.next_cursor;
@@ -175,7 +180,7 @@ export function Find() {
           ))}
         </select>
         <label className="toggle" style={{ fontSize: 13.5, minHeight: 36 }}>
-          <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Include archived
+          <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Include retired and archived
         </label>
       </div>
 

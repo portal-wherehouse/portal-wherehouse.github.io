@@ -25,8 +25,10 @@ export function Qr({ payload, className }: { payload: string; className?: string
   return <div className={className} dangerouslySetInnerHTML={{ __html: svg }} role="img" aria-label={`QR code ${payload}`} />;
 }
 
-export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet: Pallet; job: Job | undefined; token: string; format: LabelFormat; warehouse: string }) {
+export function PalletLabel({ pallet, job, token, format, warehouse, jobsOn = true }: { pallet: Pallet; job: Job | undefined; token: string; format: LabelFormat; warehouse: string; jobsOn?: boolean }) {
   const payload = makeLabelPayload('P', token);
+  // With jobs turned off, the job line is left off rather than printing "No job assigned" on every label.
+  const jobLine = job ? `JOB ${job.code}` : jobsOn ? 'No job assigned' : null;
   if (format === 'avery5160') {
     return (
       <div className="label-card label-5160">
@@ -42,7 +44,7 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
     return (
       <div className="label-card label-sheet">
         <FitCode text={pallet.code} className="l-code" maxHeight="0.56in" />
-        <div className="l-job">{job ? `JOB ${job.code}` : 'No job assigned'}</div>
+        {jobLine && <div className="l-job">{jobLine}</div>}
         <div className="l-desc l-clamp">{palletContents(pallet)}</div>
         <div className="l-row">
           <Qr payload={payload} className="l-qr" />
@@ -56,7 +58,7 @@ export function PalletLabel({ pallet, job, token, format, warehouse }: { pallet:
   return (
     <div className="label-card label-4x6 has-bc">
       <FitCode text={pallet.code} className="l-code" maxHeight="0.95in" />
-      <div className="l-job">{job ? `JOB ${job.code}` : 'No job assigned'}</div>
+      {jobLine && <div className="l-job">{jobLine}</div>}
       <div className="l-desc l-clamp">{palletContents(pallet)}</div>
       <div className="l-desc l-one" style={{ fontWeight: 400, fontSize: '0.14in' }}>
         {job?.name}

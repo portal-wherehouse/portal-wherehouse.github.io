@@ -34,6 +34,7 @@ test('the website survey is short, tailored to the business, and leads to the fr
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?demo=1#start');
   const s = page.getByTestId('setup-survey');
+  await expect(s).toContainText('Find your plan · about 2 minutes');
   await s.getByRole('button', { name: 'Start', exact: true }).click();
   await s.getByRole('radio', { name: /Auto and truck parts/ }).click();
   await expect(s).toContainText('Which kinds of parts do you stock?');
@@ -45,7 +46,7 @@ test('the website survey is short, tailored to the business, and leads to the fr
   await s.getByRole('button', { name: 'Continue' }).click();
   // A refresh comes back to the same question with the same answers.
   await page.reload();
-  await expect(s).toContainText('About how much parts do you keep on hand?');
+  await expect(s).toContainText('About how many parts do you keep on hand?');
   await s.getByRole('radio', { name: /^Large/ }).click();
   await expect(s).toContainText('How many people will receive, move or look up parts?');
   await s.getByRole('radio', { name: /2 to 5/ }).click();
@@ -94,11 +95,16 @@ test('the setup survey picks up from the plan survey and works out the real numb
   await expect(s).toContainText('pays for a transmission');
   await s.getByRole('radio', { name: /Yes, for customers/ }).click();
   await expect(s).toContainText('printer for labels');
+  await expect(s).toContainText('Question 7 of 8');
   await s.getByRole('radio', { name: 'Yes', exact: true }).click();
+  // "Which printer?" follows up on question 7, so the total stays 8.
+  await expect(s).toContainText('Which printer is it?');
+  await expect(s).toContainText('Question 7 of 8');
   await s.getByRole('radio', { name: /Handheld label maker/ }).click();
   await expect(s.getByTestId('printer-verdict')).toContainText('Not a fit');
   await s.getByRole('button', { name: 'Continue' }).click();
   await expect(s).toContainText('just not as fast');
+  await expect(s).toContainText('Question 8 of 8');
   await s.getByRole('radio', { name: /^Both/ }).click();
   const results = s.getByTestId('survey-results');
   await expect(results.getByTestId('zone-plan')).toContainText('Tires and wheels');
@@ -160,7 +166,7 @@ test('the plan survey recommends a plan, checks the zip for a tech visit and off
   await plan.getByRole('button', { name: /Pay now/ }).click();
   await expect(plan).toContainText('Online payment isn’t switched on yet');
   await expect(plan.getByTestId('way-diy')).toContainText('difficult process');
-  await expect(plan.getByTestId('way-diy')).toContainText('hours');
+  await expect(plan.getByTestId('way-diy')).toContainText('expect about 1 hour to create');
   plan = await answer('90210');
   await expect(plan.getByTestId('way-tech')).toContainText('isn’t available in 90210');
   await expect(plan.getByTestId('way-tech').getByRole('link', { name: /Contact us/ })).toHaveAttribute('href', /^mailto:/);
