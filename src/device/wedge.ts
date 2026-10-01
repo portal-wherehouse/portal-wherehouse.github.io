@@ -1,5 +1,10 @@
 // Keyboard-wedge scanners: USB or Bluetooth scanners that "type" what they read, usually followed by Enter.
 // WedgeDetector tells a scanner burst from a person typing by the time between characters; attachWedge wires it to a page.
+//
+// Android scanner phones (Zebra DataWedge, Honeywell, Datalogic and others) type too, but not always one keydown per
+// character. With a text field focused, the phone's keyboard service may send keydowns with no key ("Unidentified",
+// key code 229) and put the characters in through input events, sometimes the whole code at once. The scan catcher
+// (a hidden field marked data-scan-catcher, see ScanCatcher) receives those, and attachWedge reads them as keystrokes.
 
 export interface WedgeOptions {
   minLength: number;
@@ -21,6 +26,11 @@ export interface WedgeKey {
   altKey?: boolean;
   metaKey?: boolean;
   repeat?: boolean;
+  /**
+   * The key went to the scan catcher, a field only scanners type into. A burst there may end without Enter or Tab:
+   * it is finished once the characters stop, because scanner phones often send no suffix until set up to.
+   */
+  loose?: boolean;
 }
 
 export interface WedgeStep {
@@ -37,6 +47,10 @@ export interface WedgeStep {
 // Keys a scanner presses on the way to a character (Shift for capitals). They never end or break a burst.
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock', 'NumLock', 'ScrollLock', 'OS', 'Fn', 'FnLock', 'Hyper', 'Super', 'Symbol']);
 
+// Keys with no character of their own. An Android keyboard service sends these and delivers the text through an
+// input event instead, so they neither add to nor break a burst.
+const SILENT_KEYS = new Set(['Unidentified', 'Process']);
+
 const NOTHING: WedgeStep = { scan: null, consume: false };
 
 /** With no suffix, a scan is complete once the characters stop for this long. */
@@ -50,6 +64,14 @@ function suffixGapMs(o: WedgeOptions): number {
 }
 
 /**
+ * A burst that may end without a suffix (one that arrived in a single piece, or into the scan catcher) is finished
+ * once the characters stop for this long. It waits past the suffix gap, so a scanner's own Enter still ends it.
+ */
+export function looseIdleMs(o: WedgeOptions): number {
+  return suffixGapMs(o) + 50;
+}
+
+/**
  * Pure scanner detector. Feed it every keydown (with timestamps) that happened outside a text field.
  * Characters closer together than `maxGapMs` form a burst; a burst of at least `minLength` characters
  * (after removing `prefix`) that ends with the configured suffix is a scan. Anything slower is a person.
@@ -58,6 +80,8 @@ export class WedgeDetector {
   private chars: string[] = [];
   private first = 0;
   private last = 0;
+  /** The current burst may end without a suffix. */
+  private loose = false;
   private readonly options: () => WedgeOptions;
 
   constructor(options: WedgeOptions | (() => WedgeOptions)) {
@@ -71,11 +95,12 @@ export class WedgeDetector {
 
   reset() {
     this.chars = [];
+    this.loose = false;
   }
 
   feed(k: WedgeKey): WedgeStep {
     const o = this.options();
-    if (MODIFIER_KEYS.has(k.key)) return NOTHING;
+    if (MODIFIER_KEYS.has(k.key) || SILENT_KEYS.has(k.key)) return NOTHING;
     // Shortcuts and held keys are people. AltGr arrives as Ctrl+Alt on some layouts and still types a character.
     if (k.repeat || k.metaKey || (k.ctrlKey && !k.altKey)) {
       this.reset();
@@ -107,23 +132,42 @@ export class WedgeDetector {
     if (!this.chars.length) this.first = k.at;
     this.chars.push(k.key);
     this.last = k.at;
+    if (k.loose) this.loose = true;
     // The first character could be a person; one that follows it this fast is a scanner.
     return { scan, consume: continues };
+  }
+
+  /**
+   * Feed characters that arrived as text rather than one keydown each: an input event in the scan catcher, or a
+   * paste outside a text field. A line break ends the code like Enter, a tab like Tab. Two or more characters in one
+   * event cannot be a person typing, so that burst may end without a suffix. Returns the scans it completed.
+   */
+  feedText(text: string, at: number, options: { loose?: boolean } = {}): WedgeScan[] {
+    const chars = [...text.replace(/\r\n/g, '\n')];
+    const loose = !!options.loose || chars.filter((c) => c !== '\n' && c !== '\r' && c !== '\t').length > 1;
+    const scans: WedgeScan[] = [];
+    for (const ch of chars) {
+      const key = ch === '\n' || ch === '\r' ? 'Enter' : ch === '\t' ? 'Tab' : ch;
+      const step = this.feed({ key, at, loose });
+      if (step.scan) scans.push(step.scan);
+    }
+    return scans;
   }
 
   /** When the caller should call `idle()` to finish a scan that has no suffix, or null when nothing is waiting. */
   nextIdleAt(): number | null {
     const o = this.options();
-    if (o.suffix !== 'none' || !this.chars.length) return null;
-    return this.last + idleTimeoutMs(o);
+    if (!this.chars.length) return null;
+    if (o.suffix === 'none') return this.last + idleTimeoutMs(o);
+    return this.loose ? this.last + looseIdleMs(o) : null;
   }
 
   /** Call when time passes with no keys. Finishes a no-suffix scan once the characters have stopped. */
   idle(now: number): WedgeScan | null {
     const o = this.options();
     if (!this.chars.length) return null;
-    if (o.suffix === 'none') {
-      if (now - this.last < idleTimeoutMs(o)) return null;
+    if (o.suffix === 'none' || this.loose) {
+      if (now - this.last < (o.suffix === 'none' ? idleTimeoutMs(o) : looseIdleMs(o))) return null;
       const scan = this.complete(o);
       this.reset();
       return scan;
@@ -148,9 +192,19 @@ export class WedgeDetector {
 // Inputs a person types into. Checkboxes, buttons and sliders are not: a scan while one has focus still counts.
 const NON_TEXT_INPUTS = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image', 'hidden']);
 
-/** True when keystrokes on this element type into it (text inputs, text areas, selects, editable content). */
+/** Marks the scan catcher: a hidden field that only scanners type into (see ScanCatcher). */
+export const SCAN_CATCHER_ATTR = 'data-scan-catcher';
+
+/** True for the scan catcher, whose characters are read as scans, never as typing. */
+export function isScanCatcher(t: EventTarget | null | undefined): boolean {
+  const el = t as Element | null | undefined;
+  return !!el && typeof el.hasAttribute === 'function' && el.hasAttribute(SCAN_CATCHER_ATTR);
+}
+
+/** True when keystrokes on this element type into it (text inputs, text areas, selects, editable content). Not the scan catcher. */
 export function isEditableTarget(t: EventTarget | null | undefined): boolean {
   if (!t || typeof (t as Element).tagName !== 'string') return false;
+  if (isScanCatcher(t)) return false;
   const el = t as HTMLElement;
   const tag = el.tagName.toUpperCase();
   if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
@@ -169,6 +223,9 @@ function clock(e?: Event): number {
  * them like normal typing). Elsewhere, a completed burst is reported, and the rest of a burst after its first
  * character, plus the scanner's Enter or Tab, is swallowed so it cannot press a focused button or fire a page
  * shortcut. Returns a function that stops listening.
+ *
+ * Also read like keystrokes: text that reaches the scan catcher through input events (Android keyboard services),
+ * and a paste outside a text field (some scanners hand over the whole code that way).
  */
 export function attachWedge(doc: Document, getOptions: () => WedgeOptions, onScan: (scan: WedgeScan) => void): () => void {
   const detector = new WedgeDetector(getOptions);
@@ -184,25 +241,70 @@ export function attachWedge(doc: Document, getOptions: () => WedgeOptions, onSca
     }, Math.max(0, at - clock()) + 5);
   };
 
+  const report = (scans: (WedgeScan | null)[]) => {
+    schedule();
+    for (const scan of scans) if (scan) onScan(scan);
+  };
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.isComposing) return;
-    if (isEditableTarget(e.target) || isEditableTarget(doc.activeElement)) {
+    const catcher = isScanCatcher(e.target);
+    if (!catcher && (isEditableTarget(e.target) || isEditableTarget(doc.activeElement))) {
       detector.reset();
       clearTimeout(timer);
       return;
     }
-    const step = detector.feed({ key: e.key, at: clock(e), ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, repeat: e.repeat });
-    if (step.consume) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    schedule();
-    if (step.scan) onScan(step.scan);
+    // Android keyboard services may send keyCode 229 with no key at all; the character follows as an input event.
+    const key = e.key || 'Unidentified';
+    const step = detector.feed({ key, at: clock(e), ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, repeat: e.repeat, loose: catcher });
+    // A character read here must not also land in the catcher as an input event, or it would count twice.
+    if (step.consume || (catcher && key.length === 1 && !e.ctrlKey && !e.metaKey)) e.preventDefault();
+    if (step.consume) e.stopPropagation();
+    report([step.scan]);
   };
 
-  doc.addEventListener('keydown', onKeyDown, true);
+  /** Read what the catcher received without a readable keydown, then empty it. */
+  const takeCatcherText = (el: HTMLInputElement, at: number) => {
+    const text = el.value;
+    if (!text) return;
+    el.value = '';
+    report(detector.feedText(text, at, { loose: true }));
+  };
+
+  const onBeforeInput = (e: Event) => {
+    const type = (e as InputEvent).inputType;
+    // A line break typed into the catcher is the scanner's Enter.
+    if (!isScanCatcher(e.target) || (type !== 'insertLineBreak' && type !== 'insertParagraph')) return;
+    e.preventDefault();
+    report([detector.feed({ key: 'Enter', at: clock(e), loose: true }).scan]);
+  };
+
+  const onInput = (e: Event) => {
+    if (isScanCatcher(e.target) && !(e as InputEvent).isComposing) takeCatcherText(e.target as HTMLInputElement, clock(e));
+  };
+
+  const onCompositionEnd = (e: Event) => {
+    if (isScanCatcher(e.target)) takeCatcherText(e.target as HTMLInputElement, clock(e));
+  };
+
+  const onPaste = (e: ClipboardEvent) => {
+    if (!isScanCatcher(e.target) && (isEditableTarget(e.target) || isEditableTarget(doc.activeElement))) return;
+    const text = e.clipboardData?.getData('text');
+    if (!text) return;
+    e.preventDefault();
+    report(detector.feedText(text, clock(e), { loose: true }));
+  };
+
+  const listeners: [string, EventListener][] = [
+    ['keydown', onKeyDown as EventListener],
+    ['beforeinput', onBeforeInput],
+    ['input', onInput],
+    ['compositionend', onCompositionEnd],
+    ['paste', onPaste as EventListener],
+  ];
+  for (const [type, fn] of listeners) doc.addEventListener(type, fn, true);
   return () => {
-    doc.removeEventListener('keydown', onKeyDown, true);
+    for (const [type, fn] of listeners) doc.removeEventListener(type, fn, true);
     clearTimeout(timer);
   };
 }

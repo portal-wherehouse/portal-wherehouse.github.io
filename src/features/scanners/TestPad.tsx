@@ -59,6 +59,15 @@ function describe(m: ScanMeaning | null): { icon: IconName; tone: 'ok' | 'warn' 
       };
     case 'job':
       return { icon: 'jobs', tone: 'ok', kind: 'Job', title: `Job ${m.job.code}`, detail: m.job.name, elsewhere: 'Elsewhere, this opens Find with the job’s pallets.' };
+    case 'product':
+      return {
+        icon: 'barcode',
+        tone: 'ok',
+        kind: m.barcode === 'sscc' ? 'Supplier pallet label' : m.barcode === 'gtin' ? 'Product barcode' : 'Supplier code',
+        title: m.product ? m.product.description : m.reference,
+        detail: m.pallets === null ? 'Find searches your warehouse for pallets received with it.' : `${m.pallets} ${m.pallets === 1 ? 'pallet' : 'pallets'} received with this barcode.`,
+        elsewhere: 'Elsewhere, this opens Find with those pallets. On Receive, it fills in the supplier code.',
+      };
     case 'command': {
       const c = SCAN_COMMANDS.find((x) => x.id === m.command);
       return {
@@ -94,7 +103,7 @@ export function TestPad() {
   useScanTarget(
     'scanner-test-pad',
     (e) => {
-      const meaning = actorId && workspaceId ? interpretScan(backend.reader, actorId, workspaceId, e.text) : null;
+      const meaning = actorId && workspaceId ? interpretScan(backend.reader, actorId, workspaceId, e.text, { partial: backend.mode === 'firebase' }) : null;
       setHits((h) => [{ ev: e, meaning }, ...h].slice(0, 12));
       return meaning?.kind === 'unknown' ? 'error' : true;
     },
@@ -140,8 +149,9 @@ export function TestPad() {
     if (m.kind === 'pallet') go({ name: 'pallet', id: m.pallet.id });
     else if (m.kind === 'location') go({ name: 'location', id: m.location.id });
     else if (m.kind === 'job') go({ name: 'find', q: m.job.code });
+    else if (m.kind === 'product') go({ name: 'find', q: m.reference });
   };
-  const openable = (m: ScanMeaning | null) => !!m && (m.kind === 'pallet' || m.kind === 'location' || m.kind === 'job');
+  const openable = (m: ScanMeaning | null) => !!m && (m.kind === 'pallet' || m.kind === 'location' || m.kind === 'job' || (m.kind === 'product' && m.pallets !== 0));
 
   return (
     <section className={`panel scn-pad ${active ? 'is-on' : 'is-off'}`} aria-labelledby="scn-pad-title" data-tour="scanner-test-pad">

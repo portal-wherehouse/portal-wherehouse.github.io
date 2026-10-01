@@ -38,7 +38,7 @@ export function Scanners() {
             <strong>A screen that is waiting for a scan gets it first.</strong> On Move, a scan fills in the pallet, then the rack. On the Scan station, it follows the station’s mode.
           </li>
           <li>
-            <strong>Anywhere else, Scan anywhere opens what you scanned:</strong> a pallet, a rack, a job’s pallets, or the Scan station for a mode barcode.
+            <strong>Anywhere else, Scan anywhere opens what you scanned:</strong> a pallet, a rack, a job’s pallets, the pallets received with a product barcode, or the Scan station for a mode barcode. The Dashboard always does this, so an open app is ready to scan.
           </li>
           <li>
             <strong>A text box with the cursor gets the characters</strong>, like normal typing. Click an empty part of the page to send scans to the portal instead.
@@ -191,7 +191,7 @@ function SettingsPanel() {
         <input type="checkbox" checked={settings.scanAnywhere} onChange={(e) => setSettings({ scanAnywhere: e.target.checked })} />
         <span>
           <strong>Scan anywhere</strong>
-          <span className="scn-toggle-hint">When no screen is waiting for a scan, open what was scanned: a pallet, a rack, a job, or the Scan station.</span>
+          <span className="scn-toggle-hint">When no screen is waiting for a scan, open what was scanned: a pallet, a rack, a job, or the Scan station. The Dashboard does this even when it is off.</span>
         </span>
       </label>
       <label className="toggle">

@@ -1249,11 +1249,3 @@
   }
 }
 
-/* Camera first: on a phone the camera is the scanner, so it is the biggest control on the screen. */
-.st-camera { display: grid; gap: 10px; min-width: 0; }
-.st-camera-start { display: flex; align-items: center; justify-content: flex-start; gap: 16px; width: 100%; min-height: 84px; padding: 16px 20px; text-align: left; border-radius: 12px; white-space: normal; min-width: 0; }
-.st-camera-start > svg { width: 32px; height: 32px; flex: none; }
-.st-camera-start span { display: grid; gap: 4px; }
-.st-camera-start strong { font-size: 20px; line-height: 1.2; }
-.st-camera-start small { font-size: 14px; font-weight: 400; line-height: 1.4; opacity: 0.9; }
-.st-viewfinder { border-radius: 12px; }

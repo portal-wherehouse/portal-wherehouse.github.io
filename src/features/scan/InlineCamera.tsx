@@ -1,17 +1,29 @@
-// The Scan station's camera: the phone's own camera as the scanner. Each new label goes through the scan router,
-// exactly like a hardware scan, so the station handles it the same way and logs it as a camera scan.
+// An inline camera scanner: the phone's own camera as the scanner, shown in the page rather than a sheet. Each new
+// label goes through the scan router, exactly like a hardware scan, so the screen handles it the same way and logs it
+// as a camera scan. It keeps scanning until it is stopped. Used by the Scan station and the Dashboard.
 
 import { useEffect, useRef, useState } from 'react';
 import { cameraSupported, startCamera, type CameraSession } from '../../device/scanner';
 import { useScanRouter } from '../../device/scanRouter';
 import { Icon } from '../../ui/icons';
 import { Notice } from '../../ui/ui';
-import '../scanners/scanners.css';
+import './camera.css';
 
 /** The same label in view again within this window is the same scan, not a new one. */
 const REPEAT_MS = 2500;
 
-export function StationCamera({ prompt }: { prompt: string }) {
+export interface InlineCameraProps {
+  /** What to scan, shown over the picture. */
+  prompt: string;
+  /** Test id of the wrapper; the start button gets `${testId}-start`. */
+  testId?: string;
+  /** The start button's title and the line under it. */
+  title?: string;
+  hint?: string;
+  className?: string;
+}
+
+export function InlineCamera({ prompt, testId = 'inline-camera', title = 'Scan with camera', hint = 'Point your phone at a label. It keeps scanning until you stop it.', className }: InlineCameraProps) {
   const { emit } = useScanRouter();
   const [on, setOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,9 +83,9 @@ export function StationCamera({ prompt }: { prompt: string }) {
   if (!cameraSupported()) return null;
 
   return (
-    <div className="st-camera" data-testid="station-camera">
+    <div className={`inline-camera${className ? ` ${className}` : ''}`} data-testid={testId}>
       {on ? (
-        <div className="viewfinder st-viewfinder">
+        <div className="viewfinder inline-viewfinder">
           <video ref={video} playsInline muted />
           <div className="reticle" />
           <div className="vf-controls">
@@ -92,11 +104,11 @@ export function StationCamera({ prompt }: { prompt: string }) {
           <div className="vf-label">{prompt}</div>
         </div>
       ) : (
-        <button type="button" className="btn primary st-camera-start" onClick={() => setOn(true)} data-testid="station-camera-start">
-          <Icon name="camera" />
+        <button type="button" className="btn primary inline-camera-start" onClick={() => setOn(true)} data-testid={`${testId}-start`}>
+          <Icon name="camera" width={32} height={32} />
           <span>
-            <strong>Scan with camera</strong>
-            <small>Point your phone at a label. It keeps scanning until you stop it.</small>
+            <strong>{title}</strong>
+            <small>{hint}</small>
           </span>
         </button>
       )}

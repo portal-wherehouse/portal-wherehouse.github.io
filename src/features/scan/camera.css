@@ -1,0 +1,8 @@
+/* The inline camera scanner (InlineCamera): a large start button, then the live picture in place. */
+.inline-camera { display: grid; gap: 10px; min-width: 0; }
+.inline-camera-start { display: flex; align-items: center; justify-content: flex-start; gap: 16px; width: 100%; min-height: 84px; padding: 16px 20px; text-align: left; border-radius: 12px; white-space: normal; min-width: 0; }
+.inline-camera-start > svg { width: 32px; height: 32px; flex: none; }
+.inline-camera-start span { display: grid; gap: 4px; min-width: 0; }
+.inline-camera-start strong { font-size: 20px; line-height: 1.2; }
+.inline-camera-start small { font-size: 14px; font-weight: 400; line-height: 1.4; opacity: 0.9; }
+.inline-viewfinder { border-radius: 12px; }

@@ -8,6 +8,7 @@ import { useApp, type RouteName } from '../../app/state';
 import { Icon, type IconName } from '../../ui/icons';
 import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
+import { ScanReadyPanel } from '../scan/ScanReady';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -70,6 +71,7 @@ export function Overview() {
       <button className="btn" onClick={()=>go('activity')}><Icon name="activity"/>View activity</button>
     </header>
     {role==='OPERATOR'&&<button className="btn small" style={{alignSelf:'flex-start'}} onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}
+    <ScanReadyPanel/>
     <section aria-label="Warehouse analytics" className="warehouse-metrics" data-tour="overview-summary">
       {metrics.map(m=><button className="warehouse-metric" key={m.label} onClick={()=>go(role==='VIEWER'?'find':m.route)}><span>{m.label}</span><strong>{summary?m.value.toLocaleString():'Unavailable'}</strong><small>{summary?m.detail:'Counts are unavailable. Try Refresh.'}</small></button>)}
     </section>
@@ -209,6 +211,7 @@ function CrewHome({ name, onFull }: { name: string; onFull: () => void }) {
   return (
     <div className="stack crew-home" data-testid="crew-home">
       <h1 style={{ margin: 0 }}>Hi, {name}.</h1>
+      <ScanReadyPanel />
       <div className="crew-tiles" data-tour="overview-summary">
         {tiles.map((t) => (
           <button key={t.route} className="crew-tile" onClick={() => go(t.route)} aria-label={t.title}>

@@ -53,6 +53,7 @@ import './customer.css';
 import { InstallBanner, InstallGuide, installHelpShown } from '../features/install/Install';
 import { scrollToId } from '../features/help/helpers';
 import { usePwa } from '../device/pwa';
+import { ScanStatusChip } from '../features/scan/ScanReady';
 
 const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.ReactNode> = {
   checklist: SetupChecklist,
@@ -202,6 +203,7 @@ function Portal() {
         <span className="spacer" />
         {signedIn && ctx && (
           <>
+            <ScanStatusChip />
             {ctx.warehouse && (
               <WarehouseMenu key={workspaceId} warehouse={ctx.warehouse} />
             )}

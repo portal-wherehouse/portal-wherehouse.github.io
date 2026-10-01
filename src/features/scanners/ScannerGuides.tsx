@@ -1,4 +1,4 @@
-// Setup guides (USB, Bluetooth, rugged Android handhelds, phone camera, typing) and troubleshooting, as accordions.
+// Setup guides (USB, Bluetooth, Zebra and other Android scanner phones, phone camera, typing) and troubleshooting, as accordions.
 
 import type { ReactNode } from 'react';
 import { BRAND } from '../../brand';
@@ -52,12 +52,56 @@ export function RecommendedSettings() {
 }
 
 export function SetupGuides() {
+  // On an Android phone, the scanner phone steps are the ones most likely needed, so they start open.
+  const android = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
   return (
     <section className="panel stack" aria-labelledby="scn-guides-title">
       <div className="panel-title" id="scn-guides-title" style={{ marginBottom: 0 }}>
         <Icon name="guide" width={16} height={16} /> Set up a scanner
       </div>
       <div className="scn-accs">
+        <Acc icon="phone" open={android} title="Zebra and other Android scanner phones" sub="TC21, TC22, TC52, TC57, TC58, MC series and similar. Set up DataWedge once.">
+          <div className="scn-zebra" id="scn-zebra">
+            <p>
+              Zebra phones read barcodes with an app called DataWedge. Set it to type each scan like a keyboard and press Enter, and {BRAND.name} reads it on any
+              screen.
+            </p>
+            <ol>
+              <li>
+                Open the <strong>DataWedge</strong> app. It is in the app list, sometimes inside a Zebra or Tools folder.
+              </li>
+              <li>
+                Tap the menu (three dots), then <strong>New profile</strong>. Name it {BRAND.name}. Open the new profile and check that <strong>Profile enabled</strong> is on.
+              </li>
+              <li>
+                Tap <strong>Associated apps</strong>, then the menu, then <strong>New app/activity</strong>. Choose <span className="mono">com.android.chrome</span> (Chrome), then{' '}
+                <span className="mono">*</span> so it covers every page. If you added {BRAND.name} to the home screen and it is listed as its own app (its name starts with{' '}
+                <span className="mono">org.chromium.webapk</span>), add that one the same way.
+              </li>
+              <li>
+                <strong>Barcode input</strong>: on. Under Decoders, check that Code 128 and QR Code are on. Turn on EAN, UPC and GS1 too if you scan supplier labels.
+              </li>
+              <li>
+                <strong>Keystroke output</strong>: on. Under its Basic data formatting, turn on <strong>Send data</strong> and <strong>Send ENTER key</strong>.
+              </li>
+              <li>
+                <strong>Intent output</strong>: off. Leave IP output off as well.
+              </li>
+              <li>
+                Test it: open {BRAND.name} on the phone and go to the Dashboard. When the light is green and says <strong>Ready to scan</strong>, pull the trigger at a pallet
+                label. The pallet opens, and back on the Dashboard the panel says <strong>Scanner connected</strong>.
+              </li>
+            </ol>
+            <p className="muted">
+              Scans still not arriving? In Keystroke output, open Key event options and turn on <strong>Send characters as events</strong>, then test again. A scan that
+              opens the wrong screen or shows odd characters usually means a prefix or suffix is set in Basic data formatting. Clear them, keeping only Send ENTER key.
+            </p>
+            <p className="muted">
+              Honeywell, Datalogic, Urovo and other Android scanner phones work the same way: in the scanner settings, choose keyboard or keystroke output (not intent,
+              broadcast or clipboard) and send Enter after each scan.
+            </p>
+          </div>
+        </Acc>
         <Acc icon="usb" title="USB scanner" sub="Plug in and scan. Usually nothing to install.">
           <ol>
             <li>Plug the scanner into the computer or tablet. Most beep when they are ready.</li>
@@ -73,15 +117,6 @@ export function SetupGuides() {
             <li>On phones and tablets, a connected scanner can hide the on-screen keyboard. Most devices have a setting to keep showing it, or disconnect the scanner to type.</li>
             <li>Bluetooth can deliver a code in small bunches. If scans are missed or split in two, raise “Longest pause between characters” to 80 to 100 ms.</li>
             <li>Keep it charged. Many scanners sleep when idle and reconnect on the next trigger pull.</li>
-          </ol>
-        </Acc>
-        <Acc icon="phone" title="Rugged Android handheld" sub="Devices with a built-in scanner and trigger.">
-          <ol>
-            <li>Open the device’s scanner settings. The name of that app differs by maker.</li>
-            <li>Set the output to keystrokes (sometimes called keyboard output or keystroke output), not intent, broadcast or clipboard.</li>
-            <li>Turn on sending Enter after each scan.</li>
-            <li>Open the portal in the device’s browser and add it to the home screen, so it opens full screen like an app.</li>
-            <li>Test on this page: pull the trigger at a label and check the test pad.</li>
           </ol>
         </Acc>
         <Acc icon="camera" title="Phone camera" sub="No scanner needed.">
@@ -143,9 +178,9 @@ export function Troubleshooting() {
             <li>To send scans to the portal instead, click an empty part of the page first, so no box has the cursor.</li>
           </ul>
         </Acc>
-        <Acc icon="alertCircle" title="The portal says “not recognized”" sub="The scanner read a code we do not know.">
+        <Acc icon="alertCircle" title="The portal says “not on record” or “not recognized”" sub="The scanner read a code we do not know.">
           <ul>
-            <li>Product barcodes and supplier labels are not {BRAND.name} codes. Scan the {BRAND.name} label on the pallet or rack.</li>
+            <li>A product barcode or supplier label only finds pallets that were received with it. Otherwise, scan the {BRAND.name} label on the pallet or rack.</li>
             <li>Labels only work in the company that printed them. A replaced label’s QR code stops working. Use the new label, or scan the old label’s barcode or type its printed code.</li>
           </ul>
         </Acc>

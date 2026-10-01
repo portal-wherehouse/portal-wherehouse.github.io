@@ -399,7 +399,11 @@ function Tips() {
             </li>
             <li>
               <Icon name="target" />
-              <span>With Scan anywhere turned on in Scanners, scanning a label on a screen that is not waiting for one opens that pallet or rack.</span>
+              <span>Leave the app on the Dashboard and scan. A green Ready to scan light means it is listening; scanning a label opens that pallet or rack. With Scan anywhere on in Scanners, other screens do the same.</span>
+            </li>
+            <li>
+              <Icon name="phone" />
+              <span>Zebra or another Android scanner phone? Set up DataWedge once: Scanners, then Zebra and other Android scanner phones.</span>
             </li>
             <li>
               <Icon name="text" />

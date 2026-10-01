@@ -25,6 +25,14 @@ export interface ScanEvent {
   handledBy: string | null;
   /** Set once the scan has been routed. */
   outcome?: ScanOutcome;
+  /** What the target did with it, in a sentence, for status panels (the Dashboard's last scan). Targets may set it. */
+  summary?: string;
+}
+
+/** The most recent scan from a hardware scanner (keyboard or serial), so screens can say one is connected. */
+export interface HardwareScan {
+  at: number;
+  source: 'wedge' | 'serial';
 }
 
 export interface ScannerSettings {
@@ -75,6 +83,8 @@ interface ScanRouterApi {
   clearRecent(): void;
   /** Scans routed since the page loaded. */
   sessionCount: number;
+  /** The last scan a hardware scanner sent since the page loaded, or null. */
+  lastHardware: HardwareScan | null;
   /** Play the good or bad scan sound, if sounds are on. For screens that read codes themselves (camera, typed box). */
   beep(kind: ScanSound): void;
 }
@@ -145,6 +155,7 @@ export function ScanRouterProvider({ children, prepareScan }: { children: ReactN
   const [settings, setSettingsState] = useState<ScannerSettings>(loadSettings);
   const [recent, setRecent] = useState<ScanEvent[]>([]);
   const [sessionCount, setSessionCount] = useState(0);
+  const [lastHardware, setLastHardware] = useState<HardwareScan | null>(null);
   const targets = useRef<ScanTargetEntry[]>([]);
   const seq = useRef(0);
   const registrations = useRef(0);
@@ -171,6 +182,7 @@ export function ScanRouterProvider({ children, prepareScan }: { children: ReactN
     (text: string, source: ScanSource, extra: { durationMs?: number } = {}) => {
       const clean = text.replace(/[\r\n\t]+/g, '').trim();
       if (!clean) return null;
+      if (source === 'wedge' || source === 'serial') setLastHardware({ at: Date.now(), source });
       const deliver=()=>{
       const ev = dispatchScan(targets.current, { id: ++seq.current, text: clean, source, at: Date.now(), durationMs: extra.durationMs, handledBy: null }, modalOpen());
       beep(ev.outcome === 'handled' ? 'good' : 'bad');
@@ -210,8 +222,8 @@ export function ScanRouterProvider({ children, prepareScan }: { children: ReactN
 
   const clearRecent = useCallback(() => setRecent([]), []);
   const value = useMemo<ScanRouterApi>(
-    () => ({ settings, setSettings, emit, register, recent, clearRecent, sessionCount, beep }),
-    [settings, setSettings, emit, register, recent, clearRecent, sessionCount, beep],
+    () => ({ settings, setSettings, emit, register, recent, clearRecent, sessionCount, lastHardware, beep }),
+    [settings, setSettings, emit, register, recent, clearRecent, sessionCount, lastHardware, beep],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

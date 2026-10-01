@@ -609,6 +609,19 @@
   }
 }
 
+/* Zebra DataWedge steps: an intro, the numbered steps, then what to try if scans do not arrive. */
+.scn-zebra {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.scn-zebra p {
+  margin: 0;
+}
+.scn-zebra .mono {
+  overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------------ command sheet */
 
 /* The header's "Command barcodes" button scrolls here; stop below the sticky top bar, not under it. */

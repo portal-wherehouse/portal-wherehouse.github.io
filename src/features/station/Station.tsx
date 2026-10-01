@@ -1,7 +1,7 @@
 // Scan station: a hands-free screen for someone holding a hardware scanner, readable from a few feet away.
 // Four modes (Look up, Move, Put-away, Count); the rules live in logic.ts, this file wires them to the app.
 
-import { StationCamera } from './StationCamera';
+import { InlineCamera } from '../scan/InlineCamera';
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import './station.css';
 import { useApp } from '../../app/state';
@@ -370,7 +370,7 @@ export function Station() {
 
       <div className="st-layout">
         <div className="st-main">
-          <StationCamera prompt={prompt.text} />
+          <InlineCamera prompt={prompt.text} testId="station-camera" />
           <div className="st-modes-box">
             <div className="st-modes" role="group" aria-label="Station mode" data-tour="station-modes">
               {STATION_MODES.map((m) => {
