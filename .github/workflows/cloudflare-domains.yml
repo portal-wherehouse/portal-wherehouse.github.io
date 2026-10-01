@@ -1,0 +1,36 @@
+# Connects the custom domain names to the Cloudflare Pages project and prints their status.
+# Run it by hand from the Actions tab. Adding a name that is already connected does no harm.
+name: Connect custom domains on Cloudflare Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      domains:
+        description: Names to connect, separated by spaces
+        default: wherehousetracking.com www.wherehousetracking.com app.wherehousetracking.com
+
+permissions:
+  contents: read
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: wherehouse
+      DOMAINS: ${{ inputs.domains }}
+    steps:
+      - name: Connect each name
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT/domains"
+          for d in $DOMAINS; do
+            echo "== $d"
+            curl -sS -X POST "$api" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' \
+              --data "{\"name\":\"$d\"}" | jq -c '{success, errors, status: .result.status, verification: .result.verification_data, validation: .result.validation_data}'
+          done
+      - name: Show every connected name
+        run: |
+          sleep 20
+          curl -sS "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT/domains" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -c '.result[] | {name, status, verification: .verification_data, validation: .validation_data}'
