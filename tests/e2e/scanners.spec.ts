@@ -265,32 +265,33 @@ test.describe('keyboard-wedge scanner emulation', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Move screen: two scans, then scanning the rack again saves the move', async ({ page }) => {
+  test('Move screen: the pallet, then one scan of the rack, saves the move', async ({ page }) => {
     await signInAs(page, 'operator');
     await page.goto('/#move');
     await portalReady(page);
     await wedgeScan(page, 'P-000016');
     await expect(page.getByText('P-000016').first()).toBeVisible();
     await wedgeScan(page, 'B-01-01');
-    await expect(page.getByRole('button', { name: 'Move: B-01-01' })).toBeVisible();
-    // A second read within 600 ms counts as a scanner double read, so wait like a person would.
-    await page.waitForTimeout(700);
-    await wedgeScan(page, 'B-01-01');
     await expect(page.getByText('Moved to B-01-01')).toBeVisible();
   });
 
-  // The same code read again within 600 ms is a double read, never the confirming rescan.
-  test('Move screen: a scanner double read of the rack does not skip the review', async ({ page }) => {
+  // An unusual move (here, A-03-01, the spot it is already recorded at) waits for a second scan. The same code read again
+  // within 600 ms is a scanner double read, never that confirming scan.
+  test('Move screen: a scanner double read does not confirm an unusual move', async ({ page }) => {
     await signInAs(page, 'operator');
     await page.goto('/#move');
     await portalReady(page);
     await wedgeScan(page, 'P-000016');
     await expect(page.getByText('P-000016').first()).toBeVisible();
     // Two reads of the same label about 100 ms apart, as a scanner in continuous mode sends them.
-    await wedgeScan(page, 'B-01-01');
-    await wedgeScan(page, 'B-01-01');
-    await expect(page.getByRole('button', { name: 'Move: B-01-01' })).toBeVisible();
-    await expect(page.getByText('Moved to B-01-01')).toHaveCount(0);
+    await wedgeScan(page, 'A-03-01');
+    await wedgeScan(page, 'A-03-01');
+    await expect(page.getByRole('button', { name: 'Confirm still here' })).toBeVisible();
+    await page.waitForTimeout(700);
+    await expect(page.getByRole('button', { name: 'Confirm still here' })).toBeVisible();
+    // A deliberate second scan confirms.
+    await wedgeScan(page, 'A-03-01');
+    await expect(page.getByRole('button', { name: 'Confirm still here' })).toHaveCount(0);
   });
 });
 

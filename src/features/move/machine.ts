@@ -50,6 +50,19 @@ export type MoveEvent =
   | { type: 'RESET' }
   | { type: 'REFRESH_PALLET'; pallet: Pallet };
 
+/**
+ * Why a move scanned in the scan flow should be confirmed before it saves, or null when one scan of the spot is enough.
+ * A normal move saves the moment the spot is scanned. Something unusual asks for a second look first: the pallet is
+ * already recorded on that spot (saving only records a check), or it is on hold. A spot that cannot take the pallet
+ * (full, over a weight or size limit) is not a confirm case: it cannot be saved at all.
+ */
+export function confirmReason(s: Pick<MoveState, 'pallet' | 'destination' | 'intent'>): string | null {
+  if (!s.pallet || !s.destination) return null;
+  if (s.intent === 'verify_location') return `${s.pallet.code} is already recorded at ${s.destination.code}. Confirm it is still here.`;
+  if (s.pallet.hold) return `${s.pallet.code} is on hold (${asSentence(s.pallet.hold.reason).replace(/\.$/, '')}). Confirm the move. The hold stays on.`;
+  return null;
+}
+
 /** Repeated frames of the same label within this window are ignored. */
 export const REPEAT_WINDOW_MS = 2500;
 

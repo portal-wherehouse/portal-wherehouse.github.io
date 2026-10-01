@@ -29,6 +29,7 @@ import type {
   CommandRejected,
   CommandResult,
   ErrorCode,
+  EventType,
   ImportBatch,
   Job,
   LabelToken,
@@ -49,7 +50,9 @@ import type {
   Warehouse,
   Workspace,
 } from '../domain/types';
-import { TRANSFER_COMMANDS, type TransferCommandKind } from '../domain/types';
+import { ORDER_COMMANDS, TRANSFER_COMMANDS, type TransferCommandKind } from '../domain/types';
+import { ordersOf, parseOrderCode, parsePackageCode, parseToteCode, type Order, type Package, type PickBatch } from '../domain/orders';
+import { importOrders, orderCommand } from './orderEngine';
 import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type Onboarding, type WarehouseSetup } from '../domain/types';
 
 export const DB_SCHEMA_VERSION = 2;
@@ -80,6 +83,10 @@ export interface Db {
   transfers: Record<string, Transfer>;
   /** Transfer numbers run per account (TR-0001, TR-0002...), keyed by account. */
   transfer_counters: Record<string, number>;
+  /** Customer orders, pick batches and packages (orders and picking). */
+  orders: Record<string, Order>;
+  batches: Record<string, PickBatch>;
+  packages: Record<string, Package>;
 }
 
 export function emptyDb(): Db {
@@ -106,6 +113,9 @@ export function emptyDb(): Db {
     counters: {},
     transfers: {},
     transfer_counters: {},
+    orders: {},
+    batches: {},
+    packages: {},
   };
 }
 
@@ -130,11 +140,11 @@ type Undo = () => void;
 
 const count = (n: number) => `${n} ${n === 1 ? 'pallet' : 'pallets'}`;
 
-class Tx {
+export class Tx {
   private undo: Undo[] = [];
   constructor(private db: Db) {}
 
-  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports' | 'transfers'>(
+  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports' | 'transfers' | 'orders' | 'batches' | 'packages'>(
     table: K,
     key: string,
     value: Db[K][string],
@@ -176,6 +186,18 @@ class Tx {
     const prev = this.db.counters[ws] ?? 0;
     this.db.counters[ws] = prev + 1;
     this.undo.push(() => (this.db.counters[ws] = prev));
+    return prev + 1;
+  }
+
+  /** Order, batch and package numbers (O-, B-, K-) run per warehouse, kept as counters "<workspace>:<letter>". */
+  seq(ws: string, letter: 'O' | 'B' | 'K'): number {
+    const key = `${ws}:${letter}`;
+    const prev = this.db.counters[key] ?? 0;
+    this.db.counters[key] = prev + 1;
+    this.undo.push(() => {
+      if (prev) this.db.counters[key] = prev;
+      else delete this.db.counters[key];
+    });
     return prev + 1;
   }
 
@@ -225,7 +247,7 @@ export class Engine {
   faults: Faults;
   photoPrefix?: string;
   /** The command a transfer step belongs to, for the history entries it writes. */
-  private commandId = '';
+  commandId = '';
 
   constructor(
     public db: Db,
@@ -236,6 +258,9 @@ export class Engine {
     this.db.issues ??= {};
     this.db.transfers ??= {};
     this.db.transfer_counters ??= {};
+    this.db.orders ??= {};
+    this.db.batches ??= {};
+    this.db.packages ??= {};
     this.clock = opts.clock ?? (() => new Date().toISOString());
     this.newId = opts.newId ?? (() => uuid());
     this.newToken = opts.newToken ?? (() => generateToken());
@@ -374,6 +399,10 @@ export class Engine {
     const p = cmd.payload as Record<string, unknown>;
 
     if ((TRANSFER_COMMANDS as readonly string[]).includes(cmd.kind)) return this.transfer(tx, actorId, cmd, now, reject);
+    if ((ORDER_COMMANDS as readonly string[]).includes(cmd.kind)) {
+      this.commandId = cmd.command_id;
+      return orderCommand(this, tx, actorId, cmd, now, reject);
+    }
     switch (cmd.kind) {
       case 'receive':
         return this.receive(tx, actorId, cmd, now, reject);
@@ -563,7 +592,7 @@ export class Engine {
   }
 
   /** Keep each location's pallet count and recorded weight current as pallets arrive, leave or change weight. */
-  private adjustLoad(tx: Tx, before: Pallet | null, after: Pallet | null) {
+  adjustLoad(tx: Tx, before: Pallet | null, after: Pallet | null) {
     const at = (p: Pallet | null) => (p && p.state === 'STORED' && p.current_location_id ? p.current_location_id : null);
     const from = at(before),
       to = at(after);
@@ -582,7 +611,7 @@ export class Engine {
     }
   }
 
-  private accepted(cmd: CommandEnvelope, now: string, eventId: string | null, pallet: Pallet | null, targetId: string | null = null): CommandAccepted {
+  accepted(cmd: CommandEnvelope, now: string, eventId: string | null, pallet: Pallet | null, targetId: string | null = null): CommandAccepted {
     return {
       ok: true,
       command_id: cmd.command_id,
@@ -887,6 +916,8 @@ export class Engine {
         const clean = (v: string) => v.trim().replace(/\s+/g, ' ');
         const next: WarehouseSetup = { preset: q.preset ?? null, thing: clean(q.thing), things: clean(q.things), job: clean(q.job), jobs: clean(q.jobs), jobs_on: !!q.jobs_on };
         if (![next.thing, next.things, next.job, next.jobs].every((w) => /^[\p{L}][\p{L}\p{N} '&-]*$/u.test(w))) return reject('INVALID_INPUT', 'Use letters for the words, like "Item" or "Order".');
+        // With orders and picking on, "Order" means a customer order only, so the grouping word stays "Job".
+        if (ordersOf(wh).on && /^orders?$/i.test(next.job)) Object.assign(next, { job: 'Job', jobs: 'Jobs' });
         const advanced = typeof q.advanced === 'boolean' ? q.advanced : !!wh.advanced_measurements;
         // No version bump, like set_measurements: it must not conflict with an open warehouse details form.
         tx.put('warehouses', wh.id, { ...wh, setup: next, advanced_measurements: advanced, updated_at: now });
@@ -1274,7 +1305,7 @@ export class Engine {
   }
 
   /** Save a pallet change made by a transfer, with its history entry in the warehouse where it happened. */
-  private palletEvent(tx: Tx, before: Pallet, next: Pallet, type: 'transfer_send' | 'transfer_receive' | 'transfer_return', actorId: string, now: string, reason: string | null, detail: PalletEvent['detail'], at = before.workspace_id): string {
+  palletEvent(tx: Tx, before: Pallet, next: Pallet, type: EventType, actorId: string, now: string, reason: string | null, detail: PalletEvent['detail'], at = before.workspace_id): string {
     const snapBefore = this.snapshot(before);
     tx.put('pallets', next.id, next);
     this.adjustLoad(tx, before, next);
@@ -1308,7 +1339,7 @@ export class Engine {
     reject: (c: ErrorCode, m: string, cur?: Pallet | null) => CommandRejected,
   ): CommandResult {
     const ws = cmd.workspace_id;
-    const p = cmd.payload as { import_kind: 'locations' | 'jobs' | 'pallets' | 'shipments'; checksum: string; rows: Record<string, string>[]; name?: string; file_name?: string };
+    const p = cmd.payload as { import_kind: 'locations' | 'jobs' | 'pallets' | 'shipments' | 'orders'; checksum: string; rows: Record<string, string>[]; name?: string; file_name?: string };
     const rows = p.rows;
     const errors: RowError[] = [];
     const err = (i: number, column: string, message: string) => errors.push({ row: i + 2, column, message });
@@ -1324,7 +1355,15 @@ export class Engine {
       if (member.role !== 'OWNER' && member.role !== 'SUPERVISOR') return reject('FORBIDDEN', 'Only supervisors and owners can import jobs or locations.');
     }
 
-    if (p.import_kind === 'shipments') {
+    if (p.import_kind === 'orders') {
+      if (!['OWNER', 'SUPERVISOR'].includes(member.role)) return reject('FORBIDDEN', 'Only supervisors and owners can import orders.');
+      const r = importOrders(this, tx, actorId, ws, wh, rows, now);
+      if ('errors' in r) {
+        if (!r.errors.length) return reject('INVALID_STATE', r.message);
+        return { ...reject('INVALID_INPUT', r.message), errors: r.errors };
+      }
+      created.push(...r.created);
+    } else if (p.import_kind === 'shipments') {
       if (!['OWNER','SUPERVISOR'].includes(member.role)) return reject('FORBIDDEN', 'Only supervisors and owners can import expected shipments.');
       const prepared: ExpectedShipment[] = [];
       const jobsByCode = new Map(Object.values(this.db.jobs).filter((j) => j.workspace_id === ws).map((j) => [normalizeCode(j.code), j]));
@@ -1486,7 +1525,7 @@ export class Engine {
         created.push(pallet.id);
       });
     }
-    const summary = `${p.import_kind === 'shipments' ? `${created.length} incoming item${created.length === 1 ? '' : 's'} added` : `${created.length} ${p.import_kind} created`}${skipped ? `, ${skipped} already existed` : ''}${jobsAdded ? `, ${jobsAdded} new job${jobsAdded === 1 ? '' : 's'} added` : ''}`;
+    const summary = `${p.import_kind === 'shipments' ? `${created.length} incoming item${created.length === 1 ? '' : 's'} added` : p.import_kind === 'orders' ? `${created.length} order${created.length === 1 ? '' : 's'} added` : `${created.length} ${p.import_kind} created`}${skipped ? `, ${skipped} already existed` : ''}${jobsAdded ? `, ${jobsAdded} new job${jobsAdded === 1 ? '' : 's'} added` : ''}`;
     const name = (p.name ?? '').trim().slice(0, 80) || (p.file_name ?? '').replace(/\.csv$/i, '').trim().slice(0, 80) || `${p.import_kind[0].toUpperCase()}${p.import_kind.slice(1)} import`;
     tx.put('imports', cmd.command_id, { id: cmd.command_id, workspace_id: ws, kind: p.import_kind, checksum: p.checksum, status: 'committed', summary, created_ids: created, actor_id: actorId, created_at: now, name, file_name: (p.file_name ?? '').trim().slice(0, 200) || null, rows: rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? '').trim()]))) });
     tx.appendAudit({ id: this.newId(), workspace_id: ws, actor_id: actorId, action: 'import_batch', target_id: cmd.command_id, before: null, after: { kind: p.import_kind, summary }, reason: null, accepted_at: now, command_id: cmd.command_id });
@@ -1619,6 +1658,72 @@ export class Engine {
     const transfer = slip ? this.transfersOf(workspaceId).find((t) => t.number === slip) : undefined;
     if (transfer) throw new ReadError('INVALID_INPUT', `${transfer.number} is a transfer slip. Open it from Transfers.`, transfer.id);
     throw new ReadError('NOT_FOUND', `No pallet or location with code ${code}.`);
+  }
+
+  // ---------------------------------------------------------------- order reads
+
+  /** This warehouse's customer orders, newest first. */
+  orders(actorId: string, workspaceId: string): Order[] {
+    this.requireMember(actorId, workspaceId);
+    return Object.values(this.db.orders)
+      .filter((o) => o.workspace_id === workspaceId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.code.localeCompare(a.code));
+  }
+
+  orderRecord(actorId: string, workspaceId: string, id: string): Order {
+    this.requireMember(actorId, workspaceId);
+    const o = this.db.orders[id];
+    if (!o || o.workspace_id !== workspaceId) throw new ReadError('NOT_FOUND', 'Order not found.');
+    return o;
+  }
+
+  /** Pick batches, the ones being picked first, then the most recently finished. */
+  batches(actorId: string, workspaceId: string): PickBatch[] {
+    this.requireMember(actorId, workspaceId);
+    return Object.values(this.db.batches)
+      .filter((b) => b.workspace_id === workspaceId)
+      .sort((a, b) => (a.status === b.status ? b.created_at.localeCompare(a.created_at) : a.status === 'PICKING' ? -1 : 1));
+  }
+
+  batchRecord(actorId: string, workspaceId: string, id: string): PickBatch {
+    this.requireMember(actorId, workspaceId);
+    const b = this.db.batches[id];
+    if (!b || b.workspace_id !== workspaceId) throw new ReadError('NOT_FOUND', 'Batch not found.');
+    return b;
+  }
+
+  packages(actorId: string, workspaceId: string): Package[] {
+    this.requireMember(actorId, workspaceId);
+    return Object.values(this.db.packages)
+      .filter((k) => k.workspace_id === workspaceId)
+      .sort((a, b) => b.packed_at.localeCompare(a.packed_at) || b.code.localeCompare(a.code));
+  }
+
+  /**
+   * The order a scan points at: an order number, the store's own order number, a package label, or a tote holding a
+   * picked order. Null when the text is none of these.
+   */
+  orderForScan(actorId: string, workspaceId: string, text: string): { order: Order; package: Package | null } | null {
+    this.requireMember(actorId, workspaceId);
+    const raw = text.trim();
+    if (!raw) return null;
+    const mine = Object.values(this.db.orders).filter((o) => o.workspace_id === workspaceId);
+    const k = parsePackageCode(raw);
+    if (k) {
+      const pk = Object.values(this.db.packages).find((x) => x.workspace_id === workspaceId && x.code === k);
+      const o = pk ? this.db.orders[pk.order_id] : undefined;
+      return pk && o ? { order: o, package: pk } : null;
+    }
+    const code = parseOrderCode(raw);
+    const byCode = code ? mine.find((o) => o.code === code) : undefined;
+    if (byCode) return { order: byCode, package: null };
+    const tote = parseToteCode(raw);
+    if (tote) {
+      const o = mine.find((x) => x.tote_code === tote && (x.status === 'PICKING' || x.status === 'PICKED'));
+      return o ? { order: o, package: null } : null;
+    }
+    const ext = mine.filter((o) => o.external_ref === raw && o.status !== 'CANCELLED');
+    return ext.length === 1 ? { order: ext[0], package: null } : null;
   }
 
   // ---------------------------------------------------------------- transfer reads

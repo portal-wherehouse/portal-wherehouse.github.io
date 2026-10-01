@@ -1,10 +1,11 @@
 // The scan-first put-away, move, stage and ship task, on the shared ScanFlow layout. Used by the Move screen (all
 // three modes) and by Receive's put-away step (one pallet, already scanned).
 //
-// Move and Stage: scan the pallet, scan the spot, then scan the same spot again to save (or scan Confirm, or tap
-// Save). The rescan is the review the move rules ask for; with "Confirm moves by scanning the rack again" off in
-// Scanners, Confirm or the button saves. After a save the next pallet scan starts the next move. Stage only takes
-// staging spots. Ship: scan the pallet and its dispatch form opens at once; after saving it, scan the next one.
+// Move and Stage: scan the pallet, then scan the spot, and the move saves at once. Only something unusual asks for a
+// second look before saving (the pallet is already recorded there, or it is on hold): then scan the same spot again,
+// scan Confirm or tap Save ("Confirm moves by scanning the rack again" off in Scanners leaves Confirm and the button).
+// A spot that cannot take the pallet shows why and saves nothing. After a save the next pallet scan starts the next
+// move. Stage only takes staging spots. Ship: scan the pallet and its dispatch form opens at once; after saving it, scan the next one.
 // The camera stays on throughout; only the prompt changes.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -23,7 +24,7 @@ import { ScanFlow, useFlowFlash } from '../scan/ScanFlow';
 import type { DemoTarget } from '../scan/ScanPanel';
 import { asSentence, isDoubleRead } from '../station/logic';
 import { ActionSheet } from '../pallet/Actions';
-import { initialMove, moveReducer, type MoveEvent, type MoveState } from './machine';
+import { confirmReason, initialMove, moveReducer, type MoveEvent, type MoveState } from './machine';
 import { fitCheck, fmtLb, palletSize, palletWeight, suggestLocations, type FitProblem } from '../../domain/capacity';
 import { blankInfo, productKey } from '../../domain/receiving';
 
@@ -31,7 +32,7 @@ export type MoveMode = 'move' | 'stage' | 'ship';
 
 const INTENT_VERB = { place: 'Place', move: 'Move', verify_location: 'Confirm still here' } as const;
 
-/** A pallet scanned again this soon after it was saved is the camera seeing its label again, not a new task. */
+/** A pallet or spot scanned again this soon after it was saved is the camera seeing its label again, not a new task. */
 const SAME_PALLET_AFTER_SAVE_MS = 8000;
 
 export interface MoveFlowProps {
@@ -91,6 +92,8 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
   const locations = useMemo(() => (workspaceId ? Object.values(e.db.locations).filter((l) => l.workspace_id === workspaceId) : []), [e, workspaceId, app.v]);
   const locById = (id: string | null) => (id ? e.db.locations[id] ?? null : null);
   const staging = locations.filter((l) => l.active && l.kind === 'STAGING').sort((a, b) => a.code.localeCompare(b.code));
+
+  const advanced = !!(workspaceId && e.activeWarehouse(workspaceId)?.advanced_measurements);
 
   const demoPallets: DemoTarget[] = useMemo(() => {
     if (!workspaceId) return [];
@@ -232,7 +235,15 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
       flash.bad(next.message?.text ?? `${loc.code} cannot take it.`);
       return 'error';
     }
-    flash.ok(changed ? `Changed to ${loc.code}` : `${loc.code} scanned`);
+    // One scan of the spot saves, unless the spot cannot take the pallet or something about the move is unusual.
+    const blocked = next.pallet && next.intent !== 'verify_location' ? fitCheck(next.pallet, backend.db.locations[loc.id] ?? loc, advanced) : null;
+    const why = blocked ? null : confirmReason(next);
+    if (blocked) flash.bad(blocked.message);
+    else if (why) flash.note(why, 'warn');
+    else {
+      flash.ok(changed ? `Changed to ${loc.code}. Saving…` : `${loc.code} scanned. Saving…`);
+      void confirm();
+    }
     return true;
   };
 
@@ -289,6 +300,8 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
       case 'RESULT':
       case 'QUEUED':
         if (r.type === 'location') {
+          // The camera still sees the spot that was just saved: the same scan, not a new one.
+          if (cur.stage !== 'EXPECT_PALLET' && r.location.id === cur.destination?.id && Date.now() - savedAt.current < SAME_PALLET_AFTER_SAVE_MS) return true;
           flash.bad(cur.stage === 'EXPECT_PALLET' ? `That is a spot (${r.location.code}). Scan the pallet first, then the spot.` : `That is a spot (${r.location.code}). Scan the next pallet.`);
           return 'error';
         }
@@ -321,6 +334,9 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
         flash.bad(`Decide on ${cur.pallet?.code} first. Scan the spot again, or tap Cancel.`);
         return 'error';
       case 'SUBMITTING':
+        // The spot that is being saved, read again: nothing to do.
+        if (r.type === 'location' && r.location.id === cur.destination?.id) return true;
+        if (r.type === 'pallet' && r.pallet.id === cur.pallet?.id) return true;
         flash.note('Saving. One moment.');
         return 'error';
       case 'UNKNOWN':
@@ -334,7 +350,6 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
 
   // ------------------------------------------------------------------ what to show
 
-  const advanced = !!(workspaceId && backend.reader.activeWarehouse(workspaceId)?.advanced_measurements);
   // Checked before saving, so a full or weight-limited spot is caught while you still stand at the pallet.
   const fit = s.stage === 'REVIEW' && s.pallet && s.destination && s.intent !== 'verify_location' ? fitCheck(s.pallet, backend.db.locations[s.destination.id] ?? s.destination, advanced) : null;
   const offline = backend.network === 'offline';
@@ -532,8 +547,10 @@ function promptFor(mode: MoveMode, s: MoveState, rescan: boolean, fit: boolean, 
     case 'REVIEW': {
       if (fit) return { text: 'This spot cannot take it', sub: 'Fix it below, or scan another spot.', tone: 'warn' };
       const code = s.destination?.code ?? '';
-      if (!rescan) return { text: 'Scan Confirm to save', sub: 'Or tap Save. Scan another spot to change it.', tone: 'idle' };
-      return { text: s.intent === 'verify_location' ? `Scan ${code} again to confirm` : `Scan ${code} again to save`, sub: 'Or tap the button. Scan another spot to change it.', tone: 'idle' };
+      // Reached only when the move needs a second look; a normal move saves on the first scan of the spot.
+      const why = confirmReason(s) ?? undefined;
+      if (!rescan) return { text: 'Scan Confirm to save', sub: why ?? 'Or tap Save. Scan another spot to change it.', tone: 'warn' };
+      return { text: s.intent === 'verify_location' ? `Scan ${code} again to confirm` : `Scan ${code} again to save`, sub: why ?? 'Or tap the button. Scan another spot to change it.', tone: 'warn' };
     }
     case 'SUBMITTING':
       return { text: 'Saving…', sub: what, tone: 'busy' };

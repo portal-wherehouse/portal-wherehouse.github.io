@@ -8,7 +8,11 @@ import {
 import { HttpsError } from "firebase-functions/v2/https";
 import { emptyDb, type Db } from "../../../src/demo/engine";
 import { normalizeCode } from "../../../src/domain/codes";
-import type { CommandEnvelope } from "../../../src/domain/types";
+import {
+  ORDER_COMMANDS,
+  type CommandEnvelope,
+} from "../../../src/domain/types";
+import { loadOrderCommand, SEQ_LETTERS } from "./orders";
 
 // Pallet numbers share one sequence. Queue allocations within an instance so a burst
 // of receivers does not repeatedly collide. Firestore still serializes across instances.
@@ -326,6 +330,11 @@ export async function loadCommand(
         );
     }
   }
+  if (
+    (ORDER_COMMANDS as readonly string[]).includes(k) ||
+    (k === "import_batch" && p.import_kind === "orders")
+  )
+    await loadOrderCommand({ tx, root, db, ws, cmd, one, query });
   return db;
 }
 
@@ -342,6 +351,9 @@ export function rows(db: Db, ws: string): Map<string, any> {
     "products",
     "shipments",
     "issues",
+    "orders",
+    "batches",
+    "packages",
   ] as const)
     for (const [id, v] of Object.entries(db[table]))
       out.set(`${table}/${id}`, v);
@@ -352,6 +364,11 @@ export function rows(db: Db, ws: string): Map<string, any> {
   for (const a of db.audit) out.set(`audit/${a.id}`, a);
   for (const a of db.lineage) out.set(`lineage/${a.child_id}`, a);
   if (ws in db.counters) out.set("private/counter", { value: db.counters[ws] });
+  for (const letter of SEQ_LETTERS)
+    if (`${ws}:${letter}` in db.counters)
+      out.set(`private/seq_${letter}`, {
+        value: db.counters[`${ws}:${letter}`],
+      });
   return out;
 }
 export function persist(

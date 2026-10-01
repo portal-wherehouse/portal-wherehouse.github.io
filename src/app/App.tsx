@@ -26,7 +26,7 @@ import { Lab } from '../features/lab/Lab';
 import { LabelStudio } from '../features/labels/LabelStudio';
 import { WarehouseMap } from '../features/map/WarehouseMap';
 import { HOME_ITEM, More, navItemCurrent, navTarget, visibleNav, type NavGroup, type NavItem } from '../features/more/More';
-import { useSetup, useWordSwap } from './words';
+import { useOrdersOn, useSetup, useWordSwap } from './words';
 import { Move } from '../features/move/Move';
 import { Overview } from '../features/overview/Overview';
 import { PalletRecord } from '../features/pallet/PalletRecord';
@@ -39,6 +39,7 @@ import { Tour } from '../features/tour/Tour';
 import { PortalTour } from '../features/tour/PortalTour';
 import { ScanAnywhere } from '../features/scanners/ScanAnywhere';
 import { TransferDetail, TransferScan, Transfers } from '../features/transfers/Transfers';
+import { OrderDetail, Orders } from '../features/orders/Orders';
 import { useHasTransferTargets } from '../features/transfers/targets';
 import { Help } from '../features/help/Help';
 import { Scanners } from '../features/scanners/Scanners';
@@ -89,6 +90,8 @@ const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.
   products: Products,
   transfers: Transfers,
   transfer: TransferDetail,
+  orders: Orders,
+  order: OrderDetail,
 };
 
 const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' | 'overview' }[] = [
@@ -170,7 +173,8 @@ function Portal() {
   const setupOpen = (r: string) => r === 'checklist' || (manager && SETUP_ROUTES.includes(r));
   const [oops, setOops] = useState(false);
   const open = (r: RouteName | Route) => (setupLocked ? setOops(true) : go(r));
-  const nav = visibleNav(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on, transfers);
+  const ordersOn = useOrdersOn();
+  const nav = visibleNav(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on, transfers, ordersOn);
   const onChecklist = route.name === 'checklist' || (setupLocked && !setupOpen(route.name));
   const counts = read((e, a, ws) => {
     const r = e.reconciliation(a, ws);

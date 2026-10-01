@@ -1,0 +1,667 @@
+/* Pick orders (Orders.tsx, tasks.tsx, print.tsx): the board, the pick stop card, packing, and the printed label and slip. */
+
+.orders-page {
+  min-width: 0;
+}
+.orders-tabs {
+  width: 100%;
+}
+.orders-tabs button {
+  flex: 1 0 auto;
+  justify-content: center;
+}
+
+/* Tote letters in their cart colors. */
+.tote-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-weight: 800;
+  line-height: 1;
+  justify-content: center;
+  flex: none;
+}
+.tote-chip b {
+  font-size: 18px;
+}
+.tote-chip small {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.tote-chip.lg {
+  height: 48px;
+  min-width: 48px;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+.tote-chip.lg b {
+  font-size: 30px;
+}
+.tote-chip.lg small {
+  font-size: 14px;
+}
+
+/* The pick stop: the spot code is the largest thing on the screen. */
+.stop-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-top: 8px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+}
+.stop-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.stop-spot {
+  font-family: var(--font-display);
+  font-size: clamp(52px, 15vw, 84px);
+  line-height: 0.95;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.stop-take {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.stop-qty {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+}
+.stop-what {
+  display: grid;
+  font-size: 18px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.stop-what small {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.stop-put {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 20px;
+  font-weight: 700;
+}
+.stop-for {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.stop-next {
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 14px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* Cart setup. */
+.cart-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.cart-head-title {
+  font-weight: 700;
+  font-size: 17px;
+}
+.cart-slots {
+  display: grid;
+  gap: 6px;
+}
+.cart-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+.cart-slot.now {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Lists of orders under a task. */
+.pick-queue {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.pick-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.pick-queue-row .grow,
+.cart-slot .grow {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-queue-row.as-button {
+  cursor: pointer;
+}
+.pick-queue-row.as-button:hover,
+.pick-queue-row.now {
+  border-color: var(--accent);
+}
+
+.short-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  background: var(--warn-soft);
+}
+.short-title {
+  font-weight: 700;
+}
+.short-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Packing. */
+.pack-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.pack-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+.pack-list li svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--ink-3);
+}
+.pack-list li.done {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.pack-list li.done svg {
+  color: var(--ok);
+}
+.pack-list li.short {
+  border-style: dashed;
+  color: var(--warn);
+}
+.pack-list li.short svg {
+  color: var(--warn);
+}
+.pack-list .grow {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.box-pick {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.box-pick-title {
+  font-weight: 700;
+}
+.box-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.box-weight span {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.pkg-done {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--ok);
+  border-radius: 10px;
+  background: var(--ok-soft);
+}
+.pkg-done-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ok);
+}
+.pkg-done-code svg {
+  width: 22px;
+  height: 22px;
+}
+.pkg-list {
+  display: grid;
+  gap: 6px;
+}
+.pkg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.pkg-row:last-child {
+  border-bottom: 0;
+}
+.pkg-row .grow {
+  min-width: 0;
+}
+.sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+.handoff-form .field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.handoff-form .label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* The board. */
+.lanes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.lane {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.lane strong {
+  font-size: 26px;
+  line-height: 1.1;
+}
+.lane span {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.lane.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.batch-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.batch-row:last-of-type {
+  border-bottom: 0;
+}
+.batch-row-head {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+.batch-row .bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.batch-row .bar span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+.results .order-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.order-row-main,
+.order-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.order-row-main .grow {
+  min-width: 0;
+}
+.order-row-meta {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.order-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+.order-facts dt {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.order-facts dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.order-lines {
+  width: 100%;
+  border-collapse: collapse;
+}
+.order-lines th,
+.order-lines td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.order-lines .num {
+  text-align: right;
+  width: 70px;
+}
+.order-lines .tag {
+  margin-top: 4px;
+}
+.unit-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 2px 0;
+}
+.order-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.order-log li {
+  display: grid;
+  gap: 2px;
+}
+.order-log .muted {
+  font-size: 13px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.order-line-input .grow {
+  min-width: 0;
+}
+.mono.small,
+.small {
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .lanes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .orders-tabs button {
+    padding: 6px 10px;
+  }
+  .order-lines .num {
+    width: 48px;
+  }
+  .order-lines th:last-child,
+  .order-lines td:last-child {
+    min-width: 0;
+  }
+}
+/* Five tabs share a phone's width: tighter padding, and each may shrink rather than push past the edge. */
+@media (max-width: 480px) {
+  .orders-tabs {
+    gap: 2px;
+    padding: 3px;
+  }
+  .orders-tabs button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 4px;
+    font-size: 14px;
+    gap: 3px;
+    white-space: nowrap;
+  }
+  /* The customer's name gets its own line; the order numbers and status sit under it. */
+  .order-row-main {
+    gap: 4px 10px;
+  }
+  .order-row-main .grow {
+    order: -1;
+    flex-basis: 100%;
+  }
+}
+
+/* ------------------------------------------------------------------ printed */
+
+.pk-label {
+  width: 4in;
+  height: 6in;
+  box-sizing: border-box;
+  padding: 0.2in;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08in;
+  background: #fff;
+  color: #000;
+  font-family: var(--font-body);
+  break-after: page;
+}
+.pk-label-from {
+  display: grid;
+  font-size: 9pt;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.06in;
+}
+.pk-label-method {
+  font-size: 12pt;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.pk-label-to {
+  display: grid;
+  gap: 2px;
+  font-size: 12pt;
+  min-height: 1.1in;
+}
+.pk-label-to strong {
+  font-size: 20pt;
+  line-height: 1.1;
+}
+.pk-label-order {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11pt;
+  border-top: 1px solid #000;
+  padding-top: 0.06in;
+}
+.pk-label-bc {
+  margin-top: auto;
+}
+.pk-label-code {
+  font-family: var(--font-mono);
+  font-size: 26pt;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 1px;
+}
+.pk-label-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9pt;
+}
+
+.pk-slip {
+  max-width: 7.5in;
+  background: #fff;
+  color: #000;
+  font-family: var(--font-body);
+  font-size: 10.5pt;
+  display: grid;
+  gap: 14px;
+}
+.pk-slip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+.pk-slip-head h2 {
+  margin: 0 0 4px;
+  font-size: 18pt;
+}
+.pk-slip-head p {
+  margin: 0;
+}
+.pk-slip-code {
+  display: grid;
+  justify-items: center;
+  width: 2.2in;
+  font-family: var(--font-mono);
+}
+.pk-slip-meta th {
+  text-align: left;
+  padding: 2px 16px 2px 0;
+  vertical-align: top;
+  font-weight: 600;
+}
+.pk-slip-lines {
+  width: 100%;
+  border-collapse: collapse;
+}
+.pk-slip-lines th,
+.pk-slip-lines td {
+  text-align: left;
+  padding: 6px;
+  border-bottom: 1px solid #999;
+  vertical-align: top;
+}
+.pk-slip-lines .num {
+  text-align: right;
+}
+.pk-slip-note {
+  font-size: 9pt;
+  font-style: italic;
+}
+.pk-slip-foot {
+  margin: 0;
+  font-size: 9pt;
+}
+
+.tote-sheet {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2in;
+  background: #fff;
+}
+.tote-label {
+  border: 3px solid #000;
+  border-radius: 8px;
+  padding: 0.15in;
+  display: grid;
+  gap: 0.08in;
+  break-inside: avoid;
+}
+.tote-label-code {
+  font-family: var(--font-mono);
+  font-size: 40pt;
+  font-weight: 800;
+  text-align: center;
+  color: #000;
+}
+.pk-slip-meta {
+  border-collapse: collapse;
+}
+.pk-slip-meta th {
+  width: 1.4in;
+}
+@media print {
+  /* A 4x6 label printer gets a 4x6 page with no margin; the slip uses the normal page. */
+  @page package-label {
+    size: 4in 6in;
+    margin: 0;
+  }
+  .pk-label {
+    page: package-label;
+  }
+}

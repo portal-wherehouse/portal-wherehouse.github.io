@@ -198,7 +198,7 @@ function SettingsPanel() {
         <input type="checkbox" checked={settings.confirmByRescan} onChange={(e) => setSettings({ confirmByRescan: e.target.checked })} />
         <span>
           <strong>Confirm moves by scanning the rack again</strong>
-          <span className="scn-toggle-hint">On Move and the Scan station, after the pallet and the rack, scan the same rack label once more to save the move, so hands stay on the scanner.</span>
+          <span className="scn-toggle-hint">On the Scan station, after the pallet and the rack, scan the same rack label once more to save the move, so hands stay on the scanner. Put away and move saves on the first scan of the spot, and asks for this only when a move is unusual.</span>
         </span>
       </label>
 

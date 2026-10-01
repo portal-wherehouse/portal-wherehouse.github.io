@@ -100,6 +100,22 @@ service cloud.firestore {
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
         allow write: if false;
       }
+      // Orders and picking: customer orders, pick batches and packages. Every change goes through the command function.
+      match /orders/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
+      match /batches/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
+      match /packages/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
       match /pallets/{id} {
         allow get: if isMember(ws);
         allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;

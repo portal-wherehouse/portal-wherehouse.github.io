@@ -106,16 +106,19 @@ export interface ScanFlowProps {
   /** Placeholder of the typed-code box. */
   placeholder?: string;
   testId?: string;
+  /** Above the prompt: what the step is about, such as the pick stop with its spot code in the largest text. */
+  head?: ReactNode;
   /** The current step's details, between the prompt and the typed-code box. */
   children?: ReactNode;
 }
 
 /** The scan-first layout: big prompt, camera, the step's details, then typing and sample labels. */
-export function ScanFlow({ prompt, sub, tone = 'idle', flash, cameraPrompt, demoTargets, placeholder, testId = 'scan-flow', children }: ScanFlowProps) {
+export function ScanFlow({ prompt, sub, tone = 'idle', flash, cameraPrompt, demoTargets, placeholder, testId = 'scan-flow', head, children }: ScanFlowProps) {
   const { settings } = useScanRouter();
   return (
     <section className="scan-flow" data-testid={testId} data-tour={testId} aria-labelledby={`${testId}-prompt`}>
       {settings.wedge && <ScanCatcher />}
+      {head}
       <div className={`flow-prompt tone-${tone}${flash?.tone === 'ok' ? ' flashed' : ''}`} key={flash?.tone === 'ok' ? `ok-${flash.seq}` : 'prompt'}>
         <div aria-live="polite" aria-atomic="true">
           <h2 className="flow-prompt-text" id={`${testId}-prompt`}>

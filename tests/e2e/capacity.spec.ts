@@ -47,7 +47,6 @@ test('Move suggests the location with the most room, and a weight limit asks for
   await expect(suggestions.locator('.suggest-row').first()).toContainText(heavy);
   await expect(suggestions.locator('.suggest-row').first()).toContainText('1,000 lb left');
   await suggestions.locator('.suggest-row').first().click();
-  await page.getByRole('button', { name: `Place: ${heavy}` }).click();
   await expect(page.locator('.big-result')).toContainText(`Placed at ${heavy}`);
   expect(errors).toEqual([]);
 });

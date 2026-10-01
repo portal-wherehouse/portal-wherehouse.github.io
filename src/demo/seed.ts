@@ -351,6 +351,7 @@ export function seedSample():Db{
   if(i===5)d.run(employee.id,'apply_hold',{reason:'Example: waiting for a damage check.'},p);
   if(i===6)d.run(employee.id,'dispatch',{destination:'Example job 2'},p);
  }
+ seedOrders(d,owner.id,manager.id,employee.id);
  // A second warehouse in the same account, so Transfers can be tried. Its pallet numbers start at 101,
  // so codes stay distinct from the main yard's while pallets move between the two.
  const main=d.ws;d.jobs=new Map();d.locs=new Map();
@@ -364,4 +365,49 @@ export function seedSample():Db{
  }
  d.ws=main;
  return db;
+}
+
+/** Stock with product codes on four more spots, two staging spots, and four customer orders waiting to be picked. */
+const ORDER_PRODUCTS: [code: string, description: string, spots: [string, number][]][] = [
+  ['GLV-12', 'Work gloves, box of 12', [['A-02-01', 3]]],
+  ['TAPE-48', 'Packing tape, 6 rolls', [['A-02-02', 3], ['B-02-02', 1]]],
+  ['CBL-C2', 'USB-C cable, 2 m', [['B-02-01', 2]]],
+  ['CBL-C1', 'USB-C cable, 1 m', [['B-02-02', 2]]],
+  ['LMP-20', 'LED work light', [['B-02-01', 2]]],
+];
+
+function seedOrders(d: Driver, owner: string, manager: string, employee: string) {
+  d.run(owner, 'set_orders', { on: true, cart_size: 4, box_types: ['Small box', 'Medium box', 'Large box', 'Mailer'], subs: 'ask' });
+  d.addLocations(owner, [['A-02-01', 'RACK'], ['A-02-02', 'RACK'], ['B-02-01', 'RACK'], ['B-02-02', 'RACK'], ['STAGING-01', 'STAGING'], ['STAGING-02', 'STAGING']]);
+  // Order stock is numbered from P-000201, so the next pallet received in the sample is still P-000007.
+  const next = d.db.counters[d.ws];
+  d.db.counters[d.ws] = 200;
+  for (const [code, description, spots] of ORDER_PRODUCTS) {
+    d.run(manager, 'save_product', { code, description, unit: 'each', create: true });
+    for (const [spot, n] of spots)
+      for (let i = 0; i < n; i++) {
+        d.tick(1, 3);
+        const p = d.run(employee, 'receive', { description, receiving: { product_code: code, quantity: '1', unit: 'each' } })!;
+        d.run(employee, 'place', { location_id: d.locs.get(spot)!.id }, p);
+      }
+  }
+  d.db.counters[d.ws] = next;
+  const due = (days: number, hour: number) => new Date(dayStart(Date.now(), -days, hour)).toISOString();
+  const orders: [string, string, 'ship' | 'pickup', string, boolean, [string, number][]][] = [
+    ['WEB-1041', 'Lakeside Dental', 'ship', due(0, 15), false, [['GLV-12', 2], ['TAPE-48', 1]]],
+    ['WEB-1042', 'Jordan Lee', 'pickup', due(0, 12), true, [['CBL-C2', 1], ['LMP-20', 1]]],
+    ['WEB-1043', 'Northside Print Shop', 'ship', due(1, 15), true, [['TAPE-48', 2], ['CBL-C2', 1]]],
+    ['WEB-1044', 'Maria Ortiz', 'pickup', due(1, 10), false, [['GLV-12', 1], ['LMP-20', 1]]],
+  ];
+  for (const [ref, name, method, due_at, allow_subs, lines] of orders) {
+    d.tick(2, 6);
+    d.run(manager, 'create_order', {
+      external_ref: ref,
+      customer: { name, phone: '', email: '', address: method === 'ship' ? 'Example street address' : '' },
+      method,
+      due_at,
+      allow_subs,
+      lines: lines.map(([product_code, qty]) => ({ product_code, qty })),
+    });
+  }
 }

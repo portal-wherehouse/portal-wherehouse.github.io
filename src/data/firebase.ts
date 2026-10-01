@@ -19,6 +19,12 @@ import {
 import { palletQuery, PAGE_SIZE, type LiveFilter } from "./liveQueries";
 import { parseTransferNumber } from "../domain/transfers";
 import {
+  parseOrderCode,
+  parsePackageCode,
+  parseToteCode,
+  productCodeVariants,
+} from "../domain/orders";
+import {
   normalizeCode,
   parsePalletCode,
   parseLabelPayload,
@@ -69,7 +75,7 @@ import { createStore, get, set } from "idb-keyval";
 import { Backend, type Outcome, type PendingSend } from "./backend";
 import { Outbox, eligibility, type OutboxEntry } from "./outbox";
 import { Engine, emptyDb } from "../demo/engine";
-import type { CommandEnvelope, CommandResult } from "../domain/types";
+import { ORDER_COMMANDS, type CommandEnvelope, type CommandResult } from "../domain/types";
 
 export { firebaseConfig };
 export class FirebaseBackend extends Backend {
@@ -665,7 +671,8 @@ export class FirebaseBackend extends Backend {
         typeof s.docChanges === "function"
           ? s.docChanges().filter((c: any) => c.type === "removed")
           : [];
-      if (table === "pallets")
+      // A record that left the query changed (or was deleted): read it again rather than keep a stale copy.
+      if (["pallets", "orders", "batches", "packages"].includes(table))
         await Promise.all(
           removed.map((c: any) => this.one(table, c.doc.id, true)),
         );
@@ -1074,6 +1081,33 @@ export class FirebaseBackend extends Backend {
             }
           }),
         );
+      } else if (name === "orders") await this.loadOrderBoard(gen);
+      else if (name === "order" && id) {
+        await this.one("orders", id, true);
+        if (gen !== this.viewGeneration) return;
+        this.viewStops.push(
+          onSnapshot(doc(this.col("orders"), id), (s) => {
+            this.metrics.reads++;
+            if (gen === this.viewGeneration && s.exists()) {
+              this.ingest("orders", [s.data()]);
+              this.bump(false);
+            }
+          }),
+        );
+        await this.page(
+          "order-packages",
+          "packages",
+          query(this.col("packages"), where("order_id", "==", id), limit(50)),
+          true,
+        );
+        const o = this.db.orders[id];
+        if (o)
+          await Promise.all(
+            o.lines
+              .flatMap((l) => l.units)
+              .slice(0, 100)
+              .map((u) => this.one("pallets", u.pallet_id)),
+          );
       } else if (name === "move") {
         if (id) {
           await this.one("pallets", id, true);
@@ -1209,10 +1243,105 @@ export class FirebaseBackend extends Backend {
     }
     this.bump(false);
   }
+  /**
+   * The orders board and the pick, pack, stage and handoff screens: open orders, batches being picked, packages
+   * not yet handed off, the staging spots, and the stock each open pick stop points at. All live.
+   */
+  private async loadOrderBoard(gen: number) {
+    this.db.orders = {};
+    this.db.batches = {};
+    this.db.packages = {};
+    await Promise.all([
+      this.page(
+        "orders-open",
+        "orders",
+        query(
+          this.col("orders"),
+          where("status", "in", ["OPEN", "PICKING", "PICKED", "PACKED", "STAGED"]),
+          limit(100),
+        ),
+        true,
+      ),
+      this.page(
+        "orders-done",
+        "orders",
+        query(
+          this.col("orders"),
+          where("status", "in", ["DONE", "CANCELLED"]),
+          orderBy("updated_at", "desc"),
+          limit(20),
+        ),
+        true,
+      ),
+      this.page(
+        "batches",
+        "batches",
+        query(this.col("batches"), where("status", "==", "PICKING"), limit(50)),
+        true,
+      ),
+      this.page(
+        "packages",
+        "packages",
+        query(
+          this.col("packages"),
+          where("status", "in", ["PACKED", "STAGED"]),
+          limit(100),
+        ),
+        true,
+      ),
+      this.page(
+        "staging",
+        "locations",
+        query(this.col("locations"), where("kind", "==", "STAGING"), limit(50)),
+      ),
+    ]);
+    if (gen !== this.viewGeneration) return;
+    await this.loadStopUnits();
+  }
+  /** The units the open pick stops suggest, so a product barcode scanned at a stop finds them. */
+  private async loadStopUnits() {
+    const ids = new Set<string>();
+    for (const b of Object.values(this.db.batches))
+      if (b.status === "PICKING")
+        for (const s of b.stops)
+          if (s.status === "open")
+            for (const u of s.suggested.slice(0, 20)) ids.add(u.pallet_id);
+    await Promise.all([...ids].slice(0, 200).map((id) => this.one("pallets", id)));
+  }
+  /** After an order command: the records it changed, without waiting for the listeners. */
+  private async refreshOrderRecords(cmd: CommandEnvelope, r: CommandResult) {
+    if (!r.ok) return;
+    const p = cmd.payload as Record<string, unknown>;
+    const ids = (r.created_ids ?? []).concat(r.target_id ? [r.target_id] : []);
+    const batchIds = new Set<string>();
+    const orderIds = new Set<string>();
+    const packageIds = new Set<string>();
+    if (typeof p.batch_id === "string") batchIds.add(p.batch_id);
+    if (typeof p.order_id === "string") orderIds.add(p.order_id);
+    if (typeof p.package_id === "string") packageIds.add(p.package_id);
+    if (cmd.kind === "start_batch") ids.forEach((id) => batchIds.add(id));
+    if (cmd.kind === "create_order" || cmd.kind === "import_batch")
+      ids.forEach((id) => orderIds.add(id));
+    if (cmd.kind === "pack") ids.forEach((id) => packageIds.add(id));
+    if (cmd.kind === "set_orders" && r.target_id)
+      await this.one("warehouses", r.target_id, true);
+    await Promise.all([...batchIds].map((id) => this.one("batches", id, true)));
+    for (const id of batchIds)
+      for (const s of this.db.batches[id]?.slots ?? []) orderIds.add(s.order_id);
+    await Promise.all([...packageIds].map((id) => this.one("packages", id, true)));
+    for (const id of packageIds) {
+      const o = this.db.packages[id]?.order_id;
+      if (o) orderIds.add(o);
+    }
+    await Promise.all([...orderIds].slice(0, 20).map((id) => this.one("orders", id, true)));
+    if (batchIds.size) await this.loadStopUnits();
+  }
   async preloadScan(raw: string) {
     if (this.network === "offline") return;
     if (!this.activeWorkspace || !this.firestore || raw.startsWith("CMD:"))
       return;
+    if (["orders", "order"].includes(this.viewRoute.name))
+      await this.preloadOrderScan(raw.trim());
     const label = parseLabelPayload(raw);
     let id: string | undefined, kind: string | undefined;
     const slip = parseTransferNumber(raw);
@@ -1265,6 +1394,44 @@ export class FirebaseBackend extends Backend {
       while (this.pageMore("rack-scan")) await this.more("rack-scan");
     }
     this.bump(false);
+  }
+  /** An order, package or tote scanned on the orders screens, or a product barcode scanned at a pick stop. */
+  private async preloadOrderScan(raw: string) {
+    const loadWhere = async (table: string, field: string, value: string) => {
+      const s = await this.docs(query(this.col(table), where(field, "==", value), limit(5)));
+      this.ingest(table, s.docs.map((d) => d.data()));
+      return s.docs.map((d) => d.data());
+    };
+    const k = parsePackageCode(raw);
+    if (k) {
+      for (const pk of await loadWhere("packages", "code", k))
+        await this.one("orders", pk.order_id, true);
+      return;
+    }
+    const o = parseOrderCode(raw);
+    if (o) {
+      for (const order of await loadWhere("orders", "code", o))
+        await Promise.all(order.package_ids.map((id: string) => this.one("packages", id, true)));
+      return;
+    }
+    const t = parseToteCode(raw);
+    if (t) {
+      await loadWhere("orders", "tote_code", t);
+      return;
+    }
+    if (parseLabelPayload(raw) || parsePalletCode(raw) || raw.length > 80) return;
+    // A product barcode or SKU: stored stock of it, and an order with that store order number.
+    const s = await this.docs(
+      query(
+        this.col("pallets"),
+        where("receiving.product_code", "in", productCodeVariants(raw)),
+        where("state", "==", "STORED"),
+        limit(20),
+      ),
+    );
+    this.ingest("pallets", s.docs.map((d) => d.data()));
+    await this.hydrate(s.docs.map((d) => d.data()));
+    await loadWhere("orders", "external_ref", raw);
   }
   /** Transfers matching a scan (a slip number, or a pallet label or code on one), for the transfer hints. */
   private async loadTransfers(filter: ReturnType<typeof where>) {
@@ -1588,6 +1755,13 @@ export class FirebaseBackend extends Backend {
           await this.one("locations", id, true);
         if (response.data.current_state)
           await this.hydrate([response.data.current_state]);
+        if (
+          this.activeWorkspace === cmd.workspace_id &&
+          ((ORDER_COMMANDS as readonly string[]).includes(cmd.kind) ||
+            (cmd.kind === "import_batch" &&
+              cmd.payload.import_kind === "orders"))
+        )
+          await this.refreshOrderRecords(cmd, response.data);
       }
       await this.saveOfflineCache().catch(() => {
         this.storageError =

@@ -55,6 +55,23 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   // Anyone who can send may cancel a draft. Once sent, the engine requires a manager or owner.
   cancel_transfer: 'OPERATOR',
   transfer_now: 'OPERATOR',
+  // Orders: operators pick, pack, stage and hand off; managers manage orders and batches and decide substitutions;
+  // owners choose the settings (box types, cart size, substitution policy).
+  set_orders: 'OWNER',
+  create_order: 'SUPERVISOR',
+  cancel_order: 'SUPERVISOR',
+  // An operator starts the next batch for themselves; choosing orders or a picker is checked as a manager's in the engine.
+  start_batch: 'OPERATOR',
+  assign_tote: 'OPERATOR',
+  short_pick: 'OPERATOR',
+  // Finishing with stops still open is a manager's call; the engine checks it.
+  finish_batch: 'OPERATOR',
+  decide_sub: 'SUPERVISOR',
+  pack: 'OPERATOR',
+  stage_package: 'OPERATOR',
+  hand_off: 'OPERATOR',
+  pick: 'OPERATOR',
+  substitute: 'OPERATOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -110,6 +127,19 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   receive_transfer: 'Received from transfer',
   cancel_transfer: 'Transfer cancelled',
   transfer_now: 'Transferred',
+  set_orders: 'Orders settings changed',
+  create_order: 'Order created',
+  cancel_order: 'Order cancelled',
+  start_batch: 'Pick batch started',
+  assign_tote: 'Tote assigned',
+  short_pick: 'Short recorded',
+  finish_batch: 'Pick batch finished',
+  decide_sub: 'Substitute decided',
+  pack: 'Packed',
+  stage_package: 'Package staged',
+  hand_off: 'Handed off',
+  pick: 'Picked',
+  substitute: 'Picked as substitute',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {
@@ -119,6 +149,11 @@ export const EVENT_LABEL: Record<EventType, string> = {
   transfer_send: 'Sent on transfer',
   transfer_receive: 'Received from transfer',
   transfer_return: 'Back from cancelled transfer',
+  pack: 'Packed',
+  unpick: 'Back from an order',
+  hand_off: 'Handed off',
+  pick_missing: 'Not found while picking',
+  pick_hold: 'Damaged while picking',
 };
 
 export interface TransitionInput {
@@ -179,6 +214,8 @@ export function moveBlocker(pallet: Pallet): { code: ErrorCode; message: string;
   switch (pallet.state) {
     case 'IN_TRANSIT':
       return { code: 'INVALID_STATE', message: inTransitMessage(pallet), route: 'transfer' };
+    case 'PICKED':
+      return { code: 'INVALID_STATE', message: pickedMessage(pallet) };
     case 'DISPATCHED':
       return { code: 'INVALID_STATE', message: `${pallet.code} was dispatched. Record a return before placing it.`, route: 'return' };
     case 'MISSING':
@@ -189,6 +226,15 @@ export function moveBlocker(pallet: Pallet): { code: ErrorCode; message: string;
       return null;
   }
 }
+
+/** Why a unit picked for an order stays with it, and what to do instead. */
+export function pickedMessage(pallet: Pallet): string {
+  const o = pallet.order;
+  return o ? `${pallet.code} is picked for ${o.order_code}${o.package_code ? ` (package ${o.package_code})` : ''}. It leaves with its order, or goes back to stock when the order is cancelled.` : `${pallet.code} is picked for an order.`;
+}
+
+/** What may still change on a unit picked for an order: its details, photos and label. */
+const WHILE_PICKED: readonly PalletCommandKind[] = ['edit_details', 'add_photo', 'remove_photo', 'rotate_label', 'label_applied'];
 
 /** Why nothing can change a pallet on its way to another warehouse, and what to do instead. */
 export function inTransitMessage(pallet: Pallet): string {
@@ -204,6 +250,9 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
 
   // A pallet on a transfer belongs to the transfer until it is received or the transfer is cancelled.
   if (pallet.state === 'IN_TRANSIT') return reject('INVALID_STATE', inTransitMessage(pallet));
+  if (pallet.state === 'PICKED' && !WHILE_PICKED.includes(kind)) {
+    return reject('INVALID_STATE', kind === 'pick' || kind === 'substitute' ? `${pallet.code} is already picked${pallet.order ? ` for ${pallet.order.order_code}` : ''}.` : pickedMessage(pallet));
+  }
 
   if (pallet.state === 'RETIRED' && !['correct', 'archive'].includes(kind)) {
     return reject('INVALID_STATE', `${pallet.code} is retired. A supervisor can correct a mistaken retirement.`);
@@ -424,6 +473,16 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
       if (!reason) return reject('INVALID_INPUT', 'Confirm you physically verified the portions and give a reason.');
       return { ok: true, patch: { state: 'RETIRED', current_location_id: null }, reason, detail: { portions: children.length } };
     }
+    case 'pick':
+    case 'substitute': {
+      // The order engine runs the rest (batch, stop, order); these are the record's own rules.
+      if (pallet.state !== 'STORED') {
+        const b = moveBlocker(pallet);
+        return reject('INVALID_STATE', b ? b.message : `${pallet.code} is not in a spot yet. Put it away first.`);
+      }
+      if (pallet.hold) return reject('INVALID_STATE', `${pallet.code} is on hold (${pallet.hold.reason}). Pick another unit.`);
+      return { ok: true, patch: { state: 'PICKED', current_location_id: null }, reason: null, detail: {} };
+    }
     case 'add_photo':
     case 'remove_photo':
       // Attachment checks live in the engine; the pallet itself only gains a revision.
@@ -438,6 +497,10 @@ export function availableActions(pallet: Pallet, role: Role | null): PalletComma
   if (!role || pallet.state === 'IN_TRANSIT') return [];
   const out: PalletCommandKind[] = [];
   const add = (k: PalletCommandKind, when: boolean) => when && roleAllows(role, k) && out.push(k);
+  if (pallet.state === 'PICKED') {
+    for (const k of WHILE_PICKED) add(k, k !== 'label_applied' || pallet.label_needs_reprint);
+    return out;
+  }
   const s = pallet.state;
   add('place', s === 'RECEIVED');
   add('move', s === 'STORED');

@@ -2,8 +2,7 @@
 // shared scan flow that keeps the camera on from one scan to the next.
 
 import { expect, test, type Page } from '@playwright/test';
-import { encodeCode128 } from '../../src/device/code128';
-import { portalReady, signInAs, typeCode, watchErrors } from './helpers';
+import { fakeCamera, portalReady, show, signInAs, typeCode, watchErrors } from './helpers';
 
 /** The sidebar as text: each group's title and its items, then the items at the foot. */
 async function sidebar(page: Page) {
@@ -83,49 +82,7 @@ test('older screens still open from their links, and mark the item that covers t
   await expect(page).toHaveURL(/#incoming$/);
 });
 
-/** A fake camera that shows one Code 128 label at a time; `window.__show(text)` changes it, '' shows nothing. */
-async function fakeCamera(page: Page, labels: string[]) {
-  const patterns = Object.fromEntries(labels.map((l) => [l, encodeCode128(l)]));
-  await page.addInitScript((patterns) => {
-    const w = window as unknown as { __show: (t: string) => void; __streams: MediaStream[]; __calls: number };
-    let showing = '';
-    w.__show = (t) => (showing = t);
-    w.__streams = [];
-    w.__calls = 0;
-    Object.defineProperty(window, 'BarcodeDetector', { value: undefined, configurable: true });
-    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
-      value: async () => {
-        w.__calls++;
-        const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
-        const c = canvas.getContext('2d')!;
-        const draw = () => {
-          c.fillStyle = 'white';
-          c.fillRect(0, 0, canvas.width, canvas.height);
-          const p = patterns[showing];
-          if (p) {
-            c.fillStyle = 'black';
-            let x = (canvas.width - p.modules * 3) / 2;
-            for (let i = 0; i < p.widths.length; i++) {
-              if (i % 2 === 0) c.fillRect(x, 140, p.widths[i] * 3, 200);
-              x += p.widths[i] * 3;
-            }
-          }
-        };
-        draw();
-        setInterval(draw, 50);
-        const stream = canvas.captureStream(10);
-        w.__streams.push(stream);
-        return stream;
-      },
-    });
-  }, patterns);
-}
-
-const show = (page: Page, text: string) => page.evaluate((t) => (window as unknown as { __show: (t: string) => void }).__show(t), text);
-
-test('Move with the camera: scan the pallet, scan the spot, saved, and the camera stays on for the next one', async ({ page }) => {
+test('Move with the camera: scan the pallet, scan the spot, saved at once, and the camera stays on for the next one', async ({ page }) => {
   test.setTimeout(60_000);
   const errors = watchErrors(page);
   await fakeCamera(page, ['P-000014', 'A-03-02']);
@@ -139,13 +96,11 @@ test('Move with the camera: scan the pallet, scan the spot, saved, and the camer
 
   await show(page, 'P-000014');
   await expect(prompt).toHaveText('Now scan the spot');
-  await show(page, 'A-03-02');
-  await expect(prompt).toHaveText('Scan A-03-02 again to save');
-  // Look away, then scan the spot again to save: no tap needed.
-  await show(page, '');
-  await page.waitForTimeout(2700);
+  // One scan of the spot saves: no rescan, no tap.
+  const started = Date.now();
   await show(page, 'A-03-02');
   await expect(prompt).toHaveText('Saved. Scan the next pallet');
+  expect(Date.now() - started).toBeLessThan(2000);
   await expect(page.getByTestId('move-flow-flash')).toHaveText('P-000014 is on A-03-02. Saved.');
   await expect(page.locator('.big-result')).toContainText('Moved to A-03-02');
 
@@ -156,10 +111,13 @@ test('Move with the camera: scan the pallet, scan the spot, saved, and the camer
   });
   expect(cam).toEqual({ calls: 1, state: 'live' });
   await expect(page.getByTestId('move-flow-camera').locator('video')).toBeVisible();
+  // The spot still in view after the save is the same scan, not a wrong one.
+  await page.waitForTimeout(2700);
+  await expect(page.getByTestId('move-flow-flash')).not.toHaveClass(/is-error/);
   expect(errors).toEqual([]);
 });
 
-test('Move with a scanner: two scans and a rescan save it, and a wrong scan does not advance', async ({ page }) => {
+test('Move with a scanner: two scans save it, and a wrong scan does not advance', async ({ page }) => {
   await signInAs(page, 'operator');
   await page.goto('/#move');
   await portalReady(page);
@@ -170,14 +128,32 @@ test('Move with a scanner: two scans and a rescan save it, and a wrong scan does
   await typeCode(page, 'P-000014');
   await expect(prompt).toHaveText('Now scan the spot');
   await typeCode(page, 'A-03-02');
-  await expect(prompt).toHaveText('Scan A-03-02 again to save');
-  // A second read within a moment is the same scan read twice, so a real rescan comes a little later.
-  await page.waitForTimeout(700);
-  await typeCode(page, 'A-03-02');
   await expect(prompt).toHaveText('Saved. Scan the next pallet');
   // Ready for the next pallet straight away.
   await typeCode(page, 'P-000016');
   await expect(prompt).toHaveText('Now scan the spot');
+});
+
+test('Move asks for a second scan only when the move is unusual', async ({ page }) => {
+  await signInAs(page, 'operator');
+  await page.goto('/#move');
+  await portalReady(page);
+  const prompt = page.locator('#move-flow-prompt');
+  await typeCode(page, 'P-000014');
+  await expect(prompt).toHaveText('Now scan the spot');
+  await typeCode(page, 'A-03-02');
+  await expect(prompt).toHaveText('Saved. Scan the next pallet');
+  // The same pallet onto the spot it is already on: confirm it is still there.
+  await page.waitForTimeout(700);
+  await typeCode(page, 'P-000014');
+  await expect(prompt).toHaveText('Now scan the spot');
+  await typeCode(page, 'A-03-02');
+  await expect(prompt).toHaveText('Scan A-03-02 again to confirm');
+  await expect(page.getByTestId('move-flow-flash')).toContainText('already recorded at A-03-02');
+  await page.waitForTimeout(700);
+  await typeCode(page, 'A-03-02');
+  await expect(prompt).toHaveText('Saved. Scan the next pallet');
+  await expect(page.locator('.big-result')).toContainText('Confirmed at A-03-02');
 });
 
 test('on a phone, the Dashboard and Move mid-flow do not scroll sideways', async ({ page }) => {

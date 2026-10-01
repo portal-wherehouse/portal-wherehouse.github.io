@@ -1,13 +1,14 @@
 import type { PalletInfo } from './receiving';
+import type { OrdersSettings, PalletOrderRef } from './orders';
 // Core domain types for Wherehouse (built from the Pallet Locator blueprint) (blueprint pages 7-9, 19-20).
 // UUIDs identify records; human-readable codes support physical work.
 
 export type Role = 'OWNER' | 'SUPERVISOR' | 'OPERATOR' | 'VIEWER';
-export type PalletState = 'RECEIVED' | 'STORED' | 'IN_TRANSIT' | 'DISPATCHED' | 'MISSING' | 'RETIRED';
+export type PalletState = 'RECEIVED' | 'STORED' | 'IN_TRANSIT' | 'PICKED' | 'DISPATCHED' | 'MISSING' | 'RETIRED';
 export type LocationKind = 'RACK' | 'RECEIVING' | 'QUARANTINE' | 'STAGING' | 'FLOOR';
 export type JobStatus = 'OPEN' | 'CLOSED';
 
-export const PALLET_STATES: PalletState[] = ['RECEIVED', 'STORED', 'IN_TRANSIT', 'DISPATCHED', 'MISSING', 'RETIRED'];
+export const PALLET_STATES: PalletState[] = ['RECEIVED', 'STORED', 'IN_TRANSIT', 'PICKED', 'DISPATCHED', 'MISSING', 'RETIRED'];
 export const LOCATION_KINDS: LocationKind[] = ['RACK', 'RECEIVING', 'QUARANTINE', 'STAGING', 'FLOOR'];
 
 export interface User {
@@ -42,6 +43,8 @@ export interface Warehouse {
   advanced_measurements?: boolean;
   /** What this warehouse calls the things it tracks and how it groups work; see domain/terms.ts. */
   setup?: WarehouseSetup;
+  /** Orders and picking: off unless an owner turns it on. See domain/orders.ts. */
+  orders?: OrdersSettings;
   /** A new self-serve warehouse is locked to the setup checklist until it is done or skipped; see features/onboarding. */
   onboarding?: Onboarding;
   id: string;
@@ -157,6 +160,8 @@ export interface Pallet {
   label_needs_reprint: boolean;
   /** Set while the pallet is on its way to another warehouse of the account (state IN_TRANSIT). */
   transfer?: PalletTransfer | null;
+  /** Set while the unit is picked for a customer order (state PICKED): its tote, then its package. */
+  order?: PalletOrderRef | null;
 }
 
 /** The transfer a pallet is travelling on, so Find and the record can say where it is headed. */
@@ -349,6 +354,8 @@ export const PALLET_COMMANDS = [
   'rotate_label',
   'label_applied',
   'split',
+  'pick',
+  'substitute',
 ] as const;
 export type PalletCommandKind = (typeof PALLET_COMMANDS)[number];
 
@@ -378,17 +385,32 @@ export const ADMIN_COMMANDS = [
   'receive_transfer',
   'cancel_transfer',
   'transfer_now',
+  'set_orders',
+  'create_order',
+  'cancel_order',
+  'start_batch',
+  'assign_tote',
+  'short_pick',
+  'finish_batch',
+  'decide_sub',
+  'pack',
+  'stage_package',
+  'hand_off',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 
 export type CommandKind = PalletCommandKind | AdminCommandKind;
 
 /** Event types: every pallet command, plus the per-child record a split creates. */
-export type EventType = PalletCommandKind | 'split_child' | 'import_receive' | 'transfer_send' | 'transfer_receive' | 'transfer_return';
+export type EventType = PalletCommandKind | 'split_child' | 'import_receive' | 'transfer_send' | 'transfer_receive' | 'transfer_return' | 'pack' | 'unpick' | 'hand_off' | 'pick_missing' | 'pick_hold';
 
 /** Commands that change a transfer and the pallets on it, in two warehouses of one account. */
 export const TRANSFER_COMMANDS = ['create_transfer', 'send_transfer', 'receive_transfer', 'cancel_transfer', 'transfer_now'] as const;
 export type TransferCommandKind = (typeof TRANSFER_COMMANDS)[number];
+
+/** Commands of orders and picking, handled together by the order engine (src/demo/orderEngine.ts). */
+export const ORDER_COMMANDS = ['set_orders', 'create_order', 'cancel_order', 'start_batch', 'assign_tote', 'short_pick', 'finish_batch', 'decide_sub', 'pack', 'stage_package', 'hand_off', 'pick', 'substitute'] as const;
+export type OrderCommandKind = (typeof ORDER_COMMANDS)[number];
 
 export interface PalletLineage {
   workspace_id: string;
@@ -401,7 +423,7 @@ export interface PalletLineage {
 export interface ImportBatch {
   id: string;
   workspace_id: string;
-  kind: 'locations' | 'jobs' | 'pallets' | 'shipments';
+  kind: 'locations' | 'jobs' | 'pallets' | 'shipments' | 'orders';
   checksum: string;
   status: 'committed';
   summary: string;
