@@ -1,0 +1,560 @@
+/* "Wherehouse for ___" pages (ForPage.tsx) and their example showcase (GroupShowcase.tsx).
+   The showcase reuses the home page's phone (see-it.css) and only adds what differs. */
+
+.fg-crumb {
+  color: inherit;
+  text-decoration: none;
+}
+.fg-crumb:hover {
+  text-decoration: underline;
+}
+.fg-crumb::before {
+  content: '← ';
+}
+.fg-prose {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+/* ---------------------------------------------------------------- hero */
+
+.fg-covers {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fg-covers li {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.fg-hero-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 44px 20px 32px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--surface-2);
+  overflow: hidden;
+}
+.fg-example {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 5px 8px;
+  border: 1px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.fg-hero-art .fg-label {
+  transform: rotate(-2deg);
+  flex: 0 1 230px;
+}
+.fg-hero-arrow {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--ground);
+}
+.fg-hero-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+.fg-plate {
+  display: grid;
+  gap: 2px;
+  flex: 0 1 170px;
+  min-width: 0;
+  padding: 12px 14px 14px;
+  border: 3px solid var(--plate-ink);
+  border-radius: 10px;
+  background: var(--plate);
+  color: var(--plate-ink);
+  box-shadow: var(--shadow-lift);
+}
+.fg-plate small {
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4c535a;
+}
+.fg-plate b {
+  font: 700 34px/1 var(--font-display);
+  letter-spacing: 0.03em;
+}
+.fg-plate span {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: #4c535a;
+}
+@media (max-width: 479px) {
+  .fg-hero-art {
+    flex-direction: column;
+    padding: 44px 16px 24px;
+  }
+  .fg-hero-art .fg-label {
+    flex-basis: auto;
+    width: min(240px, 100%);
+  }
+  .fg-hero-arrow {
+    transform: rotate(90deg);
+  }
+  .fg-plate {
+    flex-basis: auto;
+    width: min(200px, 100%);
+  }
+}
+
+/* A printed label: the same look as the labels Wherehouse prints. */
+.fg-label {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 18px 16px 14px;
+  border-radius: 10px;
+  background: var(--plate);
+  color: var(--plate-ink);
+  box-shadow:
+    0 0 0 1px rgba(20, 23, 26, 0.12),
+    var(--shadow-lift);
+  overflow: hidden;
+}
+.fg-label-stripe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 8px;
+  background: repeating-linear-gradient(-45deg, #f2b705 0 10px, #14171a 10px 20px);
+}
+.fg-label small {
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4c535a;
+}
+.fg-label b {
+  font: 700 32px/1 var(--font-display);
+  letter-spacing: 0.03em;
+}
+.fg-label-desc {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.fg-label-job {
+  font-size: 12.5px;
+  color: #4c535a;
+}
+.fg-label-bars {
+  height: 30px;
+  margin-top: 8px;
+  background: repeating-linear-gradient(90deg, #14171a 0 2px, transparent 2px 4px, #14171a 4px 7px, transparent 7px 9px, #14171a 9px 10px, transparent 10px 13px);
+}
+
+/* ---------------------------------------------------------------- problems */
+
+.fg-problems {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 860px) {
+  .fg-problems {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.fg-problem {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.fg-problem h3 {
+  margin: 0 0 12px;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.fg-problem p {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.fg-problem p svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--ok);
+}
+
+/* ---------------------------------------------------------------- features and limits */
+
+.fg-limit {
+  display: flex;
+  gap: 10px;
+  max-width: 80ch;
+  margin: 22px 0 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.fg-limit svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--ink-3);
+}
+.fg-limit strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+/* ---------------------------------------------------------------- closing band */
+
+.fg-close-inner {
+  display: grid;
+  gap: 8px;
+  align-items: end;
+}
+@media (min-width: 900px) {
+  .fg-close-inner {
+    grid-template-columns: minmax(0, 1.3fr) auto;
+    gap: 40px;
+  }
+}
+.fg-close .site-btn.ghost {
+  border-color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- showcase */
+
+.fg-show .si-stage {
+  display: block;
+}
+.fg-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
+  gap: 26px;
+  align-items: center;
+}
+.fg-show .si-phone {
+  margin: 0;
+}
+@media (max-width: 599px) {
+  .fg-stage {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .fg-show .fg-rec {
+    display: none;
+  }
+  .fg-show .si-phone {
+    width: min(230px, 72%);
+  }
+}
+
+.fg-verb {
+  font: 600 11.5px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* The record beside the phone: its label, then where it is after this step. */
+.fg-rec {
+  display: grid;
+  gap: 16px;
+  padding: 26px 8px 8px 18px;
+  min-width: 0;
+}
+.fg-rec .fg-label {
+  max-width: 280px;
+}
+.fg-rec-now {
+  display: grid;
+  gap: 12px;
+  max-width: 340px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--ground);
+  animation: fg-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.fg-rec-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fg-rec-h {
+  font: 600 11.5px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.fg-chip {
+  padding: 5px 10px;
+  border-radius: 99px;
+  font: 700 12.5px/1 var(--font-body);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.fg-chip.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.fg-chip.out {
+  background: var(--slate-soft);
+  color: var(--slate);
+}
+.fg-rec-where {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.fg-rec-where > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.fg-rec-where b {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.fg-rec-where small {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.fg-spot {
+  flex: none;
+  padding: 4px 8px 5px;
+  border: 3px solid var(--plate-ink);
+  border-radius: 7px;
+  background: var(--plate);
+  color: var(--plate-ink);
+  font: 700 21px/1 var(--font-display);
+  letter-spacing: 0.04em;
+}
+.fg-rec-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.fg-rec-icon svg {
+  width: 20px;
+  height: 20px;
+}
+@keyframes fg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Phone screens that the home page doesn't have. Sizes are in the phone's own container units. */
+.fg-ph-note {
+  margin-top: 1.4cqw;
+  font-size: 4.2cqw;
+  color: var(--ink-3);
+}
+.fg-ph-to {
+  display: flex;
+  align-items: center;
+  gap: 2cqw;
+  margin-top: 3cqw;
+  padding-top: 3cqw;
+  border-top: 1px dashed var(--line);
+  font-size: 4.3cqw;
+  font-weight: 650;
+}
+.fg-ph-to svg {
+  flex: none;
+  width: 4.6cqw;
+  height: 4.6cqw;
+  color: var(--ink-3);
+}
+.fg-ph-cleared {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  margin-top: auto;
+  height: 12cqw;
+  border-radius: 99px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  font: 700 4.8cqw/1 var(--font-body);
+  animation: si-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) 2.6s both;
+}
+.fg-ph-cleared svg {
+  width: 5cqw;
+  height: 5cqw;
+  stroke-width: 3;
+}
+
+.fg-pl-head {
+  display: grid;
+  gap: 1cqw;
+  padding: 3.4cqw 4cqw;
+  border-radius: 4cqw;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.fg-pl-head b {
+  font: 700 5.4cqw/1.15 var(--font-body);
+}
+.fg-pl-head small {
+  font-size: 3.8cqw;
+  color: var(--ink-3);
+}
+.fg-pl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2.4cqw;
+}
+.fg-pl li {
+  display: flex;
+  align-items: center;
+  gap: 2.6cqw;
+  padding: 2.4cqw 3cqw;
+  border-radius: 3cqw;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  animation: fg-row-in 0.35s ease-out calc(0.3s + var(--i) * 0.15s) both;
+}
+.fg-pl-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 6cqw;
+  height: 6cqw;
+  border-radius: 50%;
+  background: var(--ok);
+  border: 0.6cqw solid var(--ok);
+  color: #fff;
+  animation: fg-check 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) calc(1.3s + var(--i) * 0.9s) both;
+}
+.fg-pl-check svg {
+  width: 4cqw;
+  height: 4cqw;
+  stroke-width: 3.4;
+}
+@keyframes fg-check {
+  from {
+    background: transparent;
+    border-color: var(--line);
+    color: transparent;
+    transform: scale(0.7);
+  }
+}
+@keyframes fg-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(2cqw);
+  }
+}
+.fg-pl-text {
+  display: grid;
+  gap: 0.6cqw;
+  min-width: 0;
+  flex: 1;
+}
+.fg-pl-text b {
+  font: 700 5.2cqw/1 var(--font-display);
+  letter-spacing: 0.03em;
+}
+.fg-pl-text small {
+  font-size: 4cqw;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fg-pl-spot {
+  flex: none;
+  padding: 0.6cqw 1.6cqw 0.8cqw;
+  border: 0.7cqw solid var(--plate-ink);
+  border-radius: 1.4cqw;
+  background: var(--plate);
+  color: var(--plate-ink);
+  font: 700 4.4cqw/1 var(--font-display);
+  letter-spacing: 0.04em;
+}
+.fg-pl-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  margin-top: auto;
+  height: 12cqw;
+  border-radius: 99px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  font: 700 4.8cqw/1 var(--font-body);
+  animation: si-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) 4s both;
+}
+.fg-pl-done svg {
+  width: 5cqw;
+  height: 5cqw;
+  stroke-width: 3;
+}
+
+.fg-show-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.fg-show-note svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}

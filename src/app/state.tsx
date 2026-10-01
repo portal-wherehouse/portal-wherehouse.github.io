@@ -8,7 +8,7 @@ import type { Engine } from '../demo/engine';
 import { ReadError } from '../domain/readError';
 
 /** Public website pages (no account needed). */
-export const SITE_ROUTES = ['home', 'why', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'start', 'fit'] as const;
+export const SITE_ROUTES = ['home', 'why', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'start', 'fit', 'for'] as const;
 export type SiteRouteName = (typeof SITE_ROUTES)[number];
 
 export function isSiteRoute(name: RouteName): name is SiteRouteName {
@@ -216,8 +216,9 @@ const ROUTE_TOKENS: RouteName[] = [
   'products',
 ];
 
-/** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them. */
-const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive'];
+/** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them.
+ * The website's #for/<kind of business> pages link the same way. */
+const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive', 'for'];
 /** Screens whose query rides along in the link, e.g. #find?q=J-214 or #station?q=count. */
 const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products'];
 

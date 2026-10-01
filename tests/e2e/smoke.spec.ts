@@ -32,7 +32,7 @@ const PORTAL: [hash: string, h1: string | RegExp][] = [
   ['data', 'Data and storage'],
 ];
 
-const SITE = ['', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'signin'];
+const SITE = ['', 'mission', 'product', 'showcase', 'simple', 'hardware', 'industries', 'for', 'for/warehouses', 'for/lumberyards', 'for/contractors', 'for/parts', 'for/retail', 'for/rentals', 'for/manufacturing', 'for/facilities', 'customers', 'pricing', 'founder', 'contact', 'security', 'signin'];
 
 /** A fresh document for each link, like opening it in a new tab. */
 async function open(page: import('@playwright/test').Page, hash: string) {

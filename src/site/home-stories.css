@@ -633,3 +633,11 @@
   justify-self: start;
   color: #f2b705;
 }
+
+/* The link from each example to its "Wherehouse for ___" page. */
+.ex-group {
+  align-self: flex-start;
+  margin-top: 6px;
+  font-size: 14.5px;
+  text-align: left;
+}

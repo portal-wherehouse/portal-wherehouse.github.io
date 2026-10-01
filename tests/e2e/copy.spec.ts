@@ -4,7 +4,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signInAs } from './helpers';
 
-const SITE = ['', 'product', 'showcase', 'simple', 'hardware', 'industries', 'customers', 'pricing', 'founder', 'contact', 'security', 'signin'];
+const SITE = ['', 'product', 'showcase', 'simple', 'hardware', 'industries', 'for', 'for/warehouses', 'for/lumberyards', 'for/contractors', 'for/parts', 'for/retail', 'for/rentals', 'for/manufacturing', 'for/facilities', 'customers', 'pricing', 'founder', 'contact', 'security', 'signin'];
 const PORTAL = ['overview', 'receive', 'move', 'find', 'map', 'activity', 'reconcile', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'sync', 'lab', 'guide', 'settings', 'about', 'more', 'help', 'scanners', 'station', 'data'];
 
 /** Every place on the page where `pattern` shows up in readable text, with a little context. */

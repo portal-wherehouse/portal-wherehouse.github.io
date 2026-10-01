@@ -11,11 +11,13 @@ import { ProductPage } from "./pages/Product";
 const HardwarePage = lazy(() =>
   import("./pages/Hardware").then((m) => ({ default: m.HardwarePage })),
 );
-import { IndustriesPage } from "./pages/Industries";
 import { CustomersPage } from "./pages/Customers";
 import { PricingPage } from "./pages/Pricing";
 const FitPage = lazy(() =>
   import("./fit/FitPage").then((m) => ({ default: m.FitPage })),
+);
+const ForPage = lazy(() =>
+  import("./for/ForPage").then((m) => ({ default: m.ForPage })),
 );
 const FounderPage = lazy(() =>
   import("./pages/Founder").then((m) => ({ default: m.FounderPage })),
@@ -59,7 +61,8 @@ const SITE_PAGES: Record<SiteRouteName, React.ComponentType> = {
   simple: SimplePage,
   why: SimplePage,
   hardware: HardwarePage,
-  industries: IndustriesPage,
+  // The old Applications page: its address now opens the #for overview.
+  industries: ForPage,
   customers: CustomersPage,
   pricing: PricingPage,
   founder: FounderPage,
@@ -67,6 +70,7 @@ const SITE_PAGES: Record<SiteRouteName, React.ComponentType> = {
   security: SecurityPage,
   start: StartPage,
   fit: FitPage,
+  for: ForPage,
 };
 
 export function SitePage({ route }: { route: SiteRouteName }) {

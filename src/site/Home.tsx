@@ -8,6 +8,7 @@ import { PRICING } from './prices';
 import { useSite } from './routing';
 import { SeeItWork } from './SeeItWork';
 import { Examples, Founding } from './HomeStories';
+import { GroupCards } from './for/GroupCards';
 import './home.css';
 import './pilot.css';
 
@@ -27,7 +28,7 @@ function scrollToDemo() {
 /** The sample warehouse: opens the app with sample data, no account. */
 const SAMPLE_HREF = '?demo=1#signin';
 
-// The page shows the product working first (hero, animation, examples, founding customers)
+// The page shows the product working first (hero, animation, kinds of business, examples, founding customers)
 // and only then asks visitors to set up their own warehouse.
 export function Home() {
   const { go } = useSite();
@@ -85,6 +86,14 @@ export function Home() {
             Open the sample warehouse
           </a>
         </div>
+      </Section>
+
+      <Section id="for-your-business" eyebrow="Who it’s for" title="Wherehouse for your kind of business." lede="Find the group closest to yours to see the problems it solves, how a day looks and the features that matter most.">
+        <GroupCards />
+        <p className="fg-more">
+          Don’t see yours?
+          <SiteLink to="fit">Check your exact business →</SiteLink>
+        </p>
       </Section>
 
       <Section tone="surface" id="examples" eyebrow="Examples" title="Different businesses. Same routine." lede="Wherehouse works anywhere you store inventory. Here is how three very different businesses could set it up.">

@@ -1,5 +1,0 @@
-import { PageHero, Section, CtaBand, SiteLink } from '../kit';
-export function IndustriesPage() { return <>
-<PageHero eyebrow="Who it’s for" title="Anyone who knows they have it, but not where it is." lede="Back rooms and stockrooms, small warehouses and distributors, furniture and appliance stores, supply yards, rental companies, schools, churches and nonprofits." />
-<Section narrow><p>If someone in your building asks “where did we put it?”, Wherehouse is built around that question. At setup you tell it what you store (pallets, big single items, parts on shelves, long goods or equipment) and it uses your words and hides what you don't need.</p><p>It tracks physical inventory and exactly where it is. It sits beside the software you already use for sales, stock counts, purchasing and accounting, and doesn't replace it.</p><SiteLink to="fit" className="site-btn primary">Check your kind of business</SiteLink> <SiteLink to="product">See how it works →</SiteLink></Section><CtaBand />
-</>; }

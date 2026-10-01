@@ -70,3 +70,54 @@ test('homepage shows the product, labeled examples and the founding-customer off
   }
   expect(errors).toEqual([]);
 });
+
+test('home page cards open a "Wherehouse for" page with an example showcase and both calls to action', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/');
+  const cards = page.getByTestId('group-cards');
+  await expect(cards.locator('.fg-card')).toHaveCount(8);
+  await expect(cards).toContainText('Wherehouse for lumberyards and building supply');
+  await cards.getByRole('link', { name: /Wherehouse for lumberyards and building supply/ }).click();
+  await expect(page).toHaveURL(/#for\/lumberyards$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Wherehouse for lumberyards and building supply.');
+  await expect(page).toHaveTitle(/^Wherehouse for lumberyards and building supply · /);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  const group = page.getByTestId('group-page');
+  await expect(group.getByRole('link', { name: 'Try the sample warehouse' }).first()).toHaveAttribute('href', '?demo=1#signin');
+  await expect(group.getByRole('button', { name: 'Start your free trial' }).first()).toBeVisible();
+  // The showcase: four steps that can be clicked, labeled as an example.
+  const show = page.getByTestId('group-showcase');
+  await expect(show.locator('.si-steps li')).toHaveCount(4);
+  await show.getByRole('button', { name: /Pull the order/ }).click();
+  await expect(show.getByRole('button', { name: /Pull the order/ })).toHaveAttribute('aria-current', 'step');
+  await expect(show.locator('.fg-pl li')).toHaveCount(3);
+  await expect(page.getByText('Example screens with sample data. Not a real customer.')).toBeVisible();
+  // The other groups, without this one; the overview and the old Applications address show every group.
+  await expect(group.getByTestId('group-cards').locator('.fg-card')).toHaveCount(7);
+  await group.getByRole('link', { name: 'Who it’s for' }).click();
+  await expect(page).toHaveURL(/#for$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Wherehouse for your kind of business.');
+  await page.goto('/#industries');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Wherehouse for your kind of business.');
+  await expect(page.getByTestId('group-cards').locator('.fg-card')).toHaveCount(8);
+  expect(errors).toEqual([]);
+});
+
+test('the "Wherehouse for" showcase waits for a tap with reduced motion and fits a phone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#for/rentals');
+  const show = page.getByTestId('group-showcase');
+  await expect(show).toHaveClass(/is-paused/);
+  await expect(show.getByRole('button', { name: /Pause the example/ })).toHaveCount(0);
+  await expect(show.locator('li.on')).toContainText('Pack the event');
+  await show.getByRole('button', { name: /Check in the return/ }).click();
+  await expect(show.locator('li.on')).toContainText('Check in the return');
+  await expect(show.locator('.si-tag')).toContainText('Back');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  // The fit page links each business to its group.
+  await page.goto('/#fit');
+  await page.locator('.fit-tile', { hasText: 'Lumber yard' }).first().click();
+  await page.getByTestId('fit-group').click();
+  await expect(page).toHaveURL(/#for\/lumberyards$/);
+});

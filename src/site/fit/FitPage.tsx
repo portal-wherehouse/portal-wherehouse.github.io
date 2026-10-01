@@ -6,6 +6,8 @@ import { Icon } from '../../ui/icons';
 import { BRAND } from '../../brand';
 import { useSite } from '../routing';
 import { BUSINESSES, CATEGORIES, FIT_LABEL, matchBusiness, type Business, type Category } from './businesses';
+import { openGroup } from '../for/GroupCards';
+import { groupForBusiness, groupHref, groupTitle } from '../for/groups';
 import './fit.css';
 
 const FIT_PCT = { great: 100, good: 80, partial: 55 } as const;
@@ -158,6 +160,7 @@ export function FitPage() {
 }
 
 function Detail({ b, onPlan, onTalk }: { b: Business; onPlan: () => void; onTalk: () => void }) {
+  const group = groupForBusiness(b.id);
   return (
     <article key={b.id} className={`fit-detail fit-${b.fit}`} data-testid="fit-detail" aria-live="polite">
       <header>
@@ -227,6 +230,11 @@ function Detail({ b, onPlan, onTalk }: { b: Business; onPlan: () => void; onTalk
         <button className="site-btn ghost" onClick={onTalk}>
           Ask us about it
         </button>
+        {group && (
+          <a className="site-link fit-group" href={groupHref(group.id)} onClick={(e) => openGroup(e, group.id)} data-testid="fit-group">
+            {groupTitle(group)} →
+          </a>
+        )}
       </div>
     </article>
   );

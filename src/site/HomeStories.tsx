@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { CREATOR } from '../brand';
 import { Icon } from '../ui/icons';
 import { Monogram, SiteLink, firstName } from './kit';
+import { openGroup } from './for/GroupCards';
+import { groupById, groupHref, groupTitle } from './for/groups';
 import './home-stories.css';
 
 interface Example {
@@ -16,6 +18,8 @@ interface Example {
   spots: string;
   search: string;
   spot: string;
+  /** The "Wherehouse for ___" page this example belongs to. */
+  group: string;
   art: ReactNode;
 }
 
@@ -29,6 +33,7 @@ const EXAMPLES: Example[] = [
     spots: 'Aisles, bays, shelves and the dock',
     search: 'paper towels',
     spot: 'A-04-2',
+    group: 'warehouses',
     art: <DistributorArt />,
   },
   {
@@ -40,6 +45,7 @@ const EXAMPLES: Example[] = [
     spots: 'Yard rows, containers and trucks',
     search: 'J-118 fixtures',
     spot: 'CONT-2',
+    group: 'contractors',
     art: <YardArt />,
   },
   {
@@ -51,6 +57,7 @@ const EXAMPLES: Example[] = [
     spots: 'Bays, shelves, the wash area and trailers',
     search: 'uplight case',
     spot: 'D-03',
+    group: 'rentals',
     art: <RentalArt />,
   },
 ];
@@ -88,6 +95,7 @@ export function Examples() {
                 <Icon name="arrowRight" className="ex-find-arrow" />
                 <span className="ex-spot">{e.spot}</span>
               </div>
+              <GroupLink id={e.group} />
             </div>
           </article>
         ))}
@@ -97,6 +105,16 @@ export function Examples() {
         These are examples of how Wherehouse could be set up. They are not customer stories.
       </p>
     </div>
+  );
+}
+
+function GroupLink({ id }: { id: string }) {
+  const group = groupById(id);
+  if (!group) return null;
+  return (
+    <a className="site-link ex-group" href={groupHref(id)} onClick={(e) => openGroup(e, id)}>
+      {groupTitle(group)} →
+    </a>
   );
 }
 

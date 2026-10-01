@@ -8,16 +8,15 @@ import { useSite } from './routing';
 import { copyText, IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
 import { PortalCTA } from './kit';
-import { SITE_FOOTER_EXTRA, SITE_NAV } from './nav';
+import { SITE_FOOTER_EXTRA, SITE_NAV, siteLabel } from './nav';
 import './shell.css';
 
-const ALL_PAGES = [...SITE_NAV, ...SITE_FOOTER_EXTRA];
-const label = (route: SiteRouteName) => ALL_PAGES.find((p) => p.route === route)?.label ?? route;
+const label = (route: SiteRouteName) => siteLabel({ name: route });
 
 const FOOTER_COLUMNS: { title: string; routes: SiteRouteName[]; portal?: boolean }[] = [
-  { title: 'Product', routes: ['product', 'why', 'hardware', 'showcase'] },
+  { title: 'Product', routes: ['product', 'for', 'fit', 'hardware', 'showcase'] },
   { title: 'Company', routes: ['mission', 'customers', 'founder', 'contact'] },
-  { title: 'Resources', routes: ['pricing', 'security'], portal: true },
+  { title: 'Resources', routes: ['why', 'pricing', 'security'], portal: true },
 ];
 
 export function SiteShell({ children }: { children: ReactNode }) {
@@ -36,11 +35,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
   // A tab title per page, so tabs, history and bookmarks can be told apart. Leaving the website restores the plain name.
   useEffect(() => {
     const before = document.title;
-    document.title = route.name === 'home' ? `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, '')}` : `${label(route.name as SiteRouteName)} · ${BRAND.name}`;
+    document.title = route.name === 'home' ? `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, '')}` : `${siteLabel({ name: route.name, id: route.id })} · ${BRAND.name}`;
     return () => {
       document.title = before;
     };
-  }, [route.name]);
+  }, [route.name, route.id]);
 
   const open = (to: SiteRouteName) => {
     setMenuOpen(false);
