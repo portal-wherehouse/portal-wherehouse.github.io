@@ -1,0 +1,53 @@
+# Publishes main to Cloudflare Pages without the test run, for when a publish is needed right away
+# (for example the first publish after the Cloudflare secrets are saved). Run it by hand from the Actions tab.
+# Every push to main still goes through the full tests in pages.yml before it publishes.
+name: Quick publish to Cloudflare Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-quick
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: wherehouse
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - name: Check for Cloudflare secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must both be saved as repository secrets."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_FIREBASE_CONFIG: ${{ vars.VITE_FIREBASE_CONFIG }}
+          VITE_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.VITE_FIREBASE_APPCHECK_SITE_KEY }}
+      - name: Create the Pages project if it does not exist
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT")
+          if [ "$status" = "404" ]; then
+            npx --yes wrangler@4 pages project create "$PROJECT" --production-branch main
+          elif [ "$status" != "200" ]; then
+            echo "::error::Cloudflare answered $status when looking up the Pages project. Check the token's Cloudflare Pages Edit permission and the account ID."
+            exit 1
+          fi
+      - name: Deploy to Cloudflare Pages
+        run: npx --yes wrangler@4 pages deploy dist --project-name "$PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-dirty=true
