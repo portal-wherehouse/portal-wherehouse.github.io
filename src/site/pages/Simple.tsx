@@ -3,6 +3,7 @@ import { FeatureCards, PageHero, Section, SiteLink } from '../kit';
 import { Icon } from '../../ui/icons';
 import { CREATOR } from '../../brand';
 import { SETUP_FEE } from '../../domain/plans';
+import { portalHref } from '../../config/hosts';
 import { COMPARE_CHECKED, COMPARE_COLUMNS, COMPARE_GROUPS, type CompareCell, type CompareId, type Mark } from '../compare';
 import './compare.css';
 
@@ -148,7 +149,7 @@ export function SimplePage() {
           <SiteLink to="start" className="site-btn primary">
             Start your free trial
           </SiteLink>
-          <a className="site-btn ghost" href="?demo=1#signin">
+          <a className="site-btn ghost" href={portalHref("?demo=1#signin")}>
             See the sample warehouse
           </a>
           <SiteLink to="pricing">View plans →</SiteLink>

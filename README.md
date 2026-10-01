@@ -40,6 +40,21 @@ GitHub Actions verifies the app and backend, runs browser tests, then builds the
 
 Automated Firebase tests reject live project settings and require loopback emulators. Browser UI tests force the local sample build, reject live Firebase settings, and start their own server. The large load suite runs locally, not against a billed project.
 
+## Custom domain
+
+The same build also runs on the custom domain **wherehousetracking.com**, served by Cloudflare Pages. The domain is read from the address at run time (`src/config/hosts.ts`), so the routing below works on any domain without code changes (shown with `example.com`):
+
+- `example.com` and `www.example.com` show the website. Sign in, the portal screens, `#start` (its account step signs people in) and sample links (`?demo=1`) move to `app.example.com`, keeping the search and hash. Website links into the portal point straight at the app host.
+- `app.example.com` opens the portal: sign-in, or the Dashboard when signed in. Website pages opened there move to `example.com` with the same hash. Firebase sign-in is kept per address, so every sign-in and sign-up happens on the app host.
+- Every other host (`portal-wherehouse.github.io`, `*.pages.dev` previews, `localhost`, IP addresses) keeps the website and portal together with no redirects, exactly as before.
+
+Publishing: `.github/workflows/pages.yml` also deploys each push to `main` to the Cloudflare Pages project `wherehouse` (created on the first run, production branch `main`) once these repository secrets are set under Settings > Secrets and variables > Actions:
+
+- `CLOUDFLARE_API_TOKEN`: a custom API token with the Account > Cloudflare Pages > Edit permission.
+- `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account ID.
+
+Without them the Cloudflare job is skipped and GitHub Pages publishing continues unchanged. `public/_headers` keeps `sw.js` and `version.json` uncached on Cloudflare. New accounts are refused from hosts not listed in `SIGNUP_HOSTNAMES` (`src/config/registration.ts`). It lists `portal-wherehouse.github.io`, `wherehousetracking.com` and `app.wherehousetracking.com`; the functions must be deployed again for the list to take effect. The same hosts also need to be added to the Firebase authorized domains and the reCAPTCHA and App Check key domains. For a different domain, add its apex and app hosts the same way.
+
 ## Printing
 
 A receiving computer plus a USB 4 × 6 thermal printer is the practical starting point. Letter sheets work for a small pilot. Print at actual size with headers and footers disabled. Pallet and rack labels carry readable codes and QR codes; keyboard scanners must support the printed code type and send Enter. A phone camera is enough to start.

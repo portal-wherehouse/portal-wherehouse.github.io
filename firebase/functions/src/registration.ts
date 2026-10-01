@@ -5,7 +5,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, type CallableRequest } from "firebase-functions/v2/https";
 import {
   SIGNUP_CHECKBOX_KEY,
-  SIGNUP_HOSTNAME,
+  SIGNUP_HOSTNAMES,
 } from "../../../src/config/registration";
 
 export function validCheckboxAssessment(value: any, now = Date.now()): boolean {
@@ -15,7 +15,7 @@ export function validCheckboxAssessment(value: any, now = Date.now()): boolean {
   // supplied in the assessment; also check the attested hostname and token freshness.
   return (
     token?.valid === true &&
-    token.hostname === SIGNUP_HOSTNAME &&
+    SIGNUP_HOSTNAMES.includes(token.hostname) &&
     age >= -5000 &&
     age < 120000
   );

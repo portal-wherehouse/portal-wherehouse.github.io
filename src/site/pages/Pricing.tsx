@@ -1,4 +1,5 @@
 import { PageHero, Section, SiteLink } from '../kit';
+import { portalHref } from '../../config/hosts';
 import { PRICING } from '../prices';
 import { CLOUD_ADDON, PLANS, SETUP_FEE, money } from '../../domain/plans';
 export function PricingPage(){return <>
@@ -11,5 +12,5 @@ export function PricingPage(){return <>
 {['Shared records, photos and movement history','Phone scanning and printed labels','Manager and employee accounts','Remote support for the whole app'].map(t=><tr key={t}><th>{t}</th><td>Yes</td><td>Yes</td></tr>)}
 <tr><th>Printer, labels and hardware setup</th><td>Use your own; we help remotely</td><td>Included in your agreed quote</td></tr><tr><th>On-site visit</th><td>Available by arrangement</td><td>Can be included in your quote</td></tr>
 </tbody></table></div></Section>
-<Section narrow title={`Try it free for ${PRICING.pilotDays} days.`}><p>Answer a few questions and we’ll recommend a setup for how you work, then start your free trial. No card and no automatic charge. Rather see it in your building first? Book a free walkthrough.</p><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Start your free trial</SiteLink><SiteLink to="contact" className="site-btn ghost">Book a free walkthrough</SiteLink></div><a className="site-link" href="?demo=1#signin">Browse the sample warehouse →</a></Section>
+<Section narrow title={`Try it free for ${PRICING.pilotDays} days.`}><p>Answer a few questions and we’ll recommend a setup for how you work, then start your free trial. No card and no automatic charge. Rather see it in your building first? Book a free walkthrough.</p><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Start your free trial</SiteLink><SiteLink to="contact" className="site-btn ghost">Book a free walkthrough</SiteLink></div><a className="site-link" href={portalHref('?demo=1#signin')}>Browse the sample warehouse →</a></Section>
 </>;}

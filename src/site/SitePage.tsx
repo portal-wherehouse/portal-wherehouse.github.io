@@ -25,6 +25,7 @@ const FounderPage = lazy(() =>
 import { ContactPage } from "./pages/Contact";
 import { SecurityPage } from "./pages/Security";
 import { firebaseConfig, sampleMode } from "../data/firebaseConfig";
+import { crossHostFromHere } from "../config/hosts";
 
 const SetupSurvey = lazy(() =>
   import("../features/setup/SetupSurvey").then((m) => ({
@@ -74,6 +75,14 @@ const SITE_PAGES: Record<SiteRouteName, React.ComponentType> = {
 };
 
 export function SitePage({ route }: { route: SiteRouteName }) {
+  const { route: full } = useSite();
+  // On a custom domain, a page that lives on the other host (a website page opened from the
+  // portal on app., or #start on the website) is replaced by that host's address.
+  const away = crossHostFromHere(full.name === route ? full : { name: route });
+  useEffect(() => {
+    if (away) location.replace(away);
+  }, [away]);
+  if (away) return null;
   const Page = SITE_PAGES[route];
   if (route === "start") return <StartPage />;
   return (

@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Icon } from '../../ui/icons';
 import { CtaBand, FeatureCards, PageHero, Section, SiteLink } from '../kit';
 import { useSite } from '../routing';
+import { portalHref } from '../../config/hosts';
 import { GroupCards, openGroup } from './GroupCards';
 import { groupById, groupHref, groupTitle } from './groups';
 import { FEATURES, GROUP_PAGES, type Group } from './groupPages';
@@ -12,7 +13,7 @@ import { GroupShowcase, Label } from './GroupShowcase';
 import './for.css';
 
 /** The sample warehouse: opens the app with sample data, no account. */
-const SAMPLE_HREF = '?demo=1#signin';
+const SAMPLE_HREF = portalHref('?demo=1#signin');
 
 export function ForPage() {
   const { route } = useSite();
