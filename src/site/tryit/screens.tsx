@@ -618,7 +618,7 @@ export function FindScreen({
 
 // ------------------------------------------------------------------ 6. History
 
-const STATE_WORD: Record<PalletState, string> = { RECEIVED: 'Received', STORED: 'Stored', DISPATCHED: 'Dispatched', MISSING: 'Missing', RETIRED: 'Retired' };
+const STATE_WORD: Record<PalletState, string> = { RECEIVED: 'Received', STORED: 'Stored', IN_TRANSIT: 'In transit', DISPATCHED: 'Dispatched', MISSING: 'Missing', RETIRED: 'Retired' };
 
 function Spot({ s }: { s: PalletSnapshot | null }) {
   if (s?.current_location_code) return <Plate code={s.current_location_code} size="sm" />;

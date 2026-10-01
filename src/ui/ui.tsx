@@ -47,6 +47,7 @@ export function fmtFull(iso: string | null | undefined): string {
 const STATE_ICON: Record<PalletState, IconName> = {
   RECEIVED: 'receive',
   STORED: 'check',
+  IN_TRANSIT: 'swap',
   DISPATCHED: 'truck',
   MISSING: 'question',
   RETIRED: 'retire',
@@ -105,6 +106,16 @@ export function WhereCell({ pallet, location, lastLocation, size = 'sm' }: { pal
       <div>
         <Plate code="MISSING" size={size} variant="none" />
         <div className="where-text">{lastLocation ? `Last seen ${lastLocation.code} (historical)` : 'Never placed'}</div>
+      </div>
+    );
+  }
+  if (pallet.state === 'IN_TRANSIT') {
+    return (
+      <div>
+        <Plate code="IN TRANSIT" size={size} variant="none" />
+        <div className="where-text">
+          {pallet.transfer ? `In transit to ${pallet.transfer.to_name}, ${pallet.transfer.number}` : 'In transit to another warehouse'}
+        </div>
       </div>
     );
   }

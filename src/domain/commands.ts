@@ -9,6 +9,8 @@ import { ADMIN_COMMANDS, PALLET_COMMANDS, type CommandEnvelope, type CommandKind
 const id = z.string().min(1).max(64);
 const text = (max: number) => z.string().max(max);
 const reason = text(500).optional();
+/** Pallets picked for a transfer, each with the version the person saw when picking it. */
+const transferLines = z.array(z.object({ pallet_id: id, expected_version: z.number().int().positive() })).min(1).max(50);
 
 export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unknown>>> = {
   receive: z.object({
@@ -116,6 +118,11 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     files: z.enum(['cloud', 'paper']).nullable(),
     barcodes: z.enum(['import', 'scan', 'print']).nullable(),
   }),
+  create_transfer: z.object({ to_workspace_id: id, lines: transferLines, note: text(500).optional(), send: z.boolean().optional() }),
+  send_transfer: z.object({ transfer_id: id }),
+  receive_transfer: z.object({ transfer_id: id, location_id: id.optional() }),
+  cancel_transfer: z.object({ transfer_id: id, reason }),
+  transfer_now: z.object({ to_workspace_id: id, lines: transferLines.max(20), note: text(500).optional(), location_id: id.optional() }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];
@@ -143,6 +150,12 @@ export function validateEnvelope(
   if (!payload.success) {
     const issue = payload.error.issues[0];
     return { ok: false, message: `Invalid ${c.kind} payload: ${issue?.path.join('.') || 'value'} ${issue?.message ?? ''}`.trim() };
+  }
+  if (c.kind === 'receive_transfer' && (!c.pallet_id || c.expected_version === undefined)) {
+    return { ok: false, message: 'receive_transfer requires pallet_id and expected_version.' };
+  }
+  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer') && c.expected_version === undefined) {
+    return { ok: false, message: `${c.kind} requires expected_version.` };
   }
   if ((VERSIONED_PALLET_COMMANDS as readonly string[]).includes(c.kind)) {
     if (!c.pallet_id || c.expected_version === undefined) {

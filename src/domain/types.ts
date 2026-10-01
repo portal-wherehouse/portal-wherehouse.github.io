@@ -3,11 +3,11 @@ import type { PalletInfo } from './receiving';
 // UUIDs identify records; human-readable codes support physical work.
 
 export type Role = 'OWNER' | 'SUPERVISOR' | 'OPERATOR' | 'VIEWER';
-export type PalletState = 'RECEIVED' | 'STORED' | 'DISPATCHED' | 'MISSING' | 'RETIRED';
+export type PalletState = 'RECEIVED' | 'STORED' | 'IN_TRANSIT' | 'DISPATCHED' | 'MISSING' | 'RETIRED';
 export type LocationKind = 'RACK' | 'RECEIVING' | 'QUARANTINE' | 'STAGING' | 'FLOOR';
 export type JobStatus = 'OPEN' | 'CLOSED';
 
-export const PALLET_STATES: PalletState[] = ['RECEIVED', 'STORED', 'DISPATCHED', 'MISSING', 'RETIRED'];
+export const PALLET_STATES: PalletState[] = ['RECEIVED', 'STORED', 'IN_TRANSIT', 'DISPATCHED', 'MISSING', 'RETIRED'];
 export const LOCATION_KINDS: LocationKind[] = ['RACK', 'RECEIVING', 'QUARANTINE', 'STAGING', 'FLOOR'];
 
 export interface User {
@@ -20,6 +20,8 @@ export interface Workspace {
   id: string;
   name: string;
   created_at: string;
+  /** The account (its owner) this warehouse belongs to. Transfers only run between warehouses of one account. */
+  account_id?: string;
 }
 
 export interface Membership {
@@ -153,6 +155,81 @@ export interface Pallet {
   updated_at: string;
   archived_at: string | null;
   label_needs_reprint: boolean;
+  /** Set while the pallet is on its way to another warehouse of the account (state IN_TRANSIT). */
+  transfer?: PalletTransfer | null;
+}
+
+/** The transfer a pallet is travelling on, so Find and the record can say where it is headed. */
+export interface PalletTransfer {
+  id: string;
+  number: string;
+  from_workspace_id: string;
+  from_name: string;
+  to_workspace_id: string;
+  to_name: string;
+}
+
+export const TRANSFER_STATUSES = ['DRAFT', 'IN_TRANSIT', 'PARTLY_RECEIVED', 'RECEIVED', 'CANCELLED'] as const;
+export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
+export type TransferLineStatus = 'WAITING' | 'IN_TRANSIT' | 'RECEIVED' | 'RETURNED';
+
+/** One pallet on a transfer, with what both warehouses need to know about it. */
+export interface TransferLine {
+  pallet_id: string;
+  code: string;
+  description: string;
+  /** The pallet's QR label, so the receiving warehouse can match a scan to this line. */
+  label_token: string | null;
+  status: TransferLineStatus;
+  /** The pallet's version after the last transfer step; receiving checks it like any pallet command. */
+  version: number;
+  from_location_id: string | null;
+  from_location_code: string | null;
+  to_location_code: string | null;
+  received_at: string | null;
+  received_by: string | null;
+}
+
+/** One step of a transfer's history, readable from both warehouses. */
+export interface TransferStep {
+  at: string;
+  actor_id: string;
+  actor_name: string;
+  workspace_id: string;
+  action: 'created' | 'sent' | 'received' | 'cancelled' | 'returned';
+  text: string;
+}
+
+/** Pallets sent from one warehouse of an account to another. Both warehouses keep the same record. */
+export interface Transfer {
+  id: string;
+  account_id: string;
+  /** TR-0001: one sequence per account, printed on the transfer slip as a Code 128 barcode. */
+  number: string;
+  from_workspace_id: string;
+  from_warehouse_id: string;
+  from_name: string;
+  to_workspace_id: string;
+  to_warehouse_id: string;
+  to_name: string;
+  status: TransferStatus;
+  note: string | null;
+  lines: TransferLine[];
+  /** Label tokens and codes of every line, so a scan in either warehouse finds this transfer. */
+  keys: string[];
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  sent_by: string | null;
+  sent_at: string | null;
+  received_by: string | null;
+  received_at: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  log: TransferStep[];
+  version: number;
+  updated_at: string;
 }
 
 /** Operational values needed to explain a change (page 20, "Event fields"). */
@@ -296,13 +373,22 @@ export const ADMIN_COMMANDS = [
   'set_measurements',
   'set_setup',
   'set_onboarding',
+  'create_transfer',
+  'send_transfer',
+  'receive_transfer',
+  'cancel_transfer',
+  'transfer_now',
 ] as const;
 export type AdminCommandKind = (typeof ADMIN_COMMANDS)[number];
 
 export type CommandKind = PalletCommandKind | AdminCommandKind;
 
 /** Event types: every pallet command, plus the per-child record a split creates. */
-export type EventType = PalletCommandKind | 'split_child' | 'import_receive';
+export type EventType = PalletCommandKind | 'split_child' | 'import_receive' | 'transfer_send' | 'transfer_receive' | 'transfer_return';
+
+/** Commands that change a transfer and the pallets on it, in two warehouses of one account. */
+export const TRANSFER_COMMANDS = ['create_transfer', 'send_transfer', 'receive_transfer', 'cancel_transfer', 'transfer_now'] as const;
+export type TransferCommandKind = (typeof TRANSFER_COMMANDS)[number];
 
 export interface PalletLineage {
   workspace_id: string;

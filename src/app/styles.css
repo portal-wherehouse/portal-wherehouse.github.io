@@ -1122,6 +1122,11 @@ textarea {
   color: var(--warn);
 }
 
+.state.IN_TRANSIT {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .state.DISPATCHED {
   background: var(--slate-soft);
   color: var(--slate);
@@ -1702,6 +1707,19 @@ table.t th.n {
   color: var(--ink-2);
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+/* A button that reads as a link inside a sentence, e.g. a transfer number in a pallet's history. */
+.text-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .tag.accent {

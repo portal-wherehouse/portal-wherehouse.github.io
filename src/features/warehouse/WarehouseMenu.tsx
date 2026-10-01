@@ -17,6 +17,8 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
     { backend, actorId, workspaceId, go, toast } = app;
   const cloud = backend instanceof FirebaseBackend ? backend : null;
   const multi = cloud ? cloud.multiWarehouse : false;
+  // The sample's warehouses can always be switched; adding one stays a plan feature.
+  const canSwitch = cloud ? cloud.multiWarehouse : true;
   const canEdit = roleAllows(app.role, "update_warehouse");
   const [open, setOpen] = useState(false),
     [settings, setSettings] = useState(false),
@@ -86,7 +88,7 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
   }, [open]);
   const close = () => setOpen(false);
   const switchTo = async (id: string) => {
-    if (!multi) {
+    if (!canSwitch) {
       close();
       setUpgrade(true);
       return;
@@ -192,7 +194,7 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
             {!!otherCount && (
               <>
                 <div className="warehouse-menu-label">
-                  Switch warehouse{!multi && <small>Contact to upgrade</small>}
+                  Switch warehouse{!canSwitch && <small>Contact to upgrade</small>}
                 </div>
                 {others.map((row) => (
                   <button
@@ -204,7 +206,7 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
                   >
                     <Icon name="locations" />
                     <span>{row.name}</span>
-                    {!multi && <Icon name="lock" />}
+                    {!canSwitch && <Icon name="lock" />}
                   </button>
                 ))}
                 {busy && <p role="status">Loading warehouses…</p>}

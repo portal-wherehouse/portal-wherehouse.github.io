@@ -476,6 +476,21 @@
       "collectionGroup": "pallets",
       "fieldPath": "supplier_ref",
       "indexes": []
+    },
+    {
+      "collectionGroup": "transfers",
+      "fieldPath": "lines",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "transfers",
+      "fieldPath": "log",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "transfers",
+      "fieldPath": "note",
+      "indexes": []
     }
   ]
 }

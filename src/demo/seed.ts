@@ -127,8 +127,8 @@ class Driver {
     return r.current_state;
   }
 
-  setupWorkspace(owner: User, name: string, others: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][]) {
-    const { workspace } = this.engine.createWorkspace(owner, name, { code: 'WH-01', name: 'Main yard', timezone: 'America/Chicago' });
+  setupWorkspace(owner: User, name: string, others: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][], facility = { code: 'WH-01', name: 'Main yard' }) {
+    const { workspace } = this.engine.createWorkspace(owner, name, { ...facility, timezone: 'America/Chicago' });
     this.ws = workspace.id;
     // The sample is a pallet yard that has already answered "What do you store?".
     for (const w of Object.values(this.db.warehouses)) if (w.workspace_id === this.ws) w.setup = { ...DEFAULT_SETUP, preset: 'pallets' };
@@ -350,5 +350,18 @@ export function seedSample():Db{
   if(i===1)d.run(employee.id,'move',{location_id:d.locs.get('B-01-01')!.id},p);
   if(i===5)d.run(employee.id,'apply_hold',{reason:'Example: waiting for a damage check.'},p);
   if(i===6)d.run(employee.id,'dispatch',{destination:'Example job 2'},p);
- }return db;
+ }
+ // A second warehouse in the same account, so Transfers can be tried. Its pallet numbers start at 101,
+ // so codes stay distinct from the main yard's while pallets move between the two.
+ const main=d.ws;d.jobs=new Map();d.locs=new Map();
+ d.setupWorkspace(owner,'Overflow yard',[[manager,'SUPERVISOR'],[employee,'OPERATOR'],[viewer,'VIEWER']],{code:'WH-02',name:'Overflow yard'});
+ d.addJobs(manager.id,[['JOB-1','Example job 1','Example delivery address']]);
+ d.addLocations(owner.id,[['RECEIVING-01','RECEIVING'],['C-01-01','RACK'],['C-01-02','RACK']]);
+ db.counters[d.ws]=100;
+ for(let i=1;i<=3;i++){
+  const p=d.run(employee.id,'receive',{job_id:d.jobs.get('JOB-1')!.id,description:`Overflow pallet ${i}`})!;
+  d.run(employee.id,'place',{location_id:d.locs.get(i===3?'C-01-02':'C-01-01')!.id},p);
+ }
+ d.ws=main;
+ return db;
 }

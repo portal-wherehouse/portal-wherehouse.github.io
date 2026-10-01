@@ -4,6 +4,7 @@ import type { PalletState } from './types';
 export const STATE_LABEL: Record<PalletState, string> = {
   RECEIVED: 'Received',
   STORED: 'Stored',
+  IN_TRANSIT: 'In transit',
   DISPATCHED: 'Dispatched',
   MISSING: 'Missing',
   RETIRED: 'Retired',

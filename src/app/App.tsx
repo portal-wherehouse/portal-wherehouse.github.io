@@ -38,6 +38,8 @@ import { Sync } from '../features/sync/Sync';
 import { Tour } from '../features/tour/Tour';
 import { PortalTour } from '../features/tour/PortalTour';
 import { ScanAnywhere } from '../features/scanners/ScanAnywhere';
+import { TransferDetail, TransferScan, Transfers } from '../features/transfers/Transfers';
+import { useHasTransferTargets } from '../features/transfers/targets';
 import { Help } from '../features/help/Help';
 import { Scanners } from '../features/scanners/Scanners';
 import { Station } from '../features/station/Station';
@@ -85,6 +87,8 @@ const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.
   data: DataStorage,
   incoming: Incoming,
   products: Products,
+  transfers: Transfers,
+  transfer: TransferDetail,
 };
 
 const TABS: { route: RouteName; label: string; icon: 'receive' | 'move' | 'find' | 'more' | 'overview' }[] = [
@@ -156,6 +160,7 @@ function Portal() {
   // A new self-serve warehouse is locked to its setup checklist until a manager finishes or skips it. Every
   // other button is greyed out and says why; the checklist's own links still reach the tools it needs.
   const checklist = useChecklistStatus();
+  const transfers = useHasTransferTargets();
   // The wizard brings in the website survey itself; any other warehouse gets its answers applied here, once.
   useApplySavedSurvey(!!ctx?.warehouse && !ctx.warehouse.onboarding);
   const setupLocked = ctx?.warehouse?.onboarding?.state === 'pending';
@@ -254,7 +259,7 @@ function Portal() {
           <nav className="sidebar" aria-label="Main">
             {checklist.show && <ChecklistNav status={checklist} here={onChecklist} />}
             <button className={`nav-item dashboard-nav${setupLocked ? ' locked' : ''}`} aria-disabled={setupLocked || undefined} aria-current={route.name === 'overview' && !setupLocked ? 'page' : undefined} onClick={() => open('overview')} data-tour="nav-overview"><Icon name="overview" />Dashboard</button>
-            {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on).map((g) => (
+            {visibleNavGroups(role, app.prefs.advancedTools, backend.mode === 'firebase', setup.jobs_on, transfers).map((g) => (
               <div key={g.title} className="nav-group">
                 <details open={!folded.includes(g.title)}>
                 {/* Handled on click (not the async toggle event) so the choice is saved before any refresh. */}
@@ -267,7 +272,7 @@ function Portal() {
                   {g.title}
                 </summary>
                 {g.items.filter(i => i.route !== 'overview').map((i) => {
-                  const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location');
+                  const current = route.name === i.route || (i.route === 'find' && route.name === 'pallet') || (i.route === 'jobs' && route.name === 'job') || (i.route === 'locations' && route.name === 'location') || (i.route === 'transfers' && route.name === 'transfer');
                   const count = i.route === 'reconcile' ? counts?.reconcile : i.route === 'sync' ? pending : undefined;
                   return (
                     <button key={i.route} className={`nav-item${setupLocked ? ' locked' : ''}`} aria-disabled={setupLocked || undefined} aria-current={current && !onChecklist ? 'page' : undefined} onClick={() => open(i.route)} data-tour={`nav-${i.route}`}>
@@ -380,6 +385,7 @@ function Portal() {
       {signedIn && backend.mode === 'demo' && <Tour />}
       {signedIn && backend.sampleMode && <SampleHints key={`${route.name}:${route.id||''}`} />}
       {signedIn && <PortalTour />}
+      <TransferScan />
       <ScanAnywhere />
       <Toasts />
       <div className="print-root" id="print-root" />

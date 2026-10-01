@@ -83,7 +83,7 @@ export class Backend {
 
   private async init() {
     try {
-      this.store = createStore(this.sampleMode?'wherehouse-sample-v2':'pallet-locator-demo', 'kv');
+      this.store = createStore(this.sampleMode?'wherehouse-sample-v3':'pallet-locator-demo', 'kv');
       const [db, meta, pending] = await Promise.all([get<Db>(DB_KEY, this.store), get<Meta>(META_KEY, this.store), get<PendingSend[]>(PENDING_KEY, this.store)]);
       if (db && meta && db.schema === DB_SCHEMA_VERSION) {
         this.db = db;
@@ -605,7 +605,8 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
     if (typeof p.version !== 'number') problems.push(`Pallet ${code} has no version number.`);
     const ev = own(d.events, p.id);
     if (!Array.isArray(ev) || ev.length === 0) problems.push(`Pallet ${code} has no history.`);
-    else if (ev.some((e, i) => e.pallet_id !== p.id || e.workspace_id !== p.workspace_id || (i > 0 && e.revision !== ev[i - 1].revision + 1)) || ev[ev.length - 1].revision !== p.version) {
+    // A transferred pallet keeps its history: earlier entries belong to the warehouse where they happened.
+    else if (ev.some((e, i) => e.pallet_id !== p.id || !ws(e.workspace_id) || (i > 0 && e.revision !== ev[i - 1].revision + 1)) || ev[ev.length - 1].revision !== p.version) {
       problems.push(`Pallet ${code} has history that does not line up with its version.`);
     }
   }
@@ -621,7 +622,8 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
   for (const l of d.lineage) {
     const parent = own(d.pallets, l.parent_id);
     const child = own(d.pallets, l.child_id);
-    if (!parent || !child || parent.workspace_id !== l.workspace_id || child.workspace_id !== l.workspace_id) problems.push('A split record points at pallets that are not in the file, or at another company.');
+    // Either side of a split may since have moved to another warehouse on a transfer.
+    if (!parent || !child || !ws(l.workspace_id)) problems.push('A split record points at pallets that are not in the file, or at another company.');
   }
   for (const a of d.audit) if (!ws(a.workspace_id)) problems.push('An admin log entry belongs to a company that is not in the file.');
   const names = Object.values(d.workspaces).map((w) => (typeof w.name === 'string' ? w.name : w.id));

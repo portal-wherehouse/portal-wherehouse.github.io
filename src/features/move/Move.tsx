@@ -250,7 +250,7 @@ export function Move() {
                   }}
                   onError={(text, raw) => dispatch({ type: 'SCAN_ERROR', text, raw, at: Date.now() })}
                 />
-                {s.message && stageIndex === 0 && <StageMessage s={s} onRoute={(r) => s.pallet && go({ name: 'pallet', id: s.pallet.id, q: r })} />}
+                {s.message && stageIndex === 0 && <StageMessage s={s} onRoute={(r) => s.pallet && (r === 'transfer' && s.pallet.transfer ? go({ name: 'transfer', id: s.pallet.transfer.id }) : go({ name: 'pallet', id: s.pallet.id, q: r }))} />}
               </>
             )}
           </div>
@@ -616,7 +616,7 @@ function StageMessage({ s, onRoute }: { s: MoveState; onRoute?: (r: string) => v
       actions={
         s.blockedRoute && onRoute ? (
           <button className="btn small" onClick={() => onRoute(s.blockedRoute!)}>
-            {s.blockedRoute === 'return' ? 'Open record to record return' : 'Open record to mark found'}
+            {s.blockedRoute === 'transfer' ? 'Open transfer' : s.blockedRoute === 'return' ? 'Open record to record return' : 'Open record to mark found'}
           </button>
         ) : undefined
       }

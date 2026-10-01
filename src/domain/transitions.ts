@@ -49,6 +49,12 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   set_measurements: 'SUPERVISOR',
   set_setup: 'SUPERVISOR',
   set_onboarding: 'SUPERVISOR',
+  create_transfer: 'OPERATOR',
+  send_transfer: 'OPERATOR',
+  receive_transfer: 'OPERATOR',
+  // Anyone who can send may cancel a draft. Once sent, the engine requires a manager or owner.
+  cancel_transfer: 'OPERATOR',
+  transfer_now: 'OPERATOR',
 };
 
 export function roleAllows(role: Role | null | undefined, kind: CommandKind): boolean {
@@ -99,12 +105,20 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   set_measurements: 'Weight and size tracking changed',
   set_setup: 'Warehouse setup changed',
   set_onboarding: 'Setup checklist updated',
+  create_transfer: 'Transfer created',
+  send_transfer: 'Transfer sent',
+  receive_transfer: 'Received from transfer',
+  cancel_transfer: 'Transfer cancelled',
+  transfer_now: 'Transferred',
 };
 
 export const EVENT_LABEL: Record<EventType, string> = {
   ...(COMMAND_LABEL as Record<PalletCommandKind, string>),
   split_child: 'Created by split',
   import_receive: 'Received by import',
+  transfer_send: 'Sent on transfer',
+  transfer_receive: 'Received from transfer',
+  transfer_return: 'Back from cancelled transfer',
 };
 
 export interface TransitionInput {
@@ -161,8 +175,10 @@ function locationGuard(pallet: Pallet, loc: Location | null | undefined): Transi
 }
 
 /** Explain why an ordinary Move cannot proceed, with the route the operator should take instead (page 12). */
-export function moveBlocker(pallet: Pallet): { code: ErrorCode; message: string; route?: 'return' | 'locate' } | null {
+export function moveBlocker(pallet: Pallet): { code: ErrorCode; message: string; route?: 'return' | 'locate' | 'transfer' } | null {
   switch (pallet.state) {
+    case 'IN_TRANSIT':
+      return { code: 'INVALID_STATE', message: inTransitMessage(pallet), route: 'transfer' };
     case 'DISPATCHED':
       return { code: 'INVALID_STATE', message: `${pallet.code} was dispatched. Record a return before placing it.`, route: 'return' };
     case 'MISSING':
@@ -174,9 +190,20 @@ export function moveBlocker(pallet: Pallet): { code: ErrorCode; message: string;
   }
 }
 
+/** Why nothing can change a pallet on its way to another warehouse, and what to do instead. */
+export function inTransitMessage(pallet: Pallet): string {
+  const t = pallet.transfer;
+  return t
+    ? `${pallet.code} is in transit to ${t.to_name} on ${t.number}. Receive it at ${t.to_name}, or cancel the transfer.`
+    : `${pallet.code} is in transit to another warehouse. Receive it there, or cancel the transfer.`;
+}
+
 export function checkTransition(kind: PalletCommandKind, input: TransitionInput): TransitionOutcome {
   const { pallet, job, location, newJob, payload, now, actorId } = input;
   const reason = needsReason(payload);
+
+  // A pallet on a transfer belongs to the transfer until it is received or the transfer is cancelled.
+  if (pallet.state === 'IN_TRANSIT') return reject('INVALID_STATE', inTransitMessage(pallet));
 
   if (pallet.state === 'RETIRED' && !['correct', 'archive'].includes(kind)) {
     return reject('INVALID_STATE', `${pallet.code} is retired. A supervisor can correct a mistaken retirement.`);
@@ -408,7 +435,7 @@ export function checkTransition(kind: PalletCommandKind, input: TransitionInput)
 
 /** Actions to offer on a pallet record for this role. The server re-checks everything. */
 export function availableActions(pallet: Pallet, role: Role | null): PalletCommandKind[] {
-  if (!role) return [];
+  if (!role || pallet.state === 'IN_TRANSIT') return [];
   const out: PalletCommandKind[] = [];
   const add = (k: PalletCommandKind, when: boolean) => when && roleAllows(role, k) && out.push(k);
   const s = pallet.state;

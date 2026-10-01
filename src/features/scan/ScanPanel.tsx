@@ -51,6 +51,7 @@ export function ScanPanel({
   demoTargets,
   placeholder = 'Type the printed code, e.g. P-000042 or A-03-02',
   autoFocusInput,
+  intercept,
 }: {
   prompt: string;
   onResolved: (r: Resolved, raw: string) => void;
@@ -58,6 +59,8 @@ export function ScanPanel({
   demoTargets?: DemoTarget[];
   placeholder?: string;
   autoFocusInput?: boolean;
+  /** Read a scan before the usual lookup, e.g. a pallet arriving on a transfer. True when it was used. */
+  intercept?: (text: string) => boolean;
 }) {
   const { backend, actorId, workspaceId, go, prefs } = useApp();
   const { settings, beep } = useScanRouter();
@@ -82,6 +85,10 @@ export function ScanPanel({
   const resolve = (raw: string, source: ScanSource = 'typed', quiet = false): boolean => {
     if (!actorId || !workspaceId) return false;
     const text = raw.trim();
+    if (intercept?.(text)) {
+      if (!quiet) setLast({ text, source, ok: true, at: Date.now() });
+      return true;
+    }
     try {
       const r = backend.reader.resolve(actorId, workspaceId, raw);
       if (!quiet) setLast({ text, source, ok: true, at: Date.now() });

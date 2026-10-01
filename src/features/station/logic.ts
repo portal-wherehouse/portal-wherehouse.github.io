@@ -118,6 +118,8 @@ export function whereLine(p: Pallet, codeOf: CodeOf, now = Date.now()): string {
       const last = codeOf(p.last_confirmed_location_id);
       return last ? `Marked missing. It was last confirmed at ${last}` : 'Marked missing. It was never placed';
     }
+    case 'IN_TRANSIT':
+      return `In transit to ${p.transfer?.to_name ?? 'another warehouse'}${p.transfer ? ` on ${p.transfer.number}` : ''}`;
     case 'DISPATCHED':
       return 'Dispatched. It has left the warehouse';
     case 'RETIRED':
@@ -134,6 +136,8 @@ export function whereShort(p: Pallet, codeOf: CodeOf): string {
       return 'Not placed yet';
     case 'MISSING':
       return 'Marked missing';
+    case 'IN_TRANSIT':
+      return 'In transit';
     case 'DISPATCHED':
       return 'Dispatched';
     case 'RETIRED':
@@ -285,6 +289,8 @@ export function countRowFor(p: Pallet, rack: Location, codeOf: CodeOf): { list: 
       const last = codeOf(p.last_confirmed_location_id);
       return { list: 'unexpected', row: row('locate', `Marked missing${last ? `, last confirmed at ${last}` : ''}`) };
     }
+    case 'IN_TRANSIT':
+      return { list: 'unexpected', row: row(null, `In transit on ${p.transfer?.number ?? 'a transfer'}. Receive it at ${p.transfer?.to_name ?? 'its destination'}, or ask a manager to cancel the transfer.`) };
     case 'DISPATCHED':
       return { list: 'unexpected', row: row(null, 'Recorded as dispatched. Record the return from its record first.') };
     case 'RETIRED':

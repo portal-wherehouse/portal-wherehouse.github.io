@@ -10,8 +10,8 @@ import { ROLE_LABEL, fmtTime } from '../../ui/ui';
 import { useSetup } from '../../app/words';
 import { ScanReadyPanel } from '../scan/ScanReady';
 
-const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'MISSING', 'DISPATCHED', 'RETIRED'];
-const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
+const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'MISSING', 'DISPATCHED', 'RETIRED'];
+const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
 const ACTIONS: { route: RouteName; title: string; hint: string; icon: IconName; write?: boolean }[] = [
   {route:'receive',title:'Receive',hint:'Record an incoming pallet',icon:'receive',write:true},
   {route:'move',title:'Move',hint:'Scan a pallet and its new rack',icon:'move',write:true},
@@ -100,15 +100,17 @@ export function Overview() {
 }
 
 function StateBar({ counts, total }: { counts: Record<PalletState, number>; total: number }) {
+  // In transit only shows while a transfer is on its way.
+  const states = STATE_ORDER.filter((s) => s !== 'IN_TRANSIT' || counts[s] > 0);
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <div className="stackbar" role="img" aria-label={STATE_ORDER.map((s) => `${STATE_LABEL[s]} ${counts[s]}`).join(', ')}>
+      <div className="stackbar" role="img" aria-label={states.map((s) => `${STATE_LABEL[s]} ${counts[s]}`).join(', ')}>
         {STATE_ORDER.filter((s) => counts[s] > 0).map((s) => (
           <div key={s} style={{ flex: counts[s], background: STATE_VAR[s] }} title={`${STATE_LABEL[s]}: ${counts[s]} of ${total}`} />
         ))}
       </div>
       <div className="legend">
-        {STATE_ORDER.map((s) => (
+        {states.map((s) => (
           <span key={s}>
             <i style={{ background: STATE_VAR[s] }} />
             {STATE_LABEL[s]} <strong className="num" style={{ color: 'var(--ink)' }}>{counts[s]}</strong>

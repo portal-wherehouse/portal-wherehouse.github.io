@@ -1,0 +1,214 @@
+/* Transfers: list rows, the pallet picker, the history log and the printed slip. */
+
+.tr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+}
+
+.tr-row:hover {
+  border-color: var(--ink-3);
+}
+
+.tr-row-main,
+.tr-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tr-row-meta {
+  justify-content: flex-end;
+  font-size: 13.5px;
+}
+
+.tr-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tr-dir svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.tr-row-note {
+  grid-column: 1 / -1;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .tr-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tr-row-meta {
+    justify-content: flex-start;
+  }
+}
+
+.tr-picked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tr-picked li,
+.tr-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.tr-picked .icon-btn {
+  margin-left: auto;
+}
+
+.tr-picked .icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tr-desc {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tr-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.tr-pick {
+  cursor: pointer;
+}
+
+.tr-pick input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.tr-pick.blocked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tr-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tr-log li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+}
+
+.tr-log .faint {
+  font-size: 12.5px;
+}
+
+.tr-log-text {
+  overflow-wrap: anywhere;
+}
+
+/* The slip: black on white on screen and on paper. */
+.tr-slip-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #14171a;
+  overflow-x: auto;
+}
+
+.tr-slip {
+  padding: 12px;
+  color: #14171a;
+  background: #fff;
+}
+
+.tr-slip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.tr-slip-head h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+}
+
+.tr-slip-head p {
+  margin: 0;
+}
+
+.tr-slip-code {
+  width: 220px;
+  max-width: 50%;
+}
+
+.tr-slip-meta {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+}
+
+.tr-slip-meta th {
+  text-align: left;
+  padding: 3px 8px 3px 0;
+  width: 70px;
+  white-space: nowrap;
+}
+
+.tr-slip-meta td {
+  padding: 3px 12px 3px 0;
+}
+
+.tr-slip .t {
+  font-size: 12px;
+  color: #14171a;
+}
+
+.tr-slip-foot {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
