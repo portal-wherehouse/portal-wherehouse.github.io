@@ -1,0 +1,386 @@
+/* Stock: running low, quantity changes, reports and the dispatch slip. */
+
+/* ------------------------------------------------------------------ running low */
+
+.low-card {
+  display: grid;
+  gap: 10px;
+}
+
+.low-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.low-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.low-name strong {
+  overflow-wrap: anywhere;
+}
+
+.low-level {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.low-on {
+  font: 650 24px/1 system-ui, sans-serif;
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+
+.low-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.low-bar span {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+  border-radius: 3px;
+}
+
+.low-line {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.low-note {
+  margin: 0;
+}
+
+.low-elsewhere .btn {
+  white-space: normal;
+  text-align: left;
+}
+
+.low-form {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+/* ------------------------------------------------------------------ quantity changes */
+
+.reason-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px;
+}
+
+.reason-grid button {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reason-grid button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft, var(--surface-2));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.adjust-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adjust-preview svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--ink-3);
+}
+
+.adjust-preview strong {
+  font-size: 22px;
+}
+
+.pending-adjust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.pending-adjust > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ reports */
+
+.report-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-picker button {
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.report-picker button[aria-selected='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+
+.report-what {
+  margin: 0;
+}
+
+.report-bar {
+  align-items: center;
+}
+
+.report-summary {
+  margin: 0;
+  min-width: 200px;
+}
+
+.report-table td {
+  overflow-wrap: anywhere;
+}
+
+.report-table .link-btn,
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-btn:hover .pcode,
+.link-btn:hover .mono {
+  text-decoration: underline;
+}
+
+.age-bands {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.age-band {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.age-band strong {
+  font: 650 22px/1.1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.age-band span {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.age-band.band-3 strong {
+  color: var(--warn);
+}
+
+@media (max-width: 600px) {
+  .age-bands {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------------------ dispatch */
+
+.send-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.send-panel .row {
+  align-items: center;
+}
+
+.send-ref {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 700;
+}
+
+.dispatch-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* The slip: black on white on screen and on paper. */
+.ds-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #14171a;
+  overflow-x: auto;
+}
+
+.ds-slip {
+  padding: 14px;
+  color: #14171a;
+  background: #fff;
+}
+
+.ds-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.ds-head h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+}
+
+.ds-head p {
+  margin: 0 0 2px;
+}
+
+.ds-code {
+  width: 220px;
+  max-width: 50%;
+}
+
+.ds-meta {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.ds-meta th {
+  text-align: left;
+  padding: 3px 8px 3px 0;
+  width: 70px;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.ds-meta td {
+  padding: 3px 12px 3px 0;
+  overflow-wrap: anywhere;
+}
+
+.ds-slip .t {
+  font-size: 12px;
+  color: #14171a;
+}
+
+.ds-sub {
+  color: #555;
+  font-size: 11px;
+}
+
+.ds-count {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.ds-sign {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr;
+  gap: 18px;
+  margin-top: 34px;
+  font-size: 11.5px;
+}
+
+.ds-sign span {
+  display: block;
+  height: 28px;
+  border-bottom: 1px solid #14171a;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 520px) {
+  .ds-sign {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .ds-head {
+    flex-direction: column;
+  }
+  .ds-code {
+    max-width: 100%;
+  }
+}
+
+/* ------------------------------------------------------------------ products */
+
+.product-levels {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.product-levels .row > .field {
+  flex: 0 1 auto;
+}
+
+.stock-chip {
+  white-space: nowrap;
+}
+
+/* On phones each row is a card of "label value" pairs; an empty value leaves its label out too. */
+@media (max-width: 600px) {
+  .report-table table.t.cards-sm td:empty {
+    display: none;
+  }
+}
+
+.report-table .pcode {
+  font-size: inherit;
+}
+
+.ds-slip td.mono {
+  white-space: nowrap;
+}

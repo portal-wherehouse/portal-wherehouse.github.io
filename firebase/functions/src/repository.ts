@@ -228,9 +228,16 @@ export async function loadCommand(
     await one("locations", id);
   if (k === "receive") {
     await one("shipments", p.shipment_id);
-    if (p.remember_product && p.receiving?.product_code)
+    // Receiving a product keeps its settings and clears a reorder noted for it.
+    if (p.receiving?.product_code)
       await one("products", productKey(ws, p.receiving.product_code));
   }
+  // Each send gets the next dispatch number, printed on its dispatch slip.
+  if (k === "dispatch") {
+    const c = await tx.get(root.collection("private").doc("seq_D"));
+    db.counters[`${ws}:D`] = c.get("value") || 0;
+  }
+  if (k === "note_reorder") await one("products", p.product_id);
   if (k === "split")
     for (const child of p.children || []) await one("jobs", child.job_id);
   if (k === "add_photo") {
@@ -391,6 +398,7 @@ export function persist(
         ...v,
         reminder_due: reminderDate(v),
         has_hold: !!v.hold,
+        has_pending_adjust: !!v.pending_adjust,
         search_terms: searchTerms({
           ...v,
           description: v.description + " " + (db.jobs[v.job_id]?.name || ""),

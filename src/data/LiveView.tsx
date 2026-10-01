@@ -5,7 +5,7 @@ import { FirebaseBackend } from './firebase';
 
 export function LiveView({children}:{children:ReactNode}){
  const {backend,route,workspaceId}=useApp();const [ready,setReady]=useState('');const [busy,setBusy]=useState(false);
- const key=route.name+':'+(route.id||'')+':'+workspaceId;
+ const key=route.name+':'+(route.id||'')+(route.name==='transfer'?':'+(route.q||''):'')+':'+workspaceId;
  useEffect(()=>{let alive=true;if(backend instanceof FirebaseBackend)void backend.openView(route).then(()=>{if(alive)setReady(key);});return()=>{alive=false;};},[backend,key]);
  if(!(backend instanceof FirebaseBackend))return <>{children}</>;
  if(ready!==key||(backend.viewLoading&&route.name!=='find'))return <WarehouseLoading name={workspaceId ? backend.db.workspaces[workspaceId]?.name : undefined} />;

@@ -9,6 +9,8 @@ import { ADMIN_COMMANDS, PALLET_COMMANDS, type CommandEnvelope, type CommandKind
 const id = z.string().min(1).max(64);
 const text = (max: number) => z.string().max(max);
 const reason = text(500).optional();
+/** A count or quantity: 0 or more, up to three decimals (2.5 cords). */
+const quantity = z.number().nonnegative().max(1_000_000_000).refine((n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6, 'Use at most three decimals.');
 /** Pallets picked for a transfer, each with the version the person saw when picking it. */
 const transferLines = z.array(z.object({ pallet_id: id, expected_version: z.number().int().positive() })).min(1).max(50);
 
@@ -25,7 +27,8 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   place: z.object({ location_id: id }),
   move: z.object({ location_id: id }),
   verify_location: z.object({ location_id: id }),
-  dispatch: z.object({ destination: text(400), note: text(1000).optional() }),
+  // A send gets a new dispatch reference (D-000012) unless it joins one this warehouse already issued.
+  dispatch: z.object({ destination: text(400), note: text(1000).optional(), join_ref: z.string().regex(/^D-\d{6,9}$/).optional() }),
   return: z.object({ condition_note: text(2000).optional(), hold_reason: text(500).optional() }),
   mark_missing: z.object({ reason }),
   locate: z.object({ location_id: id, reason }),
@@ -82,7 +85,7 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
     attachment_ids: z.array(id).max(6).optional(),
   }),
   update_issue: z.object({ issue_id: id, status: z.enum(['NEW', 'APPROVED', 'FILED', 'DISMISSED']), note: text(1000).optional() }),
-  save_product: z.object({ code: text(80), description: text(160), unit: text(40).optional(), category: text(60).optional(), length_in: text(8).optional(), width_in: text(8).optional(), height_in: text(8).optional(), weight_lb: text(12).optional(), home_location_id: z.string().max(80).nullable().optional(), create: z.boolean().optional() }),
+  save_product: z.object({ code: text(80), description: text(160), unit: text(40).optional(), category: text(60).optional(), length_in: text(8).optional(), width_in: text(8).optional(), height_in: text(8).optional(), weight_lb: text(12).optional(), home_location_id: z.string().max(80).nullable().optional(), create: z.boolean().optional(), min_qty: quantity.nullable().optional(), reorder_qty: quantity.nullable().optional(), count_by: z.enum(['units', 'quantity']).optional() }),
   set_location_capacity: z.object({
     location_id: id,
     spaces: z.number().int().min(0).max(10000),
@@ -157,6 +160,11 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   }),
   pick: z.object({ batch_id: id, stop_key: text(40) }),
   substitute: z.object({ batch_id: id, stop_key: text(40) }),
+  // Stock: quantity changes with a reason, their approval, minimums and reorder notes (src/domain/stock.ts).
+  adjust_qty: z.object({ reason: z.enum(['used', 'damaged', 'write_off', 'found', 'counted']), amount: quantity, note: text(500).optional() }),
+  review_adjust: z.object({ approve: z.boolean(), note: text(500).optional() }),
+  note_reorder: z.object({ product_id: text(400).min(1), note: text(300).optional(), clear: z.boolean().optional() }),
+  set_adjust_approval: z.object({ on: z.boolean() }),
 };
 
 const ALL_KINDS = [...PALLET_COMMANDS, ...ADMIN_COMMANDS] as [CommandKind, ...CommandKind[]];

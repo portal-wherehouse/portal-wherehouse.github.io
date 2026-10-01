@@ -47,6 +47,19 @@ export function ImportExportTabs() {
   );
 }
 
+/** Stock: the map of every spot, and the stock reports. */
+export function StockTabs() {
+  return (
+    <PageTabs
+      label="Stock"
+      tabs={[
+        { route: 'map', label: 'Map' },
+        { route: 'reports', label: 'Reports' },
+      ]}
+    />
+  );
+}
+
 /** This device's settings, and (for managers in the sample) where the records live. */
 export function SettingsTabs() {
   const { role, backend } = useApp();

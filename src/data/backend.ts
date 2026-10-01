@@ -83,7 +83,7 @@ export class Backend {
 
   private async init() {
     try {
-      this.store = createStore(this.sampleMode?'wherehouse-sample-v3':'pallet-locator-demo', 'kv');
+      this.store = createStore(this.sampleMode?'wherehouse-sample-v4':'pallet-locator-demo', 'kv');
       const [db, meta, pending] = await Promise.all([get<Db>(DB_KEY, this.store), get<Meta>(META_KEY, this.store), get<PendingSend[]>(PENDING_KEY, this.store)]);
       if (db && meta && db.schema === DB_SCHEMA_VERSION) {
         this.db = db;
@@ -563,7 +563,7 @@ export function validateSnapshot(input: unknown): SnapshotCheck {
   (['users', 'workspaces', 'warehouses', 'locations', 'jobs', 'pallets', 'attachments', 'imports'] as const).forEach(keyed);
   for (const [k, v] of Object.entries(d.labels)) if (!isObj(v) || v.token !== k) problems.push(`Label ${k.slice(0, 12)} does not match its key.`);
   // A company's pallet counter is keyed by its id; its order, batch and package counters by `id:O`, `id:B` and `id:K`.
-  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !own(d.workspaces, k.replace(/:[OBK]$/, ''))) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
+  for (const [k, v] of Object.entries(d.counters)) if (typeof v !== 'number' || !own(d.workspaces, k.replace(/:[OBKD]$/, ''))) problems.push(`Counter ${k.slice(0, 12)} is not a number for a known company.`);
   if (problems.length) return { ok: false, problems: cap(problems) };
 
   // Every entry of the lists is a record of the right shape, before anything reads its fields.

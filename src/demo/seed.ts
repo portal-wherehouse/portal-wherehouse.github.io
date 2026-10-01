@@ -352,6 +352,7 @@ export function seedSample():Db{
   if(i===6)d.run(employee.id,'dispatch',{destination:'Example job 2'},p);
  }
  seedOrders(d,owner.id,manager.id,employee.id);
+ seedLowStock(d,manager.id,employee.id);
  // A second warehouse in the same account, so Transfers can be tried. Its pallet numbers start at 101,
  // so codes stay distinct from the main yard's while pallets move between the two.
  const main=d.ws;d.jobs=new Map();d.locs=new Map();
@@ -363,8 +364,37 @@ export function seedSample():Db{
   const p=d.run(employee.id,'receive',{job_id:d.jobs.get('JOB-1')!.id,description:`Overflow pallet ${i}`})!;
   d.run(employee.id,'place',{location_id:d.locs.get(i===3?'C-01-02':'C-01-01')!.id},p);
  }
+ // Zip ties are running low in the main yard; the overflow yard has two pallets to send over.
+ for(let i=0;i<2;i++){
+  const p=d.run(employee.id,'receive',{description:LOW_ZIP[1],receiving:{product_code:LOW_ZIP[0],quantity:'20',unit:'bags'}})!;
+  d.run(employee.id,'place',{location_id:d.locs.get('C-01-02')!.id},p);
+ }
  d.ws=main;
  return db;
+}
+
+const LOW_BAT = ['BAT-AA', 'AA batteries, case of 24'] as const;
+const LOW_ZIP = ['ZIP-100', 'Zip ties, bag of 100'] as const;
+
+/** Two products below their minimum (Running low), one with enough, and a quantity change in the history. */
+function seedLowStock(d: Driver, manager: string, employee: string) {
+  // Numbered from P-000301, so the next pallet received in the sample is still P-000007.
+  const next = d.db.counters[d.ws];
+  d.db.counters[d.ws] = 300;
+  d.run(manager, 'save_product', { code: LOW_BAT[0], description: LOW_BAT[1], unit: 'cases', create: true, min_qty: 4, reorder_qty: 6 });
+  d.run(manager, 'save_product', { code: LOW_ZIP[0], description: LOW_ZIP[1], unit: 'bags', create: true, min_qty: 4 });
+  d.run(manager, 'save_product', { code: 'TAPE-48', description: 'Packing tape, 6 rolls', unit: 'each', min_qty: 2 });
+  d.tick(1, 3);
+  const bat = d.run(employee, 'receive', { description: LOW_BAT[1], receiving: { product_code: LOW_BAT[0], quantity: '10', unit: 'cases' } })!;
+  const placed = d.run(employee, 'place', { location_id: d.locs.get('A-01-02')!.id }, bat)!;
+  d.tick(1, 3);
+  d.run(employee, 'adjust_qty', { reason: 'used', amount: 3, note: 'Example: taken for the shop floor.' }, placed);
+  for (let i = 0; i < 2; i++) {
+    d.tick(1, 3);
+    const p = d.run(employee, 'receive', { description: LOW_ZIP[1], receiving: { product_code: LOW_ZIP[0], quantity: '20', unit: 'bags' } })!;
+    d.run(employee, 'place', { location_id: d.locs.get('B-01-01')!.id }, p);
+  }
+  d.db.counters[d.ws] = next;
 }
 
 /** Stock with product codes on four more spots, two staging spots, and four customer orders waiting to be picked. */

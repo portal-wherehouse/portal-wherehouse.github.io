@@ -18,6 +18,8 @@ import { ACTION_META, ActionSheet } from './Actions';
 import { IssueSheet } from '../bulk/Issues';
 import { History } from './History';
 import { SplitSheet } from './SplitSheet';
+import { DispatchSlip } from '../stock/DispatchSlip';
+import { ReviewAdjust } from '../stock/Adjust';
 
 const ACTION_ICON: Partial<Record<PalletCommandKind, IconName>> = {
   place: 'pin',
@@ -37,9 +39,11 @@ const ACTION_ICON: Partial<Record<PalletCommandKind, IconName>> = {
   rotate_label: 'qr',
   label_applied: 'print',
   split: 'split',
+  adjust_qty: 'layers',
+  review_adjust: 'check',
 };
 
-const PRIMARY: PalletCommandKind[] = ['place', 'move', 'verify_location', 'dispatch', 'return', 'locate'];
+const PRIMARY: PalletCommandKind[] = ['place', 'move', 'verify_location', 'dispatch', 'return', 'locate', 'adjust_qty'];
 
 export function PalletRecord() {
   const { route, read, role, go, backend, toast, workspaceId, v, prefs } = useApp();
@@ -55,6 +59,7 @@ export function PalletRecord() {
   const [labelOpen, setLabelOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState<string | null>(null);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
+  const [slip, setSlip] = useState<string | null>(null);
   const photoCmd = useCommand();
   const removeCmd = useCommand();
   const [refreshedAt, setRefreshedAt] = useState(new Date().toISOString());
@@ -80,7 +85,8 @@ export function PalletRecord() {
   const p = detail.pallet;
   const actions = availableActions(p, role).filter((a) => jobsOn || a !== 'reassign_job');
   const primary = actions.filter((a) => PRIMARY.includes(a));
-  const secondary = actions.filter((a) => !PRIMARY.includes(a) && a !== 'add_photo' && a !== 'remove_photo');
+  // A quantity change waiting for approval is reviewed in its own notice above.
+  const secondary = actions.filter((a) => !PRIMARY.includes(a) && a !== 'add_photo' && a !== 'remove_photo' && a !== 'review_adjust');
   const offline = backend.network === 'offline';
 
   const run = (k: PalletCommandKind) => {
@@ -179,6 +185,21 @@ export function PalletRecord() {
             <Notice tone="warn" icon="hold" title="On hold">
               {p.hold.reason} · applied {fmtTime(p.hold.applied_at)} by {detail.holdBy?.name ?? 'someone'}. Blocks dispatch; moves are still allowed.
             </Notice>
+          )}
+          {p.pending_adjust && (
+            <Notice tone="info" icon="clock" title="Quantity change waiting for approval">
+              <ReviewAdjust pallet={p} />
+            </Notice>
+          )}
+          {p.dispatch && p.state === 'DISPATCHED' && (
+            <div className="dispatch-line" data-testid="dispatch-line">
+              <span>
+                Dispatch <strong className="mono">{p.dispatch.ref}</strong> to <span data-keep-words>{p.dispatch.destination}</span>, {fmtTime(p.dispatch.at)}
+              </span>
+              <button className="btn small" onClick={() => setSlip(p.dispatch!.ref)}>
+                <Icon name="print" /> Dispatch slip
+              </button>
+            </div>
           )}
           {primary.length > 0 && (
             <div className="row">
@@ -357,6 +378,7 @@ export function PalletRecord() {
 
       {action && action !== 'split' && <ActionSheet kind={action} detail={detail} presetEvent={presetEvent} onClose={() => setAction(null)} />}
       {action === 'split' && <SplitSheet detail={detail} onClose={() => setAction(null)} />}
+      {slip && <DispatchSlip dispatchRef={slip} onClose={() => setSlip(null)} />}
       {issueOpen && <IssueSheet pallets={[backend.db.pallets[p.id] ?? p]} onClose={() => setIssueOpen(false)} />}
       {labelOpen && <LabelSheet palletIds={[p.id]} onClose={() => setLabelOpen(false)} />}
       {photoOpen && (

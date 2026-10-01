@@ -107,3 +107,15 @@ npx firebase deploy --only functions:wherehouse:getWarehouseSummary --project wh
 ```
 
 Only run the second deploy after the first succeeds. No signup configuration or billing-plan change is involved. Existing pallets need no migration; the new detail fields are optional. Refresh the app after deployment.
+
+#### Deploying stock levels, quantity changes, reports and dispatch slips
+
+Minimums and Running low, quantity changes with approval, and dispatch numbers run in the command function; on-hand counts per product run in `getDirectoryCounts`; Running low on the Dashboard comes from `getWarehouseSummary` (`stock_version: 1`). Build the new indexes first, then the command and counts, then the summary:
+
+```sh
+npx firebase deploy --only firestore:indexes --project wherehouseportal
+npx firebase deploy --only functions:wherehouse:command,functions:wherehouse:getDirectoryCounts --project wherehouseportal
+npx firebase deploy --only functions:wherehouse:getWarehouseSummary --project wherehouseportal
+```
+
+Rules are unchanged. Existing pallets and products need no migration: minimums, quantity changes and dispatch numbers are optional fields, and dispatch numbers start at D-000001 per warehouse.

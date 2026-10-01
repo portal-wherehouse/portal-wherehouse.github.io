@@ -27,6 +27,7 @@ import { ActionSheet } from '../pallet/Actions';
 import { confirmReason, initialMove, moveReducer, type MoveEvent, type MoveState } from './machine';
 import { fitCheck, fmtLb, palletSize, palletWeight, suggestLocations, type FitProblem } from '../../domain/capacity';
 import { blankInfo, productKey } from '../../domain/receiving';
+import { DispatchSlip } from '../stock/DispatchSlip';
 
 export type MoveMode = 'move' | 'stage' | 'ship';
 
@@ -58,6 +59,10 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
   const [otherBusy, setOtherBusy] = useState(false);
   const [shipping, setShipping] = useState<PalletDetail | null>(null);
   const [shipped, setShipped] = useState<Pallet | null>(null);
+  // Ship: pallets that leave together share one dispatch number and one dispatch slip.
+  const [send, setSend] = useState<{ ref: string; destination: string; codes: string[] } | null>(null);
+  const [joinNext, setJoinNext] = useState(true);
+  const [slip, setSlip] = useState<string | null>(null);
 
   const apply = (e: MoveEvent): MoveState => {
     const next = moveReducer(sRef.current, e);
@@ -345,7 +350,7 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
     }
   };
 
-  const takingScans = !shipping && !(single && (s.stage === 'RESULT' || s.stage === 'QUEUED'));
+  const takingScans = !shipping && !slip && !(single && (s.stage === 'RESULT' || s.stage === 'QUEUED'));
   useScanTarget(testId, onScan, takingScans && !!actorId);
 
   // ------------------------------------------------------------------ what to show
@@ -391,6 +396,30 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
               <Icon name="checkCircle" /> Shipped {shipped.code}
             </div>
             <div className="muted">{shipped.description}</div>
+          </div>
+        )}
+        {mode === 'ship' && send && (
+          <div className="panel send-panel" data-testid="send-panel">
+            <div>
+              <strong>
+                This send: <span className="send-ref">{send.ref}</span>
+              </strong>
+              <div className="muted" style={{ fontSize: 13.5 }}>
+                <span data-keep-words>To {send.destination}</span> · {send.codes.length} {send.codes.length === 1 ? 'pallet' : 'pallets'}: {send.codes.join(', ')}
+              </div>
+            </div>
+            <label className="toggle">
+              <input type="checkbox" checked={joinNext} onChange={(e) => setJoinNext(e.target.checked)} />
+              <span>Add the next pallet to this send</span>
+            </label>
+            <div className="row">
+              <button type="button" className="btn primary" onClick={() => setSlip(send.ref)}>
+                <Icon name="print" /> Print dispatch slip
+              </button>
+              <button type="button" className="btn" onClick={() => (setSend(null), setJoinNext(true), setShipped(null))}>
+                Start a new send
+              </button>
+            </div>
           </div>
         )}
 
@@ -492,16 +521,22 @@ export function MoveFlow({ mode = 'move', start, single = false, after, onSaved,
         <ActionSheet
           kind="dispatch"
           detail={shipping}
+          joinRef={send && joinNext ? send.ref : null}
+          presetDestination={send && joinNext ? send.destination : undefined}
           onClose={() => {
             const now = backend.reader.db.pallets[shipping.pallet.id];
             setShipping(null);
             if (now?.state === 'DISPATCHED' && shipping.pallet.state !== 'DISPATCHED') {
               setShipped(now);
+              const d = now.dispatch;
+              if (d) setSend((old) => (old && old.ref === d.ref ? { ...old, codes: [...old.codes, now.code] } : { ref: d.ref, destination: d.destination, codes: [now.code] }));
+              if (d) setJoinNext(true);
               flash.ok(`Shipped ${now.code}. Scan the next pallet.`);
             } else flash.note(`${shipping.pallet.code} was not shipped.`);
           }}
         />
       )}
+      {slip && <DispatchSlip dispatchRef={slip} onClose={() => setSlip(null)} />}
     </>
   );
 }

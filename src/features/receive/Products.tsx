@@ -14,6 +14,9 @@ import { Explain, Field, Notice, PageHead, Sheet, Spinner } from '../../ui/ui';
 import { Barcode128 } from '../labels/Barcode128';
 import { Qr } from '../labels/LabelCard';
 import { PrintPortal } from '../labels/LabelSheet';
+import { fmtQty, hasMinimum, isLow, measure, measureWord, type Stock } from '../../domain/stock';
+import { useLowStock, useProductStock } from '../stock/useStock';
+import '../stock/stock.css';
 
 /** A short code for a product that has none: PT- plus six characters that are hard to misread. */
 export function newProductCode(taken: (code: string) => boolean): string {
@@ -26,7 +29,10 @@ export function newProductCode(taken: (code: string) => boolean): string {
 }
 
 export function Products() {
-  const { backend, workspaceId, role, route, v } = useApp();
+  const { backend, workspaceId, role, route, v, go } = useApp();
+  const stockOf = useProductStock();
+  const lowCount = useLowStock()?.length ?? 0;
+  const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const [q, setQ] = useState(route.q ?? '');
   const [editing, setEditing] = useState<ProductMemory | 'new' | null>(null);
   const [printing, setPrinting] = useState<ProductMemory | null>(null);
@@ -62,6 +68,11 @@ export function Products() {
           </button>
         )}
       </div>
+      {manager && lowCount > 0 && (
+        <Notice tone="warn" icon="alert" title={`${lowCount} ${lowCount === 1 ? 'product is' : 'products are'} running low`} actions={<button className="btn small" onClick={() => go({ name: 'reconcile', q: 'low' })}>Open Running low</button>}>
+          Below the minimum you set. Bring more from another warehouse, or note a reorder.
+        </Notice>
+      )}
       {products.length === 0 ? (
         <p className="muted">No products yet. They're added here with New product, or when someone receives a new barcode with "Save as a product" checked.</p>
       ) : hits.length === 0 ? (
@@ -77,6 +88,7 @@ export function Products() {
                 {sizeLine(p) && <span className="muted"> · {sizeLine(p)}</span>}
               </span>
               <span className="muted mono">{p.code}</span>
+              <StockChip product={p} stock={stockOf(p)} />
               <button className="btn small" onClick={() => setPrinting(p)} aria-label={`Print stickers for ${p.description}`}>
                 <Icon name="print" /> Print
               </button>
@@ -110,6 +122,20 @@ export function Products() {
   );
 }
 
+/** On hand here for one product, and whether it is below its minimum. */
+function StockChip({ product, stock }: { product: ProductMemory; stock: Stock | null }) {
+  if (!stock) return <span className="tag stock-chip">Counting…</span>;
+  const on = measure(product, stock);
+  const word = measureWord(product, on);
+  const low = isLow(product, stock);
+  const text = !hasMinimum(product) ? `${fmtQty(on)} ${word} on hand` : low ? `${fmtQty(on)} of ${fmtQty(product.min_qty!)} ${measureWord(product, product.min_qty!)}` : `${fmtQty(on)} ${word} · min ${fmtQty(product.min_qty!)}`;
+  return (
+    <span className={`tag stock-chip ${low ? 'warn' : hasMinimum(product) ? 'ok' : ''}`} data-testid="stock-chip" title={stock.held ? `${stock.held} more on hold` : undefined}>
+      {low ? `Low: ${text}` : text}
+    </span>
+  );
+}
+
 export function sizeLine(p: { length_in?: string; width_in?: string; height_in?: string; weight_lb?: string }): string {
   const dims = [p.length_in, p.width_in, p.height_in].every((x) => x && x.trim()) ? `${p.length_in} × ${p.width_in} × ${p.height_in} in` : '';
   const w = p.weight_lb?.trim() ? `about ${Number(p.weight_lb.replace(/,/g, '')).toLocaleString('en-US')} lb` : '';
@@ -126,6 +152,18 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
   const [category, setCategory] = useState(product?.category ?? '');
   const [size, setSize] = useState({ length_in: product?.length_in ?? '', width_in: product?.width_in ?? '', height_in: product?.height_in ?? '', weight_lb: product?.weight_lb ?? '' });
   const [home, setHome] = useState(product?.home_location_id ?? '');
+  const [minQty, setMinQty] = useState(product?.min_qty ? String(product.min_qty) : '');
+  const [reorderQty, setReorderQty] = useState(product?.reorder_qty ? String(product.reorder_qty) : '');
+  const [countBy, setCountBy] = useState<'units' | 'quantity'>(product?.count_by ?? 'units');
+  const num = (t: string): number | null | 'bad' => {
+    const s = t.trim().replace(/,/g, '');
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) && n >= 0 && (countBy === 'quantity' || Number.isInteger(n)) ? n : 'bad';
+  };
+  const minN = num(minQty);
+  const reorderN = num(reorderQty);
+  const levelsBad = minN === 'bad' || reorderN === 'bad';
   const homes = Object.values(backend.db.locations).filter((l) => l.workspace_id === workspaceId && (l.active || l.id === home)).sort((a, b) => a.code.localeCompare(b.code));
   const [print, setPrint] = useState(false);
   const cmd = useCommand();
@@ -133,13 +171,14 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
   const save = async (andPrint: boolean) => {
     setPrint(andPrint);
     const fields = { code: code.trim(), description: description.trim(), unit: unit.trim(), category: category.trim(), length_in: size.length_in.trim(), width_in: size.width_in.trim(), height_in: size.height_in.trim(), weight_lb: size.weight_lb.trim() };
-    const r = await cmd.run('save_product', { ...fields, home_location_id: home || null, ...(product ? {} : { create: true }) });
+    if (levelsBad) return;
+    const r = await cmd.run('save_product', { ...fields, home_location_id: home || null, min_qty: minN, reorder_qty: reorderN, count_by: countBy, ...(product ? {} : { create: true }) });
     if (r.phase === 'done') {
       const id = r.accepted?.target_id ?? '';
       onSaved(backend.db.products[id] ?? { id, workspace_id: workspaceId!, warehouse_id: '', ...fields, field_names: [], updated_at: new Date().toISOString() }, andPrint);
     }
   };
-  const ready = !!code.trim() && !!description.trim() && !cmd.busy && backend.network !== 'offline';
+  const ready = !!code.trim() && !!description.trim() && !levelsBad && !cmd.busy && backend.network !== 'offline';
   return (
     <Sheet title={product ? `Edit ${product.description}` : 'New product'} onClose={onClose}>
       <form
@@ -195,6 +234,32 @@ export function ProductForm({ product, onClose, onSaved }: { product: ProductMem
             ))}
           </select>
         </Field>
+        <fieldset className="field product-levels">
+          <legend className="label">Minimum on hand (optional)</legend>
+          <div className="row">
+            <Field label={countBy === 'quantity' ? `Minimum (${unit.trim() || 'units'})` : 'Minimum (pallets)'} htmlFor="prod-min">
+              <input id="prod-min" className="input" inputMode="decimal" value={minQty} onChange={(e) => setMinQty(e.target.value)} placeholder="e.g. 4" maxLength={12} style={{ maxWidth: 140 }} />
+            </Field>
+            <Field label="Reorder quantity" htmlFor="prod-reorder">
+              <input id="prod-reorder" className="input" inputMode="decimal" value={reorderQty} onChange={(e) => setReorderQty(e.target.value)} placeholder="e.g. 10" maxLength={12} style={{ maxWidth: 140 }} />
+            </Field>
+          </div>
+          <div className="seg" role="group" aria-label="What the minimum counts">
+            <button type="button" aria-pressed={countBy === 'units'} onClick={() => setCountBy('units')}>
+              Count pallets
+            </button>
+            <button type="button" aria-pressed={countBy === 'quantity'} onClick={() => setCountBy('quantity')}>
+              Count the quantity on them
+            </button>
+          </div>
+          <span className="hint">
+            {levelsBad
+              ? countBy === 'units'
+                ? 'Use whole numbers when counting pallets, like 4.'
+                : 'Use a number of 0 or more, like 2.5.'
+              : 'Below the minimum, this product shows under Running low on the Dashboard. Pallets on hold are not counted. Leave it empty for no minimum.'}
+          </span>
+        </fieldset>
         <CommandFeedback state={cmd.state} onRecover={() => void cmd.recover()} />
         <div className="row">
           <button type="button" className="btn primary big" disabled={!ready} onClick={() => void save(true)}>

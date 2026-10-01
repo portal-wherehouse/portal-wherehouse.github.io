@@ -8,6 +8,7 @@ import { useApp } from '../../app/state';
 import { Icon } from '../../ui/icons';
 import { Empty, Explain, PageHead, Plate, Sheet } from '../../ui/ui';
 import { ResultRow } from '../find/Find';
+import { StockTabs } from '../../ui/tabSets';
 
 /** Wide enough for the selected location to sit beside the zones; narrower screens show it in a sheet. */
 const SIDE_BY_SIDE = '(min-width: 1100px)';
@@ -123,6 +124,7 @@ export function WarehouseMap() {
 
   return (
     <div className="stack">
+      <StockTabs />
       <PageHead
         eyebrow={`${data.ctx.warehouse?.code} · ${data.ctx.warehouse?.name}`}
         title="Stock"

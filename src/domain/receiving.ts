@@ -79,6 +79,14 @@ export interface ProductMemory {
   weight_lb?: string;
   /** Where this type normally lives. Kept when none are in stock, and offered first on Move. */
   home_location_id?: string | null;
+  /** Running low below this many on hand in this warehouse. Null or missing: no minimum. See domain/stock.ts. */
+  min_qty?: number | null;
+  /** How many to order or bring in when it runs low. Optional. */
+  reorder_qty?: number | null;
+  /** What the minimum counts: each pallet as one ("units"), or the quantity recorded on each pallet. */
+  count_by?: 'units' | 'quantity';
+  /** Someone noted that more is ordered. Cleared when this product is received again, or by hand. */
+  reorder_note?: { at: string; by_name: string; note: string } | null;
   field_names: string[];
   updated_at: string;
 }

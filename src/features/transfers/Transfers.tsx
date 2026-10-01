@@ -1,7 +1,7 @@
 // Transfers: send pallets to another warehouse of the same account and receive them there.
 // The list, the new-transfer form, one transfer (lines, receiving, slip), and the scan hook that opens a transfer.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../app/state';
 import { parseLabelPayload, parsePalletCode } from '../../domain/codes';
 import { ROLE_RANK, roleAllows } from '../../domain/transitions';
@@ -32,6 +32,8 @@ import { parseScanCommand } from '../../device/scanCommands';
 import { ReadError } from '../../demo/engine';
 import { useHasTransferTargets, useTransferTargets } from './targets';
 import './transfers.css';
+import { sameProduct } from '../../domain/orders';
+import { parseQty } from '../../domain/stock';
 
 const STATUS_TONE: Record<TransferStatus, string> = { DRAFT: '', IN_TRANSIT: 'accent', PARTLY_RECEIVED: 'warn', RECEIVED: 'ok', CANCELLED: '' };
 const LINE_TONE: Record<TransferLineStatus, string> = { WAITING: '', IN_TRANSIT: 'accent', RECEIVED: 'ok', RETURNED: '' };
@@ -159,13 +161,20 @@ export function TransferDetail() {
 
 function NewTransfer() {
   const app = useApp();
-  const { read, role, go, toast, setLeaveGuard } = app;
+  const { read, role, go, toast, setLeaveGuard, route } = app;
   const { targets, loading, error } = useTransferTargets();
   const cmd = useCommand();
-  const [to, setTo] = useState('');
+  // Opened from Running low in another warehouse: send this product there, with enough picked to cover what it needs.
+  const ask = useMemo(() => {
+    const q = new URLSearchParams(route.q ?? '');
+    const product = q.get('product');
+    return product ? { to: q.get('to') ?? '', product, need: Math.max(0, Number(q.get('need')) || 0), byQty: q.get('by') === 'quantity' } : null;
+  }, [route.q]);
+  const [to, setTo] = useState(ask?.to ?? '');
   const [picked, setPicked] = useState<Pallet[]>([]);
-  const [note, setNote] = useState('');
-  const [filter, setFilter] = useState('');
+  const [note, setNote] = useState(ask ? 'Restock: running low' : '');
+  const [filter, setFilter] = useState(ask?.product ?? '');
+  const prefilled = useRef(false);
   const [scanMsg, setScanMsg] = useState<{ tone: 'ok' | 'error' | 'info'; text: string } | null>(null);
   const dest = targets.find((t) => t.workspace_id === to) ?? targets[0] ?? null;
   const data = read((e, a, ws) => {
@@ -180,6 +189,24 @@ function NewTransfer() {
     setLeaveGuard(picked.length ? 'This transfer has not been sent. Leave and discard it?' : null);
     return () => setLeaveGuard(null);
   }, [picked.length, setLeaveGuard]);
+
+  // Pick the oldest pallets of the product first, until they cover what the other warehouse needs.
+  useEffect(() => {
+    if (!ask || prefilled.current || !data) return;
+    prefilled.current = true;
+    const match = data
+      .map((r) => r.pallet)
+      .filter((p) => sameProduct(p.receiving?.product_code, ask.product) && !p.hold && !transferBlocker(p))
+      .sort((a, b) => a.received_at.localeCompare(b.received_at));
+    const out: Pallet[] = [];
+    let have = 0;
+    for (const p of match) {
+      if (out.length >= MAX_TRANSFER_LINES || (ask.need > 0 && have >= ask.need)) break;
+      out.push(p);
+      have += ask.byQty ? (parseQty(p.receiving?.quantity) ?? 0) : 1;
+    }
+    if (out.length) setPicked(out);
+  }, [ask, data]);
 
   if (!roleAllows(role, 'create_transfer')) return <PermissionDenied what="Sending a transfer" need="Operator" />;
   if (!loading && !error && targets.length === 0)
@@ -202,7 +229,7 @@ function NewTransfer() {
   const remove = (id: string) => setPicked((old) => old.filter((p) => p.id !== id));
 
   const q = filter.trim().toLowerCase();
-  const shown = (data ?? []).filter((r) => !q || r.pallet.code.toLowerCase().includes(q) || r.pallet.description.toLowerCase().includes(q) || r.where.toLowerCase().includes(q));
+  const shown = (data ?? []).filter((r) => !q || r.pallet.code.toLowerCase().includes(q) || r.pallet.description.toLowerCase().includes(q) || r.where.toLowerCase().includes(q) || (r.pallet.receiving?.product_code ?? '').toLowerCase().includes(q));
   const whereOf = (id: string) => data?.find((r) => r.pallet.id === id)?.where ?? '';
 
   const submit = async (mode: 'send' | 'draft' | 'now') => {
@@ -220,6 +247,13 @@ function NewTransfer() {
   return (
     <div className="stack">
       <PageHead eyebrow="Transfers" title="New transfer" sub="Choose where the pallets go, then add them by scanning or from the list." />
+      {ask && (
+        <Notice tone="info" icon="swap" title={`Restocking ${dest?.name ?? 'another warehouse'}`}>
+          {picked.length
+            ? `${count(picked.length)} of product ${ask.product} picked, oldest first. Change the list if you need to, then send.`
+            : `No pallets of product ${ask.product} are free to send from here.`}
+        </Notice>
+      )}
       {loading && (
         <p className="muted row nowrap">
           <Spinner /> Loading your warehouses…
