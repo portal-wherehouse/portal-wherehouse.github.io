@@ -55,11 +55,19 @@ export async function portalReady(page: Page) {
 
 /** Move focus off any text field so key presses reach the document, like a scanner on an idle screen. */
 export async function blurFields(page: Page) {
-  await page.evaluate(() => {
-    const a = document.activeElement as HTMLElement | null;
-    if (a && a !== document.body && typeof a.blur === 'function') a.blur();
-  });
-  await expect.poll(() => page.evaluate(() => document.activeElement === document.body || document.activeElement === null)).toBe(true);
+  // Blur on every check: a screen that is still rendering the last step can move focus after the first blur.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const a = document.activeElement as HTMLElement | null;
+          if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+          const now = document.activeElement as HTMLElement | null;
+          return !now || now === document.body ? 'body' : `${now.tagName.toLowerCase()}${now.id ? '#' + now.id : ''}${now.className ? '.' + String(now.className).split(' ').join('.') : ''}`;
+        }),
+      { message: 'focus should leave every field before a scanner scan' },
+    )
+    .toBe('body');
 }
 
 /** Defaults from src/device/scanRouter.tsx and src/device/wedge.ts. */
