@@ -6,6 +6,7 @@ import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
 import { useJobsOn } from '../../app/words';
 import { useChecklistStatus } from '../setup/SetupChecklist';
+import { useHasTransferTargets } from '../transfers/targets';
 
 export const NAV_GROUPS: { title: string; items: { route: RouteName; label: string; icon: IconName; hint: string }[] }[] = [
   {
@@ -16,6 +17,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
       { route: 'move', label: 'Move', icon: 'move', hint: 'Scan pallet, then rack' },
       { route: 'find', label: 'Find', icon: 'find', hint: 'Search inventory' },
       { route: 'station', label: 'Scan station', icon: 'target', hint: 'Hands-free scanning' },
+      { route: 'transfers', label: 'Transfers', icon: 'swap', hint: 'Send pallets to another warehouse' },
     ],
   },
   {
@@ -55,7 +57,7 @@ export const NAV_GROUPS: { title: string; items: { route: RouteName; label: stri
 ];
 
 /** Navigation is task-oriented; permission checks still happen in the command engine. */
-export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true) {
+export function visibleNavGroups(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false) {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(role === 'VIEWER'
     ? ['find', 'overview', 'map', 'jobs', 'help', 'settings']
@@ -63,6 +65,8 @@ export function visibleNavGroups(role: Role | null, advanced: boolean, live = fa
   if (manager) for (const r of ['overview', 'map', 'reconcile', 'activity', 'jobs', 'locations', 'labels', 'import', 'export', 'people', 'scanners', 'data'] as RouteName[]) allowed.add(r);
   if (live) allowed.add('sync');
   if (!jobsOn) allowed.delete('jobs');
+  // Transfers appear once the account has a second warehouse to send to.
+  if (transfers) allowed.add('transfers');
   if (advanced) for (const r of ['sync', 'lab', 'guide', 'about', 'scanners'] as RouteName[]) allowed.add(r);
   return NAV_GROUPS.map(g => ({ ...g, title: g.title === 'Learn and tools' ? 'Support' : g.title === 'Manage' && !manager ? 'Tools' : g.title,
     items: g.items.filter(i => allowed.has(i.route) && !(live && i.route === 'data')) })).filter(g => g.items.length);
@@ -75,6 +79,7 @@ export function More() {
   const { go, role, prefs, backend } = useApp();
   const jobsOn = useJobsOn();
   const checklist = useChecklistStatus();
+  const transfers = useHasTransferTargets();
   return (
     <div className="stack">
       <PageHead title="More" />
@@ -89,7 +94,7 @@ export function More() {
           </button>
         </div>
       )}
-      {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
+      {visibleNavGroups(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, transfers).map((g) => ({ ...g, items: g.items.filter((i) => !PHONE_TABS.includes(i.route)) }))
         .filter((g) => g.items.length > 0)
         .map((g) => (
         <div key={g.title} className="stack" style={{ gap: 8 }}>

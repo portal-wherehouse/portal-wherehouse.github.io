@@ -2,6 +2,7 @@ import { canEditWarehouse, canReadWarehouse } from "./access";
 import { registerAccount } from "./registration";
 import { sendCode, verifyCode } from "./emailCode";
 import { warehouseSummary, directoryCounts } from "./summary";
+import { transferCommand } from "./transfers";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
   reservePhoto,
@@ -29,7 +30,11 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { Engine, emptyDb, type Db } from "../../../src/demo/engine";
 import { validateEnvelope } from "../../../src/domain/commands";
 import { TRIAL_DAYS } from "../../../src/domain/license";
-import type { CommandEnvelope, User } from "../../../src/domain/types";
+import {
+  TRANSFER_COMMANDS,
+  type CommandEnvelope,
+  type User,
+} from "../../../src/domain/types";
 
 initializeApp();
 const firestore = getFirestore();
@@ -318,6 +323,9 @@ export const command = onCall(options, async (request) => {
     cmd.payload.rows.length > 80
   )
     throw new HttpsError("invalid-argument", "Import up to 80 rows at a time.");
+  // Transfers read and write two warehouses of the same account.
+  if ((TRANSFER_COMMANDS as readonly string[]).includes(cmd.kind))
+    return transferCommand(user, cmd);
   const memberRef = firestore.doc(
     `workspaces/${cmd.workspace_id}/members/${user.id}`,
   );

@@ -17,6 +17,7 @@ import {
   ReCaptchaEnterpriseProvider,
 } from "firebase/app-check";
 import { palletQuery, PAGE_SIZE, type LiveFilter } from "./liveQueries";
+import { parseTransferNumber } from "../domain/transfers";
 import {
   normalizeCode,
   parsePalletCode,
@@ -763,6 +764,29 @@ export class FirebaseBackend extends Backend {
       throw Error("Account changed. Open the menu again.");
     return rows;
   }
+  /** The person's other warehouses in this account (same license owner): where a transfer can go. */
+  async transferTargets(): Promise<{ workspace_id: string; name: string }[]> {
+    if (this.network === "offline" || !this.firestore || !this.activeWorkspace)
+      throw Error("Reconnect to choose where the pallets go.");
+    const owner = async (id: string): Promise<string | null> => {
+      try {
+        const snap = await getDoc(doc(this.firestore!, "licenses", id));
+        this.metrics.reads++;
+        return snap.get("owner_uid") ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const mine = await owner(this.activeWorkspace);
+    if (!mine) return [];
+    const out: { workspace_id: string; name: string }[] = [];
+    const others = this.workspaceIds.filter((id) => id !== this.activeWorkspace).length;
+    for (let offset = 0; offset < Math.min(others, 100); offset += 20)
+      for (const row of await this.warehouseNames(offset))
+        if (row.available && (await owner(row.id)) === mine)
+          out.push({ workspace_id: row.id, name: row.name });
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
   async switchWarehouse(id: string) {
     if (!this.multiWarehouse)
       throw Error(
@@ -1011,6 +1035,45 @@ export class FirebaseBackend extends Backend {
           true,
         );
         await this.loadLabels([id]);
+      } else if (name === "transfers") {
+        // Both warehouses keep a copy of each transfer, so this lists outgoing and incoming alike.
+        this.db.transfers = {};
+        await this.page(
+          "transfers",
+          "transfers",
+          query(
+            this.col("transfers"),
+            orderBy("created_at", "desc"),
+            limit(PAGE_SIZE),
+          ),
+          true,
+        );
+      } else if (name === "transfer" && id === "new") {
+        // Pallets that can go on a transfer: stored, or received and waiting for a spot.
+        await this.page(
+          "candidates",
+          "pallets",
+          query(
+            this.col("pallets"),
+            where("archived_at", "==", null),
+            where("state", "in", ["STORED", "RECEIVED"]),
+            orderBy("code"),
+            limit(PAGE_SIZE),
+          ),
+          true,
+        );
+      } else if (name === "transfer" && id) {
+        await this.one("transfers", id, true);
+        if (gen !== this.viewGeneration) return;
+        this.viewStops.push(
+          onSnapshot(doc(this.col("transfers"), id), (s) => {
+            this.metrics.reads++;
+            if (gen === this.viewGeneration && s.exists()) {
+              this.ingest("transfers", [s.data()]);
+              this.bump(false);
+            }
+          }),
+        );
       } else if (name === "move") {
         if (id) {
           await this.one("pallets", id, true);
@@ -1152,20 +1215,28 @@ export class FirebaseBackend extends Backend {
       return;
     const label = parseLabelPayload(raw);
     let id: string | undefined, kind: string | undefined;
+    const slip = parseTransferNumber(raw);
+    if (slip) {
+      await this.loadTransfers(where("number", "==", slip));
+      return;
+    }
     if (label) {
       await this.one("labels", label.token, true);
       const l = this.db.labels[label.token];
+      if (!l && label.kind === "P")
+        await this.loadTransfers(where("keys", "array-contains", label.token));
       if (!l || l.revoked_at) return;
       id = l.target_id;
       kind = l.kind;
     } else {
       const code = parsePalletCode(raw);
       const table = code ? "pallets" : "locations";
+      // Two, so a code this warehouse shares with a transferred pallet is noticed instead of guessed.
       const s = await this.docs(
         query(
           this.col(table),
           where("code", "==", code || normalizeCode(raw)),
-          limit(1),
+          limit(code ? 2 : 1),
         ),
       );
       this.ingest(
@@ -1174,6 +1245,8 @@ export class FirebaseBackend extends Backend {
       );
       id = s.docs[0]?.id;
       kind = code ? "P" : "L";
+      if (!id && code)
+        await this.loadTransfers(where("keys", "array-contains", code));
     }
     if (!id) return;
     await this.one(kind === "P" ? "pallets" : "locations", id, true);
@@ -1192,6 +1265,27 @@ export class FirebaseBackend extends Backend {
       while (this.pageMore("rack-scan")) await this.more("rack-scan");
     }
     this.bump(false);
+  }
+  /** Transfers matching a scan (a slip number, or a pallet label or code on one), for the transfer hints. */
+  private async loadTransfers(filter: ReturnType<typeof where>) {
+    const s = await this.docs(
+      query(this.col("transfers"), filter, limit(5)),
+    );
+    this.ingest(
+      "transfers",
+      s.docs.map((d) => d.data()),
+    );
+  }
+  /** Look up a transfer from its scanned or typed slip number. */
+  async findTransfer(raw: string): Promise<string | null> {
+    const slip = parseTransferNumber(raw);
+    if (!slip || this.network === "offline" || !this.activeWorkspace) return null;
+    await this.loadTransfers(where("number", "==", slip));
+    this.bump(false);
+    return (
+      Object.values(this.db.transfers).find((t) => t.number === slip)?.id ??
+      null
+    );
   }
   async loadCounts(table: "jobs" | "locations") {
     const ids = Object.keys(this.db[table]);

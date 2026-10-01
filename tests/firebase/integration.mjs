@@ -1,5 +1,6 @@
 import {testWarehouse} from './warehouse.mjs';
 import {testReceiving} from './receiving.mjs';
+import {testTransfers} from './transfers.mjs';
 import {testSignup} from './signup.mjs';
 import {testEmailCodes} from './emailcode.mjs';
 import './local-only.mjs';
@@ -89,6 +90,7 @@ try {
  assert.equal((await getBytes(ref(owner.storage,path))).byteLength,bytes.length);await licenseRef.update({limits:{}});ok('upload and retained storage limits preserve photos and return clear errors');
  await testReceiving({owner,viewer,outsider,ws,job,location:a,send,adminDb});
  await testWarehouse({owner,operator,outsider,ws,send,adminDb,issueKey});
+ await testTransfers({client,ok,issueKey,adminDb});
  await adminDb.doc(`licenses/${ws}`).update({active:false});
  await assert.rejects(getDoc(doc(viewer.db,'workspaces',ws,'pallets',p.id)));await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Inactive license'}));await assert.rejects(getBytes(ref(owner.storage,path)));ok('revoked license blocks reads, commands and photos');
  await adminDb.doc(`licenses/${ws}`).update({active:true,expires_at:Timestamp.fromMillis(Date.now()-1000)});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Expired license'}));assert.ok((await getDoc(doc(viewer.db,'workspaces',ws))).exists());

@@ -164,8 +164,17 @@ export function PalletRecord() {
                   ? 'Its physical position is uncertain. The last rack is kept as history, not shown as current.'
                   : p.state === 'DISPATCHED'
                     ? 'It left the warehouse according to an operator. That is not proof it arrived.'
-                    : 'No longer an active handling unit. History is kept.'}
+                    : p.state === 'IN_TRANSIT'
+                      ? `On its way to ${p.transfer?.to_name ?? 'another warehouse'}. It has no spot until it is received there.`
+                      : 'No longer an active handling unit. History is kept.'}
           </p>
+          {p.state === 'IN_TRANSIT' && p.transfer && (
+            <div className="row">
+              <button className="btn" onClick={() => go({ name: 'transfer', id: p.transfer!.id })}>
+                <Icon name="swap" /> Open {p.transfer.number}
+              </button>
+            </div>
+          )}
           {p.hold && (
             <Notice tone="warn" icon="hold" title="On hold">
               {p.hold.reason} · applied {fmtTime(p.hold.applied_at)} by {detail.holdBy?.name ?? 'someone'}. Blocks dispatch; moves are still allowed.

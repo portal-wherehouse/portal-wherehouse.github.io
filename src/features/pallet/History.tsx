@@ -29,9 +29,15 @@ const EVENT_ICON: Record<string, IconName> = {
   rotate_label: 'qr',
   label_applied: 'print',
   split: 'split',
+  transfer_send: 'send',
+  transfer_receive: 'receive',
+  transfer_return: 'returnIcon',
 };
 
-const TONE: Record<string, string> = { mark_missing: 'bad', correct: 'accent', locate: 'ok', split: 'accent', retire: 'bad' };
+const TONE: Record<string, string> = { mark_missing: 'bad', correct: 'accent', locate: 'ok', split: 'accent', retire: 'bad', transfer_send: 'accent', transfer_receive: 'accent' };
+
+/** Lower-case state words for the change line: "in transit", not "in_transit". */
+const stateWord = (s: string) => s.toLowerCase().replace(/_/g, ' ');
 
 function Change({ before, after }: { before: PalletSnapshot | null; after: PalletSnapshot }) {
   const parts: React.ReactNode[] = [];
@@ -39,7 +45,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
   if (!before) {
     parts.push(
       <span key="new">
-        Created as <strong>{after.state.toLowerCase()}</strong>
+        Created as <strong>{stateWord(after.state)}</strong>
         {/* Snapshots of a pallet with no job still carry "No job" as its code, so the job is named only when there is one. */}
         {after.job_id ? (
           <>
@@ -59,7 +65,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
     if (before.state !== after.state)
       parts.push(
         <span key="st">
-          {before.state.toLowerCase()} <span className="arrow">→</span> <strong>{after.state.toLowerCase()}</strong>
+          {stateWord(before.state)} <span className="arrow">→</span> <strong>{stateWord(after.state)}</strong>
         </span>,
       );
     if (before.current_location_id !== after.current_location_id)
@@ -88,7 +94,7 @@ function Change({ before, after }: { before: PalletSnapshot | null; after: Palle
 }
 
 export function History({ events, users, onCorrect }: { events: PalletEvent[]; users: Record<string, User>; onCorrect?: (e: PalletEvent) => void }) {
-  const { prefs, backend } = useApp();
+  const { prefs, backend, go } = useApp();
   return (
     <div className="timeline">
       {events.map((e) => (
@@ -101,7 +107,7 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
               <span className="tl-title">{EVENT_LABEL[e.type] ?? e.type}</span>
               {prefs.advancedTools && <span className="tag">v{e.revision}</span>}
               <span className="muted" style={{ fontSize: 13.5 }} title={`${fmtFull(e.accepted_at)} · stored as ${e.accepted_at} (UTC)`}>
-                {fmtTime(e.accepted_at)} · {users[e.actor_id]?.name ?? 'Unknown person'}
+                {fmtTime(e.accepted_at)} · {users[e.actor_id]?.name ?? (e.detail.actor_name ? String(e.detail.actor_name) : 'Unknown person')}
               </span>
             </div>
             <div className="tl-change">
@@ -110,6 +116,15 @@ export function History({ events, users, onCorrect }: { events: PalletEvent[]; u
             {e.detail.destination && (
               <div className="tl-change muted">
                 Destination: <strong>{String(e.detail.destination)}</strong>
+              </div>
+            )}
+            {e.detail.transfer_id && (
+              <div className="tl-change muted">
+                {e.type === 'transfer_send' ? `Sent to ${String(e.detail.to_warehouse ?? 'another warehouse')} on ` : e.type === 'transfer_receive' ? `Received from ${String(e.detail.from_warehouse ?? 'another warehouse')} on ` : 'Came back when this transfer was cancelled: '}
+                <button className="text-link" onClick={() => go({ name: 'transfer', id: String(e.detail.transfer_id) })}>
+                  {String(e.detail.transfer)}
+                </button>
+                {e.detail.job_from ? `. Job ${String(e.detail.job_from)} is not set up here, so it has no job now.` : ''}
               </div>
             )}
             {e.detail.children && <div className="tl-change muted">Split into {String(e.detail.children)}</div>}

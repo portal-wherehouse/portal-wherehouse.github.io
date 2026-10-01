@@ -18,7 +18,7 @@ export interface MoveState {
   /** Generated once per decision and reused for every retry of that decision. */
   commandId: string | null;
   message: { tone: 'info' | 'warn' | 'error' | 'ok'; text: string } | null;
-  blockedRoute: 'return' | 'locate' | null;
+  blockedRoute: 'return' | 'locate' | 'transfer' | null;
   result: CommandResult | null;
   /** The last raw scan, to ignore repeated frames of the same label. */
   lastScan: { text: string; at: number } | null;

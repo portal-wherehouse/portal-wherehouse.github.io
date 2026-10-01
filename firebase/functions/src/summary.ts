@@ -48,7 +48,14 @@ export async function warehouseSummary(request: any) {
   }
   const pallets = root.collection("pallets").where("archived_at", "==", null);
   const count = async (q: any) => (await q.count().get()).data().count;
-  const names = ["RECEIVED", "STORED", "MISSING", "DISPATCHED", "RETIRED"];
+  const names = [
+    "RECEIVED",
+    "STORED",
+    "IN_TRANSIT",
+    "MISSING",
+    "DISPATCHED",
+    "RETIRED",
+  ];
   const counts = Object.fromEntries(
     await Promise.all(
       names.map(async (state) => [
@@ -173,6 +180,7 @@ export async function directoryCounts(request: any) {
                     [
                       "RECEIVED",
                       "STORED",
+                      "IN_TRANSIT",
                       "MISSING",
                       "DISPATCHED",
                       "RETIRED",

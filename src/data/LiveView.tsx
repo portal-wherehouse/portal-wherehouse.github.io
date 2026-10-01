@@ -9,12 +9,12 @@ export function LiveView({children}:{children:ReactNode}){
  useEffect(()=>{let alive=true;if(backend instanceof FirebaseBackend)void backend.openView(route).then(()=>{if(alive)setReady(key);});return()=>{alive=false;};},[backend,key]);
  if(!(backend instanceof FirebaseBackend))return <>{children}</>;
  if(ready!==key||(backend.viewLoading&&route.name!=='find'))return <WarehouseLoading name={workspaceId ? backend.db.workspaces[workspaceId]?.name : undefined} />;
- const moreKeys=['records','history','activity','audit','imports','rack','children','incoming','products'].filter(k=>backend.pageMore(k));
+ const moreKeys=['records','history','activity','audit','imports','rack','children','incoming','products','transfers','candidates'].filter(k=>backend.pageMore(k));
  const run=async(fn:()=>Promise<void>)=>{setBusy(true);try{await fn();}catch(e){backend.viewError=(e as Error).message;}finally{setBusy(false);}};
  return <>{backend.viewError&&<p role="alert">{backend.viewError} <button className="btn small" onClick={()=>void run(()=>backend.refreshView())}>Retry</button></p>}{children}
  <div className="row" style={{marginTop:20}}>
  {['map','locations','jobs','job','overview'].includes(route.name)&&<span className="muted" style={{fontSize:12}}>Counts may lag recent changes. <button className="btn ghost small" onClick={()=>void run(()=>backend.refreshView())}>Refresh</button></span>}
- {moreKeys.map(k=><button className="btn" disabled={busy} key={k} onClick={()=>void run(()=>backend.more(k))}>{busy?'Loading…':k==='history'||k==='activity'?'Show older changes':k==='audit'?'More team history':'Show more records'}</button>)}
+ {moreKeys.map(k=><button className="btn" disabled={busy} key={k} onClick={()=>void run(()=>backend.more(k))}>{busy?'Loading…':k==='history'||k==='activity'?'Show older changes':k==='audit'?'More team history':k==='transfers'?'Show older transfers':'Show more records'}</button>)}
  {backend.directoryMore().map(t=><button className="btn small" disabled={busy} key={t} onClick={()=>void run(()=>backend.more('directory:'+t))}>More {t}</button>)}
  </div></>;
 }

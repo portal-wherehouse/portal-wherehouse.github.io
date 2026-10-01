@@ -10,7 +10,7 @@ import { Empty, Explain, PageHead, fmtFull } from '../../ui/ui';
 
 const GROUPS: { id: string; label: string; types: EventType[] }[] = [
   { id: 'all', label: 'Everything', types: [] },
-  { id: 'movement', label: 'Receiving and movement', types: ['receive', 'import_receive', 'place', 'move', 'verify_location', 'locate'] },
+  { id: 'movement', label: 'Receiving and movement', types: ['receive', 'import_receive', 'place', 'move', 'verify_location', 'locate', 'transfer_send', 'transfer_receive', 'transfer_return'] },
   { id: 'out', label: 'Leaving and returning', types: ['dispatch', 'return'] },
   { id: 'problems', label: 'Missing and holds', types: ['mark_missing', 'apply_hold', 'clear_hold'] },
   { id: 'fixes', label: 'Corrections and admin', types: ['correct', 'reassign_job', 'edit_details', 'retire', 'archive', 'rotate_label', 'label_applied', 'split', 'split_child'] },
@@ -90,13 +90,15 @@ export function Activity() {
                   const p = backend.db.pallets[ev.pallet_id];
                   const from = ev.before_state?.current_location_code;
                   const to = ev.after_state.current_location_code;
+                  // A pallet that has since moved to another warehouse is opened through its transfer.
+                  const away = !!ev.detail.transfer_id && (!p || p.workspace_id !== ev.workspace_id);
                   return (
-                    <tr key={ev.id} className="click" onClick={() => go({ name: 'pallet', id: ev.pallet_id })}>
+                    <tr key={ev.id} className="click" onClick={() => go(away ? { name: 'transfer', id: String(ev.detail.transfer_id) } : { name: 'pallet', id: ev.pallet_id })}>
                       <td style={{ width: 70, whiteSpace: 'nowrap' }} className="muted num" title={fmtFull(ev.accepted_at)}>
                         {new Date(ev.accepted_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <span className="pcode">{p?.code}</span>
+                        <span className="pcode">{p?.code ?? (ev.detail.pallet_code ? String(ev.detail.pallet_code) : '')}</span>
                       </td>
                       <td className="lead">
                         <strong>{EVENT_LABEL[ev.type]}</strong>
@@ -109,7 +111,7 @@ export function Activity() {
                         {ev.reason && <div className="faint" style={{ fontSize: 13 }}>“{ev.reason}”</div>}
                       </td>
                       <td className="muted" style={{ whiteSpace: 'nowrap' }}>
-                        {users[ev.actor_id]?.name}
+                        {users[ev.actor_id]?.name ?? (ev.detail.actor_name ? String(ev.detail.actor_name) : '')}
                       </td>
                     </tr>
                   );

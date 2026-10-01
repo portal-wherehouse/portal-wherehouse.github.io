@@ -127,6 +127,14 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Transfers between two warehouses of one account. The function keeps an identical copy under the
+      // sending and the receiving warehouse, so each side reads only its own warehouse.
+      match /transfers/{id} {
+        allow get: if isMember(ws);
+        allow list: if isMember(ws) && request.query.limit != null && request.query.limit <= 100;
+        allow write: if false;
+      }
+
       // Split parent and child links.
       match /lineage/{childId} {
         allow get: if isMember(ws);

@@ -17,7 +17,8 @@ import { BRAND } from '../brand';
 import { canonicalJson, formatPalletCode, generateToken, hashString, normalizeCode, parseLabelPayload, parsePalletCode, rackFields, uuid } from '../domain/codes';
 import { validateEnvelope } from '../domain/commands';
 import { searchRows, type SearchFilters, type SearchRow } from '../domain/search';
-import { checkTransition, roleAllows } from '../domain/transitions';
+import { ROLE_RANK, checkTransition, roleAllows } from '../domain/transitions';
+import { MAX_TRANSFER_LINES, formatTransferNumber, isOnTheWay, lineForScan, parseTransferNumber, statusFromLines, transferBlocker, transferKeys } from '../domain/transfers';
 import { fitCheck, palletWeight } from '../domain/capacity';
 import type {
   AdminAudit,
@@ -41,10 +42,14 @@ import type {
   PalletSnapshot,
   Role,
   RowError,
+  Transfer,
+  TransferLine,
+  TransferStep,
   User,
   Warehouse,
   Workspace,
 } from '../domain/types';
+import { TRANSFER_COMMANDS, type TransferCommandKind } from '../domain/types';
 import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type Onboarding, type WarehouseSetup } from '../domain/types';
 
 export const DB_SCHEMA_VERSION = 2;
@@ -71,6 +76,10 @@ export interface Db {
   lineage: PalletLineage[];
   imports: Record<string, ImportBatch>;
   counters: Record<string, number>;
+  /** Transfers between warehouses of one account, readable from both ends. */
+  transfers: Record<string, Transfer>;
+  /** Transfer numbers run per account (TR-0001, TR-0002...), keyed by account. */
+  transfer_counters: Record<string, number>;
 }
 
 export function emptyDb(): Db {
@@ -95,6 +104,8 @@ export function emptyDb(): Db {
     lineage: [],
     imports: {},
     counters: {},
+    transfers: {},
+    transfer_counters: {},
   };
 }
 
@@ -117,11 +128,13 @@ import { ReadError } from '../domain/readError';
 
 type Undo = () => void;
 
+const count = (n: number) => `${n} ${n === 1 ? 'pallet' : 'pallets'}`;
+
 class Tx {
   private undo: Undo[] = [];
   constructor(private db: Db) {}
 
-  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports'>(
+  put<K extends 'issues' | 'products' | 'shipments' | 'pallets' | 'jobs' | 'locations' | 'attachments' | 'labels' | 'workspaces' | 'warehouses' | 'users' | 'imports' | 'transfers'>(
     table: K,
     key: string,
     value: Db[K][string],
@@ -166,6 +179,13 @@ class Tx {
     return prev + 1;
   }
 
+  transferCounter(account: string): number {
+    const prev = this.db.transfer_counters[account] ?? 0;
+    this.db.transfer_counters[account] = prev + 1;
+    this.undo.push(() => (this.db.transfer_counters[account] = prev));
+    return prev + 1;
+  }
+
   membership(m: Membership) {
     this.db.memberships.push(m);
     this.undo.push(() => this.db.memberships.pop());
@@ -204,6 +224,8 @@ export class Engine {
   newToken: () => string;
   faults: Faults;
   photoPrefix?: string;
+  /** The command a transfer step belongs to, for the history entries it writes. */
+  private commandId = '';
 
   constructor(
     public db: Db,
@@ -212,6 +234,8 @@ export class Engine {
     this.db.products ??= {};
     this.db.shipments ??= {};
     this.db.issues ??= {};
+    this.db.transfers ??= {};
+    this.db.transfer_counters ??= {};
     this.clock = opts.clock ?? (() => new Date().toISOString());
     this.newId = opts.newId ?? (() => uuid());
     this.newToken = opts.newToken ?? (() => generateToken());
@@ -245,7 +269,7 @@ export class Engine {
   createWorkspace(owner: User, name: string, warehouse: { code: string; name: string; timezone: string; onboarding?: boolean }): { workspace: Workspace; warehouse: Warehouse } {
     const tx = new Tx(this.db);
     const now = this.clock();
-    const ws: Workspace = { id: this.newId(), name, created_at: now };
+    const ws: Workspace = { id: this.newId(), name, created_at: now, account_id: owner.id };
     const wh: Warehouse = { id: this.newId(), workspace_id: ws.id, code: warehouse.code, name: warehouse.name, timezone: warehouse.timezone, active: true, ...(warehouse.onboarding ? { onboarding: { state: 'pending', done: [], zones: [], leave: null, files: null, barcodes: null } } : {}) };
     tx.put('users', owner.id, owner);
     tx.put('workspaces', ws.id, ws);
@@ -349,6 +373,7 @@ export class Engine {
     const ws = cmd.workspace_id;
     const p = cmd.payload as Record<string, unknown>;
 
+    if ((TRANSFER_COMMANDS as readonly string[]).includes(cmd.kind)) return this.transfer(tx, actorId, cmd, now, reject);
     switch (cmd.kind) {
       case 'receive':
         return this.receive(tx, actorId, cmd, now, reject);
@@ -955,6 +980,324 @@ export class Engine {
     return reject('INVALID_INPUT', 'Unknown command.');
   }
 
+  // ---------------------------------------------------------------- transfers
+
+  /**
+   * Transfers move pallets between two warehouses of one account. The pallet keeps its id, code, label and
+   * history: sending marks it in transit at the origin, receiving moves the record to the destination.
+   * The acting warehouse is cmd.workspace_id: the origin to create, send or "transfer now", the destination
+   * to receive, either end to cancel.
+   */
+  private transfer(tx: Tx, actorId: string, cmd: CommandEnvelope, now: string, reject: (c: ErrorCode, m: string, cur?: Pallet | null) => CommandRejected): CommandResult {
+    this.commandId = cmd.command_id;
+    const ws = cmd.workspace_id;
+    const kind = cmd.kind as TransferCommandKind;
+    const p = cmd.payload as Record<string, unknown>;
+    const member = this.membership(actorId, ws)!;
+    const account = this.db.workspaces[ws]?.account_id;
+    const actorName = this.db.users[actorId]?.name ?? '';
+    const step = (t: Transfer, action: TransferStep['action'], text: string) => t.log.push({ at: now, actor_id: actorId, actor_name: actorName, workspace_id: ws, action, text });
+    const save = (t: Transfer) => tx.put('transfers', t.id, { ...t, keys: transferKeys(t.lines), version: t.version + 1, updated_at: now });
+    let firstEvent: string | null = null;
+    const track = (eventId: string) => (firstEvent ??= eventId);
+
+    if (kind === 'create_transfer' || kind === 'transfer_now') {
+      const to = String(p.to_workspace_id);
+      const dest = this.db.workspaces[to];
+      if (to === ws) return reject('INVALID_INPUT', 'Choose a different warehouse to send to.');
+      if (!account || !dest || dest.account_id !== account) return reject('NOT_FOUND', 'That warehouse is not part of this account.');
+      const fromWh = this.activeWarehouse(ws);
+      const toWh = this.activeWarehouse(to);
+      if (!fromWh || !toWh) return reject('INVALID_STATE', 'Both warehouses need to be set up before pallets can move between them.');
+      const destMember = this.membership(actorId, to);
+      if (!destMember) return reject('FORBIDDEN', `You do not have access to ${toWh.name}. Ask an owner to add you there first.`);
+      if (kind === 'transfer_now' && !roleAllows(destMember.role, 'receive_transfer')) return reject('FORBIDDEN', `Receiving at ${toWh.name} needs Operator access there.`);
+      const picked = p.lines as { pallet_id: string; expected_version: number }[];
+      if (picked.length > MAX_TRANSFER_LINES) return reject('INVALID_INPUT', `A transfer holds up to ${MAX_TRANSFER_LINES} pallets.`);
+      if (new Set(picked.map((l) => l.pallet_id)).size !== picked.length) return reject('INVALID_INPUT', 'A pallet is listed twice on this transfer.');
+      const pallets: Pallet[] = [];
+      for (const l of picked) {
+        const pal = this.db.pallets[l.pallet_id];
+        if (!pal || pal.workspace_id !== ws) return reject('NOT_FOUND', 'A pallet on this transfer was not found in this warehouse.');
+        if (pal.version !== l.expected_version) return reject('VERSION_CONFLICT', `${pal.code} changed since you picked it (now version ${pal.version}). Check it and add it again.`, pal);
+        const blocked = transferBlocker(pal);
+        if (blocked) return reject('INVALID_STATE', blocked, pal);
+        pallets.push(pal);
+      }
+      let spot: Location | null = null;
+      if (kind === 'transfer_now' && typeof p.location_id === 'string') {
+        spot = this.db.locations[p.location_id] ?? null;
+        if (!spot || spot.workspace_id !== to || spot.warehouse_id !== toWh.id) return reject('NOT_FOUND', `That spot was not found at ${toWh.name}.`);
+        if (!spot.active) return reject('INACTIVE_LOCATION', `${spot.code} is inactive. Choose an active location.`);
+      }
+      const note = String(p.note ?? '').trim();
+      const n = tx.transferCounter(account);
+      const t: Transfer = {
+        id: this.newId(),
+        account_id: account,
+        number: formatTransferNumber(n),
+        from_workspace_id: ws,
+        from_warehouse_id: fromWh.id,
+        from_name: fromWh.name,
+        to_workspace_id: to,
+        to_warehouse_id: toWh.id,
+        to_name: toWh.name,
+        status: 'DRAFT',
+        note: note || null,
+        lines: pallets.map((pal) => {
+          const loc = pal.current_location_id ? this.db.locations[pal.current_location_id] : null;
+          return {
+            pallet_id: pal.id,
+            code: pal.code,
+            description: pal.description,
+            label_token: this.activeLabel(pal.id)?.token ?? null,
+            status: 'WAITING',
+            version: pal.version,
+            from_location_id: loc?.id ?? null,
+            from_location_code: loc?.code ?? null,
+            to_location_code: null,
+            received_at: null,
+            received_by: null,
+          };
+        }),
+        keys: [],
+        created_by: actorId,
+        created_by_name: actorName,
+        created_at: now,
+        sent_by: null,
+        sent_at: null,
+        received_by: null,
+        received_at: null,
+        cancelled_by: null,
+        cancelled_at: null,
+        cancel_reason: null,
+        log: [],
+        version: 0,
+        updated_at: now,
+      };
+      step(t, 'created', `Created with ${count(pallets.length)}${note ? `. Note: ${note}` : ''}`);
+      if (kind === 'create_transfer' && !p.send) {
+        save(t);
+        const draft = this.accepted(cmd, now, null, null, t.id);
+        draft.created_ids = [t.id];
+        return draft;
+      }
+      for (const [i, pal] of pallets.entries()) track(this.sendLine(tx, t, t.lines[i], pal, actorId, now));
+      t.status = 'IN_TRANSIT';
+      t.sent_by = actorId;
+      t.sent_at = now;
+      step(t, 'sent', `Sent ${count(pallets.length)} to ${toWh.name}`);
+      if (kind === 'transfer_now') {
+        for (const line of t.lines) {
+          const pal = this.db.pallets[line.pallet_id];
+          const r = this.receiveLine(tx, t, line, pal, spot ? this.db.locations[spot.id] : null, actorId, now);
+          if (typeof r !== 'string') {
+            tx.rollback();
+            return reject(r.code, r.message, pal);
+          }
+        }
+        t.status = 'RECEIVED';
+        t.received_by = actorId;
+        t.received_at = now;
+        step(t, 'received', `Received all ${count(pallets.length)} at ${toWh.name} in one step${spot ? `, on ${spot.code}` : ', waiting for placement'}`);
+      }
+      save(t);
+      const res = this.accepted(cmd, now, firstEvent, null, t.id);
+      res.created_ids = [t.id];
+      return res;
+    }
+
+    const t = this.db.transfers[String(p.transfer_id)];
+    if (!t || (t.from_workspace_id !== ws && t.to_workspace_id !== ws)) return reject('NOT_FOUND', 'Transfer not found.');
+    const next: Transfer = structuredClone(t);
+
+    if (kind === 'send_transfer') {
+      if (ws !== t.from_workspace_id) return reject('INVALID_STATE', `${t.number} is sent from ${t.from_name}.`);
+      if (cmd.expected_version !== t.version) return reject('VERSION_CONFLICT', `${t.number} changed since you opened it. Review the current transfer.`);
+      if (t.status !== 'DRAFT') return reject('INVALID_STATE', `${t.number} was already sent.`);
+      if (this.db.workspaces[t.to_workspace_id]?.account_id !== account) return reject('NOT_FOUND', 'The destination warehouse is no longer part of this account.');
+      for (const line of next.lines) {
+        const pal = this.db.pallets[line.pallet_id];
+        if (!pal || pal.workspace_id !== ws) return reject('NOT_FOUND', `${line.code} is no longer in this warehouse. Cancel this draft and start a new transfer.`);
+        const blocked = transferBlocker(pal);
+        if (blocked) return reject('INVALID_STATE', blocked, pal);
+      }
+      for (const line of next.lines) track(this.sendLine(tx, next, line, this.db.pallets[line.pallet_id], actorId, now));
+      next.status = 'IN_TRANSIT';
+      next.sent_by = actorId;
+      next.sent_at = now;
+      step(next, 'sent', `Sent ${count(next.lines.length)} to ${t.to_name}`);
+      save(next);
+      return this.accepted(cmd, now, firstEvent, null, t.id);
+    }
+
+    if (kind === 'receive_transfer') {
+      if (ws !== t.to_workspace_id) return reject('INVALID_STATE', `${t.number} is received at ${t.to_name}.`);
+      if (t.status === 'DRAFT') return reject('INVALID_STATE', `${t.number} has not been sent yet.`);
+      if (!isOnTheWay(t)) return reject('INVALID_STATE', `${t.number} is ${t.status === 'CANCELLED' ? 'cancelled' : 'already received'}.`);
+      const line = next.lines.find((l) => l.pallet_id === cmd.pallet_id);
+      if (!line) return reject('NOT_FOUND', `That pallet is not on ${t.number}.`);
+      if (line.status === 'RECEIVED') return reject('INVALID_STATE', `${line.code} was already received${line.to_location_code ? ` on ${line.to_location_code}` : ''}.`);
+      if (line.status !== 'IN_TRANSIT') return reject('INVALID_STATE', `${line.code} is not on its way here.`);
+      const pal = this.db.pallets[line.pallet_id];
+      if (!pal || pal.state !== 'IN_TRANSIT' || pal.transfer?.id !== t.id) return reject('INVALID_STATE', `${line.code} is not in transit on ${t.number}.`);
+      if (cmd.expected_version !== pal.version) return reject('VERSION_CONFLICT', `${line.code} changed since this transfer was loaded. Review the current transfer.`, pal);
+      let spot: Location | null = null;
+      if (typeof p.location_id === 'string') {
+        spot = this.db.locations[p.location_id] ?? null;
+        if (!spot || spot.workspace_id !== ws || spot.warehouse_id !== t.to_warehouse_id) return reject('NOT_FOUND', `That spot was not found at ${t.to_name}.`);
+        if (!spot.active) return reject('INACTIVE_LOCATION', `${spot.code} is inactive. Choose an active location.`);
+      }
+      const r = this.receiveLine(tx, next, line, pal, spot, actorId, now);
+      if (typeof r !== 'string') {
+        tx.rollback();
+        return reject(r.code, r.message, pal);
+      }
+      next.status = statusFromLines(next.lines, next.status);
+      if (next.status === 'RECEIVED') {
+        next.received_by = actorId;
+        next.received_at = now;
+      }
+      step(next, 'received', `Received ${line.code}${spot ? ` on ${spot.code}` : ', waiting for placement'}`);
+      save(next);
+      return this.accepted(cmd, now, r, this.db.pallets[pal.id], t.id);
+    }
+
+    // cancel_transfer, from either warehouse.
+    if (cmd.expected_version !== t.version) return reject('VERSION_CONFLICT', `${t.number} changed since you opened it. Review the current transfer.`);
+    if (!['DRAFT', 'IN_TRANSIT', 'PARTLY_RECEIVED'].includes(t.status)) return reject('INVALID_STATE', `${t.number} is ${t.status === 'CANCELLED' ? 'already cancelled' : 'fully received'}.`);
+    const reason = String(p.reason ?? '').trim();
+    if (t.status !== 'DRAFT') {
+      if (ROLE_RANK[member.role] < ROLE_RANK.SUPERVISOR) return reject('FORBIDDEN', 'Only a manager or owner can cancel a transfer that was sent.');
+      if (!reason) return reject('INVALID_INPUT', 'Enter why the transfer is cancelled.');
+    }
+    let back = 0;
+    for (const line of next.lines) {
+      if (line.status !== 'IN_TRANSIT') continue;
+      const pal = this.db.pallets[line.pallet_id];
+      if (!pal || pal.state !== 'IN_TRANSIT' || pal.transfer?.id !== t.id) continue;
+      track(this.returnLine(tx, next, line, pal, reason, actorId, now));
+      back++;
+    }
+    next.status = 'CANCELLED';
+    next.cancelled_by = actorId;
+    next.cancelled_at = now;
+    next.cancel_reason = reason || null;
+    step(next, 'cancelled', `Cancelled${reason ? `: ${reason}` : ''}${back ? `. ${count(back)} back at ${t.from_name}` : ''}`);
+    save(next);
+    return this.accepted(cmd, now, firstEvent, null, t.id);
+  }
+
+  /** Take a pallet off its spot and mark it in transit, with a history entry at the origin. */
+  private sendLine(tx: Tx, t: Transfer, line: TransferLine, pallet: Pallet, actorId: string, now: string): string {
+    const from = pallet.current_location_id ? this.db.locations[pallet.current_location_id] : null;
+    const next: Pallet = {
+      ...pallet,
+      state: 'IN_TRANSIT',
+      current_location_id: null,
+      transfer: { id: t.id, number: t.number, from_workspace_id: t.from_workspace_id, from_name: t.from_name, to_workspace_id: t.to_workspace_id, to_name: t.to_name },
+      version: pallet.version + 1,
+      updated_at: now,
+    };
+    const eventId = this.palletEvent(tx, pallet, next, 'transfer_send', actorId, now, null, {
+      transfer: t.number,
+      transfer_id: t.id,
+      to_warehouse: t.to_name,
+      from_location: from?.code ?? null,
+      pallet_code: pallet.code,
+      actor_name: this.db.users[actorId]?.name ?? '',
+    });
+    Object.assign(line, { status: 'IN_TRANSIT', version: next.version, from_location_id: from?.id ?? null, from_location_code: from?.code ?? null, label_token: this.activeLabel(pallet.id)?.token ?? line.label_token });
+    return eventId;
+  }
+
+  /**
+   * Move the pallet record to the destination: same id, code, label and history. It goes on the chosen spot,
+   * or waits for placement there. A job with the same code at the destination is kept; otherwise it has none.
+   */
+  private receiveLine(tx: Tx, t: Transfer, line: TransferLine, pallet: Pallet, spot: Location | null, actorId: string, now: string): string | { code: ErrorCode; message: string } {
+    const to = t.to_workspace_id;
+    const job = pallet.job_id ? this.db.jobs[pallet.job_id] : undefined;
+    const sameJob = job ? Object.values(this.db.jobs).find((j) => j.workspace_id === to && normalizeCode(j.code) === normalizeCode(job.code)) : undefined;
+    const next: Pallet = {
+      ...pallet,
+      workspace_id: to,
+      warehouse_id: t.to_warehouse_id,
+      job_id: sameJob?.id ?? '',
+      state: spot ? 'STORED' : 'RECEIVED',
+      current_location_id: spot?.id ?? null,
+      last_confirmed_location_id: spot?.id ?? null,
+      last_confirmed_at: spot ? now : null,
+      transfer: null,
+      version: pallet.version + 1,
+      updated_at: now,
+    };
+    if (spot) {
+      const f = fitCheck(next, spot, !!this.activeWarehouse(to)?.advanced_measurements);
+      if (f) return { code: 'INVALID_INPUT', message: f.message };
+    }
+    // The label, photos and pallet record follow the pallet to its new warehouse.
+    const label = this.activeLabel(pallet.id);
+    if (label) tx.put('labels', label.token, { ...label, workspace_id: to });
+    for (const a of Object.values(this.db.attachments)) if (a.pallet_id === pallet.id && a.workspace_id !== to) tx.put('attachments', a.id, { ...a, workspace_id: to });
+    const eventId = this.palletEvent(
+      tx,
+      pallet,
+      next,
+      'transfer_receive',
+      actorId,
+      now,
+      null,
+      { transfer: t.number, transfer_id: t.id, from_warehouse: t.from_name, to_location: spot?.code ?? null, pallet_code: pallet.code, job_from: job && !sameJob ? job.code : null, actor_name: this.db.users[actorId]?.name ?? '' },
+      to,
+    );
+    Object.assign(line, { status: 'RECEIVED', version: next.version, to_location_code: spot?.code ?? null, received_at: now, received_by: this.db.users[actorId]?.name || actorId });
+    return eventId;
+  }
+
+  /** A cancelled transfer puts a pallet back where it left from when that spot still takes it, otherwise it waits for placement. */
+  private returnLine(tx: Tx, t: Transfer, line: TransferLine, pallet: Pallet, reason: string, actorId: string, now: string): string {
+    const home = line.from_location_id ? this.db.locations[line.from_location_id] : null;
+    const usable = home && home.active && home.workspace_id === pallet.workspace_id ? home : null;
+    const advanced = !!this.activeWarehouse(pallet.workspace_id)?.advanced_measurements;
+    let next: Pallet = { ...pallet, state: 'STORED', current_location_id: usable?.id ?? null, last_confirmed_location_id: usable?.id ?? pallet.last_confirmed_location_id, transfer: null, version: pallet.version + 1, updated_at: now };
+    if (!usable || fitCheck(next, usable, advanced)) next = { ...next, state: 'RECEIVED', current_location_id: null };
+    const eventId = this.palletEvent(tx, pallet, next, 'transfer_return', actorId, now, reason || null, {
+      transfer: t.number,
+      transfer_id: t.id,
+      to_location: next.current_location_id ? usable!.code : null,
+      pallet_code: pallet.code,
+      actor_name: this.db.users[actorId]?.name ?? '',
+    });
+    Object.assign(line, { status: 'RETURNED', version: next.version });
+    return eventId;
+  }
+
+  /** Save a pallet change made by a transfer, with its history entry in the warehouse where it happened. */
+  private palletEvent(tx: Tx, before: Pallet, next: Pallet, type: 'transfer_send' | 'transfer_receive' | 'transfer_return', actorId: string, now: string, reason: string | null, detail: PalletEvent['detail'], at = before.workspace_id): string {
+    const snapBefore = this.snapshot(before);
+    tx.put('pallets', next.id, next);
+    this.adjustLoad(tx, before, next);
+    const event: PalletEvent = {
+      id: this.newId(),
+      schema_version: 1,
+      workspace_id: at,
+      pallet_id: next.id,
+      revision: next.version,
+      type,
+      actor_id: actorId,
+      accepted_at: now,
+      observed_at: null,
+      before_state: snapBefore,
+      after_state: this.snapshot(next),
+      reason,
+      command_id: this.commandId,
+      detail,
+    };
+    tx.appendEvent(event);
+    return event.id;
+  }
+
   /** Atomic, repeat-safe CSV import (page 27). The command ID is the batch ID. */
   private importBatch(
     tx: Tx,
@@ -1246,7 +1589,11 @@ export class Engine {
     const label = parseLabelPayload(raw);
     if (label) {
       const t = this.db.labels[label.token];
-      if (!t || t.workspace_id !== workspaceId || t.kind !== label.kind) throw new ReadError('NOT_FOUND', 'This label is not recognized in this company.');
+      if (!t || t.workspace_id !== workspaceId || t.kind !== label.kind) {
+        const hint = label.kind === 'P' ? this.transferHint(workspaceId, label.token, null) : null;
+        if (hint) throw new ReadError('INVALID_STATE', hint.message, hint.transfer_id);
+        throw new ReadError('NOT_FOUND', 'This label is not recognized in this company.');
+      }
       if (t.revoked_at) throw new ReadError('INVALID_STATE', 'This label was replaced. Use the new label or type the printed code.');
       if (t.kind === 'P') return { type: 'pallet', pallet: this.db.pallets[t.target_id] };
       const loc = this.db.locations[t.target_id];
@@ -1257,14 +1604,84 @@ export class Engine {
     if (/^PL\d*:/i.test(raw) || /^[a-z]+:\/\//i.test(raw)) throw new ReadError('INVALID_INPUT', `That is not a ${BRAND.name} label.`);
     const palletCode = parsePalletCode(raw);
     if (palletCode) {
-      const p = Object.values(this.db.pallets).find((x) => x.workspace_id === workspaceId && x.code === palletCode);
-      if (p) return { type: 'pallet', pallet: p };
+      const found = Object.values(this.db.pallets).filter((x) => x.workspace_id === workspaceId && x.code === palletCode);
+      // A pallet that came from another warehouse keeps its code, which this warehouse may also have used.
+      if (found.length > 1) throw new ReadError('INVALID_INPUT', `${found.length} pallets here use the code ${palletCode}. Scan its label, or pick it in Find.`);
+      if (found[0]) return { type: 'pallet', pallet: found[0] };
+      const hint = this.transferHint(workspaceId, null, palletCode);
+      if (hint) throw new ReadError('INVALID_STATE', hint.message, hint.transfer_id);
     }
     const code = normalizeCode(raw);
     const wh = this.activeWarehouse(workspaceId);
     const loc = Object.values(this.db.locations).find((l) => l.workspace_id === workspaceId && l.warehouse_id === wh?.id && normalizeCode(l.code) === code);
     if (loc) return { type: 'location', location: loc };
+    const slip = parseTransferNumber(raw);
+    const transfer = slip ? this.transfersOf(workspaceId).find((t) => t.number === slip) : undefined;
+    if (transfer) throw new ReadError('INVALID_INPUT', `${transfer.number} is a transfer slip. Open it from Transfers.`, transfer.id);
     throw new ReadError('NOT_FOUND', `No pallet or location with code ${code}.`);
+  }
+
+  // ---------------------------------------------------------------- transfer reads
+
+  private transfersOf(workspaceId: string): Transfer[] {
+    return Object.values(this.db.transfers)
+      .filter((t) => t.from_workspace_id === workspaceId || t.to_workspace_id === workspaceId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.number.localeCompare(a.number));
+  }
+
+  /** Transfers this warehouse sends or receives, newest first. Both warehouses see the same record. */
+  transfers(actorId: string, workspaceId: string): Transfer[] {
+    this.requireMember(actorId, workspaceId);
+    return this.transfersOf(workspaceId);
+  }
+
+  transferRecord(actorId: string, workspaceId: string, id: string): Transfer {
+    this.requireMember(actorId, workspaceId);
+    const t = this.db.transfers[id];
+    if (!t || (t.from_workspace_id !== workspaceId && t.to_workspace_id !== workspaceId)) throw new ReadError('NOT_FOUND', 'Transfer not found.');
+    return t;
+  }
+
+  /** The account's other warehouses this person belongs to: where they can send pallets. */
+  transferTargets(actorId: string, workspaceId: string): { workspace_id: string; name: string }[] {
+    this.requireMember(actorId, workspaceId);
+    const account = this.db.workspaces[workspaceId]?.account_id;
+    if (!account) return [];
+    return this.db.memberships
+      .filter((m) => m.user_id === actorId && m.active && m.workspace_id !== workspaceId && this.db.workspaces[m.workspace_id]?.account_id === account)
+      .map((m) => ({ workspace_id: m.workspace_id, name: this.activeWarehouse(m.workspace_id)?.name ?? this.db.workspaces[m.workspace_id]?.name ?? 'Warehouse' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** The transfer a scan points at in this warehouse: its slip number, or the label or code of a pallet on it. */
+  transferForScan(actorId: string, workspaceId: string, text: string): { transfer: Transfer; line: TransferLine | null } | null {
+    this.requireMember(actorId, workspaceId);
+    const raw = text.trim();
+    const slip = parseTransferNumber(raw);
+    const all = this.transfersOf(workspaceId);
+    if (slip) {
+      const t = all.find((x) => x.number === slip);
+      return t ? { transfer: t, line: null } : null;
+    }
+    const label = parseLabelPayload(raw);
+    const token = label?.kind === 'P' ? label.token : null;
+    const code = label ? null : parsePalletCode(raw);
+    if (!token && !code) return null;
+    // A pallet on its way here comes first, then the most recent transfer that carried it.
+    const incoming = all.find((t) => t.to_workspace_id === workspaceId && isOnTheWay(t) && lineForScan(t, token, code)?.status === 'IN_TRANSIT');
+    const t = incoming ?? all.find((x) => lineForScan(x, token, code));
+    return t ? { transfer: t, line: lineForScan(t, token, code) } : null;
+  }
+
+  /** Why a pallet label or code is not here, when a transfer explains it. */
+  private transferHint(workspaceId: string, token: string | null, code: string | null): { message: string; transfer_id: string } | null {
+    for (const t of this.transfersOf(workspaceId)) {
+      const line = lineForScan(t, token, code);
+      if (!line) continue;
+      if (t.to_workspace_id === workspaceId && line.status === 'IN_TRANSIT') return { message: `${line.code} is on its way here on ${t.number}. Open the transfer to receive it.`, transfer_id: t.id };
+      if (t.from_workspace_id === workspaceId && line.status === 'RECEIVED') return { message: `${line.code} moved to ${t.to_name} on ${t.number}.`, transfer_id: t.id };
+    }
+    return null;
   }
 
   occupancy(workspaceId: string): Record<string, number> {

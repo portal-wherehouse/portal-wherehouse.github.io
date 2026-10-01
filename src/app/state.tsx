@@ -48,7 +48,10 @@ export type RouteName =
   | 'station'
   | 'data'
   | 'incoming'
-  | 'products';
+  | 'products'
+  /** Transfers between the account's warehouses: the list, and one transfer (or "new"). */
+  | 'transfers'
+  | 'transfer';
 
 export interface Route {
   name: RouteName;
@@ -214,10 +217,11 @@ const ROUTE_TOKENS: RouteName[] = [
   'data',
   'incoming',
   'products',
+  'transfers',
 ];
 
 /** Records that link with their id, e.g. #pallet/<id>, so a reload or a shared link reopens them. */
-const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive'];
+const ID_TOKENS: RouteName[] = ['pallet', 'job', 'location', 'map', 'receive', 'transfer'];
 /** Screens whose query rides along in the link, e.g. #find?q=J-214 or #station?q=count. */
 const Q_TOKENS: RouteName[] = ['find', 'station', 'help', 'incoming', 'products'];
 
