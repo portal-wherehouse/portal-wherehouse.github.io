@@ -29,6 +29,10 @@
 .customer-app .demo-strip strong {background:transparent;color:#3266a4;letter-spacing:0;font-weight:550;}
 .customer-app .demo-strip a {color:#24568e;white-space:nowrap;}
 .customer-app .demo-strip::before,.customer-app .demo-strip::after {display:none;}
+.customer-app .demo-strip .demo-exit {display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border-radius:8px;background:#24568e;color:#fff;font:600 15px/1 var(--font-body);text-decoration:none;white-space:nowrap;}
+.customer-app .demo-strip .demo-exit:hover {background:#1b4573;}
+.customer-app .demo-strip .demo-exit:focus-visible {outline:2px solid #24568e;outline-offset:2px;}
+.customer-app .demo-strip .demo-exit svg {width:16px;height:16px;flex:none;}
 .customer-app .door-side {background:#f5f8fc;color:var(--ink);border-right:1px solid var(--line);}
 .customer-app .door-side::before,.customer-app .door-side::after {display:none;}
 .customer-app .door-title {font:550 38px/1.15 var(--font-body);letter-spacing:-1px;text-transform:none;}
@@ -41,7 +45,7 @@
 .access-form label {display:grid;gap:6px;font-size:13px;font-weight:500;}
 .manager-shortcuts {display:flex;gap:10px;flex-wrap:wrap;}
 @media(max-width:800px){.access-form{grid-template-columns:1fr 1fr;}.customer-app .brand-sub{max-width:135px;}.customer-app .page-title{font-size:25px;}}
-@media(max-width:520px){.access-form{grid-template-columns:1fr;}.customer-app .demo-strip .grow{display:none;}}
+@media(max-width:520px){.access-form{grid-template-columns:1fr;}.customer-app .demo-strip .grow,.customer-app .demo-strip strong{display:none;}.customer-app .demo-strip .demo-exit{margin-right:auto;}}
 /* Printed labels retain their physical measurements and high contrast. */
 @media print{.customer-app{background:#fff;}.customer-app .label-card{color:#000;background:#fff;}}
 .sample-choices h2{font-size:23px;font-weight:550;margin:0 0 8px;}

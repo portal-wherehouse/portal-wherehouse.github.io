@@ -180,6 +180,7 @@ function Portal() {
   return (
     <div className="shell customer-app">
       {backend.mode === 'demo' && <div className="demo-strip" role="note">
+        {!IS_PREVIEW && <a className="demo-exit" href={location.pathname} data-testid="exit-demo"><Icon name="x" />Exit demo</a>}
         <strong>Sample warehouse</strong>
         <span className="grow">
           {IS_PREVIEW ? 'Hosted preview. ' : ''}Practice data stays in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account${multiCompany && companyName ? ` at ${companyName}` : ''}` : ''}.
