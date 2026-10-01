@@ -10,8 +10,14 @@ test.use({ serviceWorkers: 'block' });
 async function fakeDomain(context: BrowserContext, baseURL: string) {
   await context.route(/^https:\/\/(?:www\.|app\.)?example\.test\//, async (route) => {
     const url = new URL(route.request().url());
-    const response = await route.fetch({ url: `${baseURL}${url.pathname}${url.search}` });
-    await route.fulfill({ response });
+    // A host redirect (location.replace) can leave the old page while its files are still loading;
+    // a request that outlives its page is dropped instead of failing the test.
+    try {
+      const response = await route.fetch({ url: `${baseURL}${url.pathname}${url.search}` });
+      await route.fulfill({ response });
+    } catch (e) {
+      if (!/closed|detached/i.test(String(e))) throw e;
+    }
   });
 }
 

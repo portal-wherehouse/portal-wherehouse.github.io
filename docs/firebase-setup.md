@@ -16,7 +16,7 @@ Use a project you control. You do not need to share a password, service-account 
 
 ## 2. Turn on the three services
 
-- **Authentication → Sign-in method:** enable Email/Password. Keep email link sign-in off. In Authentication settings, add `portal-wherehouse.github.io` to Authorized domains. Add `localhost` only if you want local development. Configure the verification and password-reset email sender names. Set the password policy to at least eight characters.
+- **Authentication → Sign-in method:** enable Email/Password. Keep email link sign-in off. In Authentication settings, add `wherehousetracking.com`, `app.wherehousetracking.com` and `portal-wherehouse.github.io` to Authorized domains. Add `localhost` only if you want local development. Configure the verification and password-reset email sender names. Set the password policy to at least eight characters.
 - **Firestore Database:** create the **(default), Standard edition** database in production mode. Choose `us-east1` to match the functions in this repository. Do not use Realtime Database or MongoDB compatibility.
 - **Storage:** create the default bucket in production mode, using the same region where available. Keep the bucket name that Firebase supplies. The current deployment target is `us-east1` (South Carolina) for Firestore, functions and the photo bucket. The existing cost report uses a `us-central1` pricing assumption; recheck regional rates before live activation.
 
@@ -44,7 +44,7 @@ This web configuration is public by design. It is not an Admin SDK credential. N
 Do these in **your own Google project** when ready to activate Blaze. The code changes and emulator tests do not activate paid services.
 
 1. In Google Cloud → Billing → Budgets & alerts, create a **project-scoped budget for the amount you explicitly accept for live trials** (for example $5), with actual-spend alerts at **50%, 80%, 100%** and forecast at **100%**. Add your monitored email. For production, use separate project budgets of **$10 / $50 / $250** as initial alerts for **1 / 10 / 50 warehouses**, then revise using actual usage. These are notification thresholds, **not spending caps**. Charges and alerts can arrive late.
-2. Register the web app in Firebase → App Check using **reCAPTCHA Enterprise**. Create a website score-based key with `portal-wherehouse.github.io` in its allowed domains; keep domain validation enabled. Set App Check token TTL to **1 hour** initially. Add repository Actions variable **`VITE_FIREBASE_APPCHECK_SITE_KEY`** with the public site key. Never add a debug token to production or the repository.
+2. Register the web app in Firebase → App Check using **reCAPTCHA Enterprise**. Create a website score-based key with `wherehousetracking.com`, `app.wherehousetracking.com` and `portal-wherehouse.github.io` in its allowed domains; keep domain validation enabled. Set App Check token TTL to **1 hour** initially. Add repository Actions variable **`VITE_FIREBASE_APPCHECK_SITE_KEY`** with the public site key. Never add a debug token to production or the repository.
 3. Publish the web configuration and inspect App Check metrics. Verify a real signed-in browser produces valid tokens, then **enforce App Check for Firestore and Storage** in Firebase. Callable functions enforce it in code on every non-demo project. Do not set `ENFORCE_APP_CHECK=false` in production. This app starts attestation for account creation and after verified sign-in, so do not enable Authentication App Check enforcement without also moving initialization before sign-in and testing that separate change.
 4. In Google Cloud → Cloud Run, inspect warehouse callable configuration: **minimum instances 0, maximum 3, concurrency 20, 256 MiB, request timeout 30 seconds**. Account creation has maximum 1 and concurrency 10, with the same minimum, memory and timeout. The scheduled cleanup has minimum 0, maximum 1 and timeout 120 seconds. Keep request-based billing. Maximum instances are per function and are not a dollar cap. Deployment transitions can temporarily overlap revisions.
 5. In IAM & Admin → Quotas & System Limits, inspect adjustable quotas for the actual project's **Cloud Run functions**, **Cloud Run Admin**, **Firestore**, **Cloud Storage**, and **reCAPTCHA Enterprise** services. Do not increase quotas just to pass local tests. Provider request-rate quotas vary by project and do not bound monthly downloads. Keep the application limits below as the customer-facing guardrails; budgets remain necessary.
@@ -90,7 +90,7 @@ Use the exact `storageBucket` from your web config. The supplied policy allows t
 
 ## 7. Publish the configured website
 
-In GitHub → Actions → **Deploy to GitHub Pages** → Run workflow → main. Wait for both build and deploy to turn green. Open https://portal-wherehouse.github.io/#signin and refresh.
+In GitHub → Actions → **Deploy to GitHub Pages** → Run workflow → main. Wait for both build and deploy to turn green. Open https://app.wherehousetracking.com/#signin and refresh.
 
 Create your account and verify the email. A usage key is required to activate a warehouse; signing in alone grants no warehouse access.
 

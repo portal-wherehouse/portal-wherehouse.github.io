@@ -2,9 +2,10 @@
 
 Warehouse organization by job: receive a pallet, label it, scan its rack, find it and dispatch it.
 
-- Website: https://portal-wherehouse.github.io/
-- Live sign-in: https://portal-wherehouse.github.io/#signin
-- Isolated sample warehouse: https://portal-wherehouse.github.io/?demo=1#signin
+- Website: https://wherehousetracking.com/
+- Live sign-in: https://app.wherehousetracking.com/#signin
+- Isolated sample warehouse: https://app.wherehousetracking.com/?demo=1
+- Support: support@wherehousetracking.com
 - [Firebase activation walkthrough](docs/firebase-setup.md)
 - [Measured usage and cost estimates](docs/firebase-cost-report.md)
 
@@ -59,7 +60,7 @@ Without them the Cloudflare job is skipped and GitHub Pages publishing continues
 
 A receiving computer plus a USB 4 × 6 thermal printer is the practical starting point. Letter sheets work for a small pilot. Print at actual size with headers and footers disabled. Pallet and rack labels carry readable codes and QR codes; keyboard scanners must support the printed code type and send Enter. A phone camera is enough to start.
 
-The [printing and scanning page](https://portal-wherehouse.github.io/#hardware) covers buying, setup and label placement. Hardware compatibility still requires a physical print-and-scan check.
+The [printing and scanning page](https://wherehousetracking.com/#hardware) covers buying, setup and label placement. Hardware compatibility still requires a physical print-and-scan check.
 
 ## Walkthrough
 

@@ -7,12 +7,12 @@ export const BRAND = {
   portal: 'Wherehouse Portal',
   /** One line under the name. */
   tagline: 'Know where everything is.',
-  /** Where the Help page's contact form and the website's contact page send people for now. */
-  supportEmail: 'johnhenry.mims@gmail.com',
+  /** Where the Help page's contact form and the website's contact page send people. */
+  supportEmail: 'support@wherehousetracking.com',
 } as const;
 
 export const CREATOR = {
   name: 'John Henry Mims',
-  email: 'johnhenry.mims@gmail.com',
+  email: 'support@wherehousetracking.com',
   linkedin: 'https://www.linkedin.com/in/john-henry-mims-3161a9237/',
 } as const;

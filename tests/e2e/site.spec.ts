@@ -58,7 +58,7 @@ test('homepage shows the product, labeled examples and the founding-customer off
   await expect(examples).toContainText('They are not customer stories.');
   const founding = page.getByTestId('home-founding');
   await expect(founding).toContainText('Founding customers');
-  await expect(founding.locator('a[href^="mailto:johnhenry.mims@gmail.com"]')).toHaveCount(1);
+  await expect(founding.locator('a[href^="mailto:support@wherehousetracking.com"]')).toHaveCount(1);
   await page.goto('/#founder');
   await expect(page.getByTestId('about-facts')).toContainText('Charleston, SC');
   await expect(page.locator('main a[href*="linkedin.com"]').first()).toBeVisible();
