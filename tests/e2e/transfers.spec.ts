@@ -81,11 +81,11 @@ test('transfer between the two sample warehouses, from sending to receiving', as
   expect(errors).toEqual([]);
 });
 
-test('with one warehouse, Transfers is not in the menu and the page explains how to add one', async ({ page }) => {
+test('with one warehouse, Transfers stays in an owner\'s menu and the page explains how to add one', async ({ page }) => {
   await signInAs(page, 'owner');
   await page.goto('/#overview');
   await portalReady(page);
-  await expect(page.locator('.sidebar').getByRole('button', { name: 'Transfers', exact: true, includeHidden: true })).toHaveCount(0);
+  await expect(page.locator('.sidebar').getByRole('button', { name: 'Transfers', exact: true, includeHidden: true })).toHaveCount(1);
   await page.goto('/#transfers');
   await expect(page.getByRole('heading', { name: 'Transfers need a second warehouse' })).toBeVisible();
   await expect(page.getByText(/choose Add warehouse/)).toBeVisible();

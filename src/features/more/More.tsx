@@ -104,13 +104,15 @@ export function visibleNav(role: Role | null, advanced: boolean, live = false, j
     allowed.delete('jobs');
     allowed.delete('job');
   }
-  // Transfers appear once the account has a second warehouse to send to.
-  if (transfers) {
+  // Transfers appear once the account has a second warehouse to send to. Managers always see them: the screen
+  // explains how to add the second warehouse, so the feature is never hidden from the person who can set it up.
+  if (transfers || manager) {
     allowed.add('transfers');
     allowed.add('transfer');
   }
-  // Pick orders appears when an owner turns on "Orders and picking" in Settings. Viewers do not pick.
-  if (orders && role !== 'VIEWER') {
+  // Pick orders is on for every warehouse unless an owner turned it off. Managers still see it when it is off:
+  // the screen turns it back on with one tap. Viewers do not pick.
+  if ((orders && role !== 'VIEWER') || manager) {
     allowed.add('orders');
     allowed.add('order');
   }

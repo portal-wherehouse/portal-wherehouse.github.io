@@ -45,7 +45,7 @@ export interface Warehouse {
   advanced_measurements?: boolean;
   /** What this warehouse calls the things it tracks and how it groups work; see domain/terms.ts. */
   setup?: WarehouseSetup;
-  /** Orders and picking: off unless an owner turns it on. See domain/orders.ts. */
+  /** Orders and picking: on unless an owner turned it off (missing means the default). See domain/orders.ts. */
   orders?: OrdersSettings;
   /** Quantity changes by operators wait for a manager's approval. Off unless a manager turns it on. See domain/stock.ts. */
   adjust_approval?: boolean;

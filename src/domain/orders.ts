@@ -5,7 +5,7 @@
 // is packed into a package (K-000045), waits on a staging spot, and is dispatched when the order is handed off.
 
 import { barcodeMatchKey } from './receiving';
-import type { Pallet } from './types';
+import type { Pallet, WarehouseSetup } from './types';
 
 export const ORDER_STATUSES = ['OPEN', 'PICKING', 'PICKED', 'PACKED', 'STAGED', 'DONE', 'CANCELLED'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -222,11 +222,17 @@ export interface OrdersSettings {
 }
 
 export const DEFAULT_BOX_TYPES = ['Small box', 'Medium box', 'Large box', 'Mailer'];
-export const DEFAULT_ORDERS: OrdersSettings = { on: false, cart_size: 6, box_types: DEFAULT_BOX_TYPES, subs: 'ask' };
+/**
+ * Orders and picking is on unless an owner turned it off. A warehouse with no saved setting (every warehouse made
+ * before the setting existed) gets these defaults, so picking reaches existing customers with no data migration.
+ */
+export const DEFAULT_ORDERS: OrdersSettings = { on: true, cart_size: 6, box_types: DEFAULT_BOX_TYPES, subs: 'ask' };
 export const MAX_CART = 8;
 
-export function ordersOf(wh: { orders?: OrdersSettings } | null | undefined): OrdersSettings {
-  return { ...DEFAULT_ORDERS, ...(wh?.orders ?? {}) };
+export function ordersOf(wh: { orders?: OrdersSettings; setup?: Partial<WarehouseSetup> | null } | null | undefined): OrdersSettings {
+  // A warehouse that calls its jobs "Orders" keeps that word: picking waits until an owner turns it on.
+  const jobsAreOrders = /^orders?$/i.test(wh?.setup?.job?.trim() ?? '');
+  return { ...DEFAULT_ORDERS, ...(jobsAreOrders ? { on: false } : {}), ...(wh?.orders ?? {}) };
 }
 
 /** Each tote slot keeps one letter and one color, so a glance at the cart is enough. */

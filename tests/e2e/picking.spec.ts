@@ -179,18 +179,22 @@ test('short picks, substitutes and the manager board', async ({ page }) => {
   await expect(page.locator('#main')).toContainText('short');
 });
 
-test('owners turn orders on in Settings; the menu then offers Pick orders', async ({ page }) => {
+test('Pick orders is in the menu of a warehouse with no saved setting; turned off, owners turn it back on with one tap', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await signInAs(page, 'owner');
   await page.goto('/#settings');
   await portalReady(page);
   const side = page.locator('.sidebar');
-  await expect(side.getByRole('button', { name: 'Pick orders', includeHidden: true })).toHaveCount(0);
-  await page.getByTestId('orders-setting').getByLabel('Pick customer orders').click();
-  await expect(page.getByTestId('orders-setting').getByLabel('Pick customer orders')).toBeChecked();
+  const toggle = page.getByTestId('orders-setting').getByLabel('Pick customer orders');
+  await expect(toggle).toBeChecked();
+  await expect(side.getByRole('button', { name: 'Pick orders', includeHidden: true })).toHaveCount(1);
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  // Off, the owner still finds it in the menu, with a one-tap Turn on.
   await expect(side.getByRole('button', { name: 'Pick orders', includeHidden: true })).toHaveCount(1);
   await side.getByRole('button', { name: 'Pick orders' }).click();
   await expect(page.locator('#main h1')).toHaveText('Pick orders');
+  await page.getByTestId('orders-off').getByRole('button', { name: 'Turn on' }).click();
   await expect(page.getByTestId('order-list')).toHaveCount(0);
   await expect(page.locator('#main')).toContainText('No orders yet');
 });

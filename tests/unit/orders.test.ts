@@ -5,6 +5,7 @@ import { Engine } from '../../src/demo/engine';
 import { seedSample, seedTiny } from '../../src/demo/seed';
 import { uuid } from '../../src/domain/codes';
 import {
+  ordersOf,
   batchProgress,
   compareSpots,
   draftOrders,
@@ -138,11 +139,17 @@ describe('the sample warehouse', () => {
     expect(check.ok ? [] : check.problems).toEqual([]);
   });
 
-  it('warehouses created before orders have them off, and every order command says so', () => {
+  it('warehouses created before orders have them on; an owner turning them off, or jobs called Orders, keeps them off', () => {
     const engine = new Engine(seedTiny());
     const ws = Object.values(engine.db.workspaces)[0].id;
-    const r = engine.execute('user-supervisor', { schema_version: 1, command_id: uuid(), workspace_id: ws, kind: 'start_batch', payload: {} });
-    fails(r, 'INVALID_STATE', /Orders and picking is off/);
+    const wh = Object.values(engine.db.warehouses).find((w) => w.workspace_id === ws)!;
+    expect(wh.orders).toBeUndefined();
+    expect(ordersOf(wh).on).toBe(true);
+    const start = () => engine.execute('user-supervisor', { schema_version: 1, command_id: uuid(), workspace_id: ws, kind: 'start_batch', payload: {} });
+    fails(start(), 'INVALID_STATE', /No orders are waiting/);
+    expect(ordersOf({ ...wh, setup: { ...wh.setup!, job: 'Order', jobs: 'Orders' } }).on).toBe(false);
+    engine.db.warehouses[wh.id] = { ...wh, orders: { ...ordersOf(wh), on: false } };
+    fails(start(), 'INVALID_STATE', /Orders and picking is off/);
   });
 });
 
