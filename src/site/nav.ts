@@ -5,14 +5,14 @@ import { groupById, groupTitle } from './for/groups';
 export const SITE_NAV: { route: SiteRouteName; label: string; blurb: string }[] = [
   { route: 'product', label: 'How it works', blurb: 'Receive. Move. Find.' },
   { route: 'for', label: 'Who it’s for', blurb: 'Wherehouse for your kind of business.' },
-  { route: 'why', label: 'Why Wherehouse', blurb: 'A shared answer for the next shift.' },
-  { route: 'hardware', label: 'Printing & scanning', blurb: 'Start with the equipment you have.' },
   { route: 'pricing', label: 'Pricing', blurb: 'Software, equipment and setup options.' },
   { route: 'contact', label: 'Get help', blurb: 'Talk to a person.' },
 ];
 
-/** The smaller links under them in the phone menu. */
+/** The smaller links under them in the phone menu. Why Wherehouse is also linked from How it works, and Printing & scanning from Pricing. */
 export const SITE_FOOTER_EXTRA: { route: SiteRouteName; label: string; blurb: string }[] = [
+  { route: 'simple', label: 'Why Wherehouse', blurb: '' },
+  { route: 'hardware', label: 'Printing & scanning', blurb: '' },
   { route: 'fit', label: 'Is it for me?', blurb: '' },
   { route: 'mission', label: 'Our mission', blurb: '' },
   { route: 'showcase', label: 'Process walkthrough', blurb: '' },
@@ -23,7 +23,7 @@ export const SITE_FOOTER_EXTRA: { route: SiteRouteName; label: string; blurb: st
 
 /** Pages reached by a second address, or only by links. */
 const OTHER_LABELS: Partial<Record<SiteRouteName, string>> = {
-  simple: 'Why Wherehouse',
+  why: 'Why Wherehouse',
   industries: 'Who it’s for',
   start: 'Set up your warehouse',
 };

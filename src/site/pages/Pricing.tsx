@@ -11,6 +11,6 @@ export function PricingPage(){return <>
 <Section tone="surface" title="What’s included"><div className="buyer-table-wrap"><table className="buyer-table"><thead><tr><th>Included</th><th>Use your equipment</th><th>Equipment & setup</th></tr></thead><tbody>
 {['Shared records, photos and movement history','Phone scanning and printed labels','Manager and employee accounts','Remote support for the whole app'].map(t=><tr key={t}><th>{t}</th><td>Yes</td><td>Yes</td></tr>)}
 <tr><th>Printer, labels and hardware setup</th><td>Use your own; we help remotely</td><td>Included in your agreed quote</td></tr><tr><th>On-site visit</th><td>Available by arrangement</td><td>Can be included in your quote</td></tr>
-</tbody></table></div></Section>
+</tbody></table></div><p className="pricing-equipment"><SiteLink to="hardware">Printing & scanning: which printers, labels and scanners work →</SiteLink></p></Section>
 <Section narrow title={`Try it free for ${PRICING.pilotDays} days.`}><p>Answer a few questions and we’ll recommend a setup for how you work, then start your free trial. No card and no automatic charge. Rather see it in your building first? Book a free walkthrough.</p><div className="site-hero-actions"><SiteLink to="start" className="site-btn primary">Start your free trial</SiteLink><SiteLink to="contact" className="site-btn ghost">Book a free walkthrough</SiteLink></div><a className="site-link" href={portalHref('?demo=1#signin')}>Browse the sample warehouse →</a></Section>
 </>;}

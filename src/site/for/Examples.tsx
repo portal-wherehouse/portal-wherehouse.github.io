@@ -1,13 +1,11 @@
-// Home page sections that show Wherehouse in context before asking anyone to set it up:
-// three worked examples (clearly marked as examples, not customers) and the founding-customer offer.
+// Three worked examples on the #for overview, clearly marked as examples, not customers.
+// Each links to the "Wherehouse for ___" page it belongs to.
 
 import type { ReactNode } from 'react';
-import { CREATOR } from '../brand';
-import { Icon } from '../ui/icons';
-import { Monogram, SiteLink, firstName } from './kit';
-import { openGroup } from './for/GroupCards';
-import { groupById, groupHref, groupTitle } from './for/groups';
-import './home-stories.css';
+import { Icon } from '../../ui/icons';
+import { openGroup } from './GroupCards';
+import { groupById, groupHref, groupTitle } from './groups';
+import './examples.css';
 
 interface Example {
   id: string;
@@ -64,7 +62,7 @@ const EXAMPLES: Example[] = [
 
 export function Examples() {
   return (
-    <div className="ex" data-testid="home-examples">
+    <div className="ex" data-testid="for-examples">
       <div className="ex-grid">
         {EXAMPLES.map((e) => (
           <article key={e.id} className="ex-card" aria-labelledby={`ex-${e.id}`}>
@@ -117,85 +115,6 @@ function GroupLink({ id }: { id: string }) {
     </a>
   );
 }
-
-/** Founding customers: a direct line to the person who builds Wherehouse. */
-export function Founding() {
-  return (
-    <section className="site-section tone-ink home-founding" id="founding" data-testid="home-founding">
-      <div className="site-inner hf-grid">
-        <div className="hf-text">
-          <span className="hf-beta">
-            <i />
-            In beta
-          </span>
-          <div className="site-eyebrow">Founding customers</div>
-          <h2 className="site-h2">Help decide what gets built next.</h2>
-          <p className="site-lede">We’re in beta. The first businesses to use Wherehouse shape where it goes. You talk directly to the person who builds it, and your requests get built.</p>
-          <ol className="hf-steps">
-            <li>
-              <span className="hf-n">1</span>
-              <div>
-                <h3>Ask for it</h3>
-                <p>Email what would make your day easier. A missing field, a label layout, a report.</p>
-              </div>
-            </li>
-            <li>
-              <span className="hf-n">2</span>
-              <div>
-                <h3>Talk to the builder</h3>
-                <p>{CREATOR.name} writes the code. He talks it through with you, not a ticket system.</p>
-              </div>
-            </li>
-            <li>
-              <span className="hf-n">3</span>
-              <div>
-                <h3>See it in your app</h3>
-                <p>When it’s ready, it shows up in the app your team already uses.</p>
-              </div>
-            </li>
-          </ol>
-          <div className="site-hero-actions">
-            <a className="site-btn primary" href={`mailto:${CREATOR.email}?subject=${encodeURIComponent('Founding customer')}`}>
-              <Icon name="mail" />
-              Email {firstName(CREATOR.name)}
-            </a>
-            <SiteLink to="contact" className="site-btn ghost">
-              Book a free walkthrough
-            </SiteLink>
-          </div>
-        </div>
-
-        <aside className="hf-card" aria-label="Who you’ll talk to">
-          <div className="hf-card-top">
-            <Monogram />
-            <div>
-              <div className="hf-card-name">{CREATOR.name}</div>
-              <div className="hf-card-role">Founder · Charleston, SC</div>
-            </div>
-          </div>
-          <ul className="hf-list">
-            <li>
-              <Icon name="chat" />
-              Your email reaches him directly.
-            </li>
-            <li>
-              <Icon name="pin" />
-              In-person setup within about an hour of Charleston.
-            </li>
-            <li>
-              <Icon name="sparkle" />
-              Founding customers help set the plan.
-            </li>
-          </ul>
-          <SiteLink to="founder" className="site-link hf-card-link">
-            About {firstName(CREATOR.name)} →
-          </SiteLink>
-        </aside>
-      </div>
-    </section>
-  );
-}
-
 
 /* ---------------------------------------------------------------- example illustrations */
 

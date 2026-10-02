@@ -203,6 +203,40 @@
     display: inline-flex;
   }
 }
+/* The free trial, beside Sign in. On phones it moves into the menu with Sign in. */
+.shell-trial {
+  display: none;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--ground);
+  font: 700 14px/1 var(--font-body);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.2s;
+}
+@media (min-width: 640px) {
+  .shell-trial {
+    display: inline-flex;
+  }
+}
+.shell-trial:hover {
+  box-shadow: var(--shadow);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .shell-trial:hover {
+    transform: translateY(-1px);
+  }
+}
+.shell-trial:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .shell-menu-btn {
   display: inline-flex;
@@ -394,6 +428,13 @@
 }
 .shell-menu-portal .portal-cta {
   width: 100%;
+}
+.shell-menu-portal .shell-menu-trial {
+  width: 100%;
+  margin-bottom: 16px;
+  background: #f4f5f1;
+  border-color: #f4f5f1;
+  color: #14171a;
 }
 .shell-menu-portal .portal-cta-note {
   color: #c3c9cf;
