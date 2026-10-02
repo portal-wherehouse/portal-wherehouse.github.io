@@ -1,234 +1,454 @@
-/* Why Wherehouse: the comparison table. Wide screens see every column; phones see Wherehouse next to one
-   choice picked with the chips above the table. */
+/* Why Wherehouse: a stat strip, the three-column comparison, the "why" tiles and a closing call to action.
+   Wide screens see a normal table. Phones see each row as its label over three small boxes. */
 
-.compare-picker {
-  display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+/* Stat strip under the hero. */
+.why-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
 }
-.compare-picker-label {
-  width: 100%;
+.why-stats li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.why-stats strong {
+  font-family: var(--font-body);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.why-stats span {
   font-size: 13px;
-  font-weight: 600;
+  line-height: 1.35;
   color: var(--ink-2);
 }
-.compare-chip {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 550;
-  cursor: pointer;
-}
-.compare-chip.on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--ground);
+@media (min-width: 720px) {
+  .why-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .why-stats li {
+    padding: 18px 20px;
+  }
+  .why-stats strong {
+    font-size: 40px;
+  }
+  .why-stats span {
+    font-size: 14px;
+  }
 }
 
-.compare-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-.compare-wrap:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.compare-table {
+/* The comparison. */
+.cmp {
+  width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  width: 100%;
-  min-width: 1000px;
   table-layout: fixed;
   text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
 }
-.compare-table th,
-.compare-table td {
-  padding: 12px 12px;
+.cmp th,
+.cmp td {
+  padding: 14px 16px;
   border-bottom: 1px solid var(--line);
-  font-size: 13.5px;
+  font-size: 15px;
   line-height: 1.4;
-  vertical-align: top;
+  vertical-align: middle;
 }
-.compare-table tbody tr:last-child > * {
+.cmp tbody:last-child tr:last-child > * {
   border-bottom: 0;
 }
-.compare-table thead th {
-  vertical-align: bottom;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line-strong);
+.cmp-corner {
+  width: 34%;
 }
-.compare-table thead strong {
+.cmp thead th {
+  vertical-align: bottom;
+  padding-top: 20px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.cmp thead strong {
   display: block;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 20px;
   font-weight: 700;
-  text-transform: uppercase;
-  line-height: 1.05;
+  line-height: 1.15;
 }
-.compare-table thead small {
+.cmp thead sup,
+.cmp-note sup {
+  font-size: 0.6em;
+  margin-left: 1px;
+}
+.cmp thead small {
   display: block;
-  margin-top: 3px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--ink-3);
 }
-/* Row labels stay put while the rest scrolls sideways. */
-.compare-table tbody th[scope='row'],
-.compare-corner {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  width: 168px;
-  background: var(--surface);
+.cmp tbody th[scope='row'] {
   font-weight: 600;
-  box-shadow: 1px 0 0 var(--line);
 }
-.compare-corner {
-  background: var(--surface-2);
-}
-.compare-group th {
-  padding: 18px 12px 8px;
-  background: var(--surface);
-  font-family: var(--font-display);
-  font-size: 15px;
+.cmp-group th {
+  padding: 22px 16px 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
-}
-.compare-group th span {
-  position: sticky;
-  left: 12px;
+  color: var(--ink-3);
 }
 
 /* The Wherehouse column stands out. */
-.compare-table .c-wherehouse {
-  background: var(--accent-soft);
+.cmp .c-wherehouse {
+  background: color-mix(in srgb, var(--ok-soft) 70%, var(--surface));
+  font-weight: 600;
 }
-.compare-table thead .c-wherehouse {
-  box-shadow: inset 0 3px 0 var(--accent);
+.cmp thead .c-wherehouse {
+  background: var(--ok-soft);
+  box-shadow: inset 0 4px 0 var(--ok);
 }
-.compare-table td.c-wherehouse {
-  font-weight: 550;
+.cmp thead .c-wherehouse strong {
+  color: var(--ok);
 }
 
-.compare-cell {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
+/* Gotcha rows: the apps have it, nobody wants it. */
+.cmp-gotcha > * {
+  background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bad) 7%, var(--surface)) 0 10px, color-mix(in srgb, var(--bad) 3%, var(--surface)) 10px 20px);
 }
-.compare-mark {
+.cmp-gotcha th[scope='row'] {
+  box-shadow: inset 4px 0 0 var(--bad);
+}
+.cmp-nobody {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bad) 14%, var(--surface));
+  color: var(--bad);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cmp-nobody svg {
+  width: 12px;
+  height: 12px;
+}
+.cmp-gotcha th[scope='row'] .cmp-nobody {
+  display: flex;
+  width: fit-content;
+}
+
+.cmp-cell {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.cmp-cell.is-proud {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.cmp-text {
+  min-width: 0;
+}
+.cmp-mark {
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
-  margin-top: -1px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
 }
-.compare-mark svg {
-  width: 13px;
-  height: 13px;
+.cmp-mark svg {
+  width: 14px;
+  height: 14px;
   stroke-width: 3;
 }
-.compare-mark.yes {
+.cmp-mark.yes {
   background: var(--ok);
   color: var(--surface);
 }
-.compare-mark.no {
+.cmp-mark.no {
   background: var(--surface-3);
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
-.compare-mark.part {
+.cmp-mark.bad {
+  background: var(--bad);
+  color: var(--surface);
+}
+.cmp-mark.part {
   box-sizing: border-box;
   border: 2px solid var(--warn);
   background: linear-gradient(90deg, transparent 50%, var(--warn) 50%);
 }
+.cmp-proud {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 7px;
+  border-radius: 999px;
+  background: var(--ok);
+  color: var(--surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+.cmp-proud svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 3;
+}
 
-.compare-legend {
+.cmp-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
-  margin-top: 14px;
+  margin-top: 16px;
   font-size: 13px;
   color: var(--ink-2);
 }
-.compare-legend > span {
+.cmp-legend > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.compare-note {
+.cmp-legend .cmp-mark {
+  width: 18px;
+  height: 18px;
+}
+.cmp-legend .cmp-mark svg {
+  width: 11px;
+  height: 11px;
+}
+.cmp-note {
   max-width: 80ch;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 13px;
   line-height: 1.55;
   color: var(--ink-3);
 }
-.compare-fit {
-  margin: 0 0 16px;
-  padding-left: 20px;
-}
-.compare-fit li {
-  padding: 3px 0;
-  font-size: 15px;
-  line-height: 1.6;
-}
 
+/* Phones: label on its own line, then the three answers side by side. */
 @media (max-width: 719px) {
-  .compare-picker {
-    display: flex;
+  .cmp,
+  .cmp thead,
+  .cmp tbody {
+    display: block;
   }
-  .compare-table {
+  .cmp tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .cmp th,
+  .cmp td {
+    display: block;
     min-width: 0;
-    table-layout: auto;
-  }
-  .compare-table td {
-    overflow-wrap: anywhere;
-  }
-  .compare-table thead th:not(.compare-corner):not(.is-off),
-  .compare-table td:not(.is-off) {
-    width: 34.5%;
-  }
-  .compare-table .is-off {
-    display: none;
-  }
-  .compare-table tbody th[scope='row'],
-  .compare-corner {
-    position: static;
-    width: 31%;
-    box-shadow: none;
-  }
-  .compare-table th,
-  .compare-table td {
     padding: 10px 8px;
     font-size: 13px;
+    overflow-wrap: anywhere;
   }
-  .compare-table thead strong {
-    font-size: 17px;
+  .cmp tbody th[scope='row'] {
+    grid-column: 1 / -1;
+    padding: 14px 12px 4px;
+    border-bottom: 0;
+    font-size: 15px;
   }
-  .compare-group th {
-    padding: 14px 8px 6px;
+  .cmp-corner {
+    display: none !important;
+  }
+  .cmp thead th {
+    padding: 14px 8px 10px;
+  }
+  .cmp thead strong {
     font-size: 14px;
+    overflow-wrap: normal;
+    word-break: keep-all;
   }
-  .compare-cell {
+  .cmp thead small {
+    font-size: 11.5px;
+  }
+  .cmp tr > td:not(:last-child) {
+    border-right: 1px solid var(--line);
+  }
+  .cmp-group th {
+    grid-column: 1 / -1;
+    padding: 18px 12px 4px;
+    font-size: 11.5px;
+  }
+  .cmp tbody td.c-wherehouse {
+    background: color-mix(in srgb, var(--ok-soft) 70%, var(--surface));
+  }
+  .cmp-gotcha th[scope='row'] {
+    box-shadow: inset 4px 0 0 var(--bad);
+  }
+  .cmp-cell {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
   }
-  .compare-mark {
-    width: 18px;
-    height: 18px;
+  .cmp-proud {
+    font-size: 12px;
   }
-  .compare-mark svg {
-    width: 12px;
-    height: 12px;
+  .cmp-nobody {
+    margin: 0 0 0 8px;
+    vertical-align: 1px;
+  }
+  .cmp-gotcha th[scope='row'] .cmp-nobody {
+    display: inline-flex;
+  }
+}
+
+/* Why tiles. */
+.why-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .why-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+@media (min-width: 1000px) {
+  .why-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.why-tile {
+  position: relative;
+  min-width: 0;
+  padding: 24px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--ground);
+  overflow: hidden;
+}
+.why-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--hazard);
+}
+.why-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--hazard);
+  color: #14171a;
+}
+.why-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.why-stat {
+  display: block;
+  margin-top: 18px;
+  font-family: var(--font-body);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.why-tile h3 {
+  margin: 8px 0 8px;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.why-tile p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* Closing call to action. */
+.why-cta {
+  padding: 28px 22px;
+  border-radius: 20px;
+  background: var(--ink);
+  color: var(--ground);
+  text-align: left;
+}
+.why-cta h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-body);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+.why-cta p {
+  margin: 0 0 18px;
+  max-width: 60ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--ground) 80%, transparent);
+}
+.why-cta .site-btn.primary {
+  background: var(--hazard);
+  border-color: var(--hazard);
+  color: #14171a;
+}
+.why-cta .site-btn.ghost:hover {
+  background: color-mix(in srgb, var(--ground) 12%, transparent);
+}
+.why-cta .site-btn.ghost,
+.why-cta .site-link {
+  color: var(--ground);
+  border-color: color-mix(in srgb, var(--ground) 40%, transparent);
+}
+@media (min-width: 720px) {
+  .why-cta {
+    padding: 40px 44px;
+  }
+  .why-cta h2 {
+    font-size: 48px;
+  }
+}
+
+/* Scroll-in: only once the page script has switched it on, and never with reduced motion. */
+.reveal-on [data-reveal] {
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+.reveal-on [data-reveal]:not(.is-in) {
+  opacity: 0;
+  transform: translateY(20px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on [data-reveal] {
+    transition: none;
+    opacity: 1;
+    transform: none;
   }
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { watchErrors } from './helpers';
-const pages=[['mission','Make warehouse work easier.'],['product','From delivery to the right spot.'],['hardware','Start with a printer and a phone.'],['pricing','Start with what you have.'],['customers','Start small. Make it routine.'],['founder','Built in Charleston by the person you’ll talk to.'],['contact','Let’s look at your warehouse.'],['security','Shared with your crew. Controlled by you.'],['why','The next shift shouldn’t have to guess.'],['showcase','From delivery to dispatch.']];
+const pages=[['mission','Make warehouse work easier.'],['product','From delivery to the right spot.'],['hardware','Start with a printer and a phone.'],['pricing','Start with what you have.'],['customers','Start small. Make it routine.'],['founder','Built in Charleston by the person you’ll talk to.'],['contact','Let’s look at your warehouse.'],['security','Shared with your crew. Controlled by you.'],['why','Simpler than the big apps. Faster than paper.'],['showcase','From delivery to dispatch.']];
 test('short public pages load, pricing is consistent, and contact opens a real email draft',async({page})=>{
  const errors=watchErrors(page);await page.goto('/');await expect(page.getByRole('heading',{level:1})).toContainText('Keep your');
  await expect(page.locator('.home-hero')).toContainText('$29/warehouse/month');
@@ -34,16 +34,24 @@ test('homepage stays below its script budget and defers the warehouse applicatio
   expect(scripts.some(url=>/WarehouseApp-/.test(url))).toBe(true);
 });
 
-test('Why Wherehouse compares price, features and support with other tools and doing it by hand', async ({ page }) => {
+test('Why Wherehouse compares Wherehouse, typical inventory apps and doing it by hand, then says why', async ({ page }) => {
   await page.goto('/#simple');
   const table = page.getByTestId('compare-table');
-  for (const name of ['Sortly', 'inFlow', 'Zoho Inventory', 'Fishbowl', 'By hand']) await expect(table.locator('thead')).toContainText(name);
-  await expect(table).toContainText('Local, small-business support');
-  await expect(page.getByRole('heading', { name: 'Why a local, small business' })).toBeVisible();
+  await expect(table.locator('thead th[scope=col]:not(.cmp-corner)')).toHaveText([/Wherehouse/, /Typical inventory apps/, /Doing it by hand/]);
+  await expect(table).toContainText('Support from the person who built it');
+  // The gotcha rows: the apps have it, nobody wants it, Wherehouse proudly doesn't.
+  const gotchas = table.locator('tr[data-gotcha]');
+  await expect(gotchas).toHaveCount(3);
+  for (const row of await gotchas.all()) {
+    await expect(row).toContainText('Nobody wants this');
+    await expect(row.locator('td.c-wherehouse .cmp-proud')).toBeVisible();
+    await expect(row.locator('td.c-apps .cmp-mark.bad')).toBeVisible();
+  }
+  const note = page.getByTestId('compare-note');
+  for (const name of ['Sortly', 'inFlow', 'Zoho Inventory', 'Fishbowl', 'September 2026']) await expect(note).toContainText(name);
+  for (const title of ['Local support from the person who built it', 'Built here, set up in person', 'Learn it in one shift', 'No new hardware', 'Fair, flat pricing', 'Your data is yours']) await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Fishbowl' }).click();
-  await expect(table.locator('thead th.c-fishbowl')).toBeVisible();
-  await expect(table.locator('thead th.c-sortly')).toBeHidden();
+  await expect(table.locator('thead th.c-hand')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
