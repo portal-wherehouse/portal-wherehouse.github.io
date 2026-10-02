@@ -8,17 +8,22 @@ import {
   SIGNUP_HOSTNAMES,
 } from "../../../src/config/registration";
 
-export function validCheckboxAssessment(value: any, now = Date.now()): boolean {
+/** Why a checkbox assessment is refused, or null when it passes. */
+export function checkboxProblem(
+  value: any,
+  now = Date.now(),
+): "invalid" | "hostname" | "expired" | null {
   const token = value?.tokenProperties;
-  const age = now - Date.parse(token?.createTime);
+  if (token?.valid !== true) return "invalid";
   // Explicit checkbox widgets do not support action names. Google verifies the site key
   // supplied in the assessment; also check the attested hostname and token freshness.
-  return (
-    token?.valid === true &&
-    SIGNUP_HOSTNAMES.includes(token.hostname) &&
-    age >= -5000 &&
-    age < 120000
-  );
+  if (!SIGNUP_HOSTNAMES.includes(token.hostname)) return "hostname";
+  const age = now - Date.parse(token?.createTime);
+  if (!(age >= -5000 && age < 120000)) return "expired";
+  return null;
+}
+export function validCheckboxAssessment(value: any, now = Date.now()): boolean {
+  return checkboxProblem(value, now) === null;
 }
 function localEmulators(): boolean {
   const project = process.env.GCLOUD_PROJECT;
@@ -80,19 +85,45 @@ async function verifyCheckbox(token: string, local: boolean): Promise<void> {
           signal: AbortSignal.timeout(8000),
         },
       );
+      if (response.status === 403 || response.status === 401) {
+        // The reCAPTCHA Enterprise API is off for the project, or the functions' service account
+        // may not create assessments. Visitors cannot fix this; the owner of the project can.
+        console.error("createAccount: reCAPTCHA assessment refused", {
+          status: response.status,
+        });
+        throw new HttpsError(
+          "unavailable",
+          "The sign-up check is not set up on the server yet. Use Continue with Google, or ask your Wherehouse contact.",
+          { reason: "recaptcha-setup" },
+        );
+      }
       if (!response.ok) throw new Error("Assessment service unavailable");
       assessment = await response.json();
-    } catch {
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
       throw new HttpsError(
         "unavailable",
         "Account verification is unavailable. Please try again later.",
       );
     }
   }
-  if (!validCheckboxAssessment(assessment))
+  const problem = checkboxProblem(assessment);
+  if (problem === "hostname") {
+    const host = String(
+      (assessment as any)?.tokenProperties?.hostname || "",
+    ).slice(0, 100);
+    console.error("createAccount: sign-up host not allowed", { host });
+    throw new HttpsError(
+      "permission-denied",
+      `The sign-up check didn't recognize this website address${host ? ` (${host})` : ""}. Use Continue with Google, or ask your Wherehouse contact to update the server.`,
+      { reason: "hostname" },
+    );
+  }
+  if (problem)
     throw new HttpsError(
       "permission-denied",
       "Complete the checkbox again. It may have expired.",
+      { reason: problem },
     );
 }
 async function reserveAttempt(ip: string): Promise<void> {
@@ -161,11 +192,35 @@ export async function registerAccount(request: CallableRequest) {
       emailVerified: false,
     });
     return { created: true };
-  } catch {
-    // Never log credentials or reveal whether an email is registered.
+  } catch (e) {
+    // Never log credentials. Only Firebase's error code is logged, so the owner can see why in Cloud Logging.
+    const code = String((e as { code?: string })?.code || "unknown");
+    if (code === "auth/email-already-exists")
+      throw new HttpsError(
+        "failed-precondition",
+        "This email may already have an account, possibly one made with Continue with Google. Try signing in or resetting your password.",
+        { reason: "exists" },
+      );
+    if (
+      code === "auth/invalid-password" ||
+      code === "auth/password-does-not-meet-requirements"
+    )
+      throw new HttpsError(
+        "invalid-argument",
+        "Choose a longer password with a mix of letters, numbers and symbols.",
+        { reason: "password" },
+      );
+    if (code === "auth/invalid-email")
+      throw new HttpsError("invalid-argument", "Enter a valid email address.", {
+        reason: "email",
+      });
+    console.error("createAccount: Firebase Auth refused the new account", {
+      code,
+    });
     throw new HttpsError(
-      "failed-precondition",
-      "Could not create this account. Try signing in or resetting your password.",
+      "unavailable",
+      "The server could not create accounts just now. Use Continue with Google, or ask your Wherehouse contact.",
+      { reason: "auth", code },
     );
   }
 }

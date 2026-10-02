@@ -19,6 +19,12 @@ import {
 import { palletQuery, PAGE_SIZE, type LiveFilter } from "./liveQueries";
 import { parseTransferNumber } from "../domain/transfers";
 import {
+  SERVER_BEHIND_MESSAGE,
+  SERVER_VERSION,
+  serverTooOld,
+} from "../config/serverVersion";
+export { SERVER_BEHIND_MESSAGE };
+import {
   parseOrderCode,
   parsePackageCode,
   parseToteCode,
@@ -551,6 +557,17 @@ export class FirebaseBackend extends Backend {
   /** The authorization check that runs at sign-in, while it is still running. */
   joining: Promise<void> | null = null;
   summary: any = null;
+  /** The deployed functions' version from getWarehouseSummary: 1 for functions older than the number. */
+  serverVersion: number | null = null;
+  /** A command was refused as unknown by the server: the functions are older than this app. */
+  commandBehind = false;
+  /** The warehouse server is older than this app, so some features wait for an update. */
+  get serverBehind(): boolean {
+    return (
+      this.commandBehind ||
+      (this.serverVersion !== null && this.serverVersion < SERVER_VERSION)
+    );
+  }
   viewLoading = false;
   viewError = "";
   viewKey = "";
@@ -863,6 +880,7 @@ export class FirebaseBackend extends Backend {
     ).data;
     if (gen === this.generation) {
       this.summary = data;
+      this.serverVersion = Number((data as any)?.server_version) || 1;
       this.bump(false);
     }
   }
@@ -2031,6 +2049,23 @@ export class FirebaseBackend extends Backend {
             "Your account changed. Sign in to the original account to check this request.",
         };
       const code = (err as { code?: string }).code;
+      // The server never ran it: the command is newer than the deployed functions.
+      if (serverTooOld(err)) {
+        await this.discardPending(cmd.command_id);
+        this.commandBehind = true;
+        this.bump(false);
+        return {
+          status: "result",
+          result: {
+            ok: false,
+            command_id: cmd.command_id,
+            kind: cmd.kind,
+            code: "INVALID_INPUT",
+            message: SERVER_BEHIND_MESSAGE,
+            correlation_id: cmd.command_id,
+          },
+        };
+      }
       if (
         [
           "functions/permission-denied",
@@ -2353,5 +2388,7 @@ export function cloudMessage(err: unknown): string {
     ? err.message
         .replace(/^Firebase:\s*/, "")
         .replace(/\s*\(auth\/[^)]+\)\.?$/, "")
+        // The callable SDK adds the HTTP status, as in "... [400]".
+        .replace(/\s*\[\d{3}\]$/, "")
     : "Something went wrong. Please try again.";
 }

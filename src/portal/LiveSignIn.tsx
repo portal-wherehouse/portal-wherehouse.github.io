@@ -11,6 +11,7 @@ import { httpsCallable } from 'firebase/functions';
 import { useApp } from '../app/state';
 import { FirebaseBackend, cloudMessage } from '../data/firebase';
 import { BRAND } from '../brand';
+import { signupProblem } from './signupProblem';
 
 export function LiveSignIn({ onActivated }: { onActivated?: (name: string) => void }) {
   const {backend,go}=useApp();const b=backend as FirebaseBackend;
@@ -22,14 +23,16 @@ export function LiveSignIn({ onActivated }: { onActivated?: (name: string) => vo
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [name,setName]=useState('');
   const [checkboxToken,setCheckboxToken]=useState('');const [checkboxReset,setCheckboxReset]=useState(0);
   const [warehouse,setWarehouse]=useState('');const [usageKey,setUsageKey]=useState('');const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');const [error,setError]=useState('');
-  const run=async(task:()=>Promise<void>)=>{setBusy(true);setError('');setMessage('');try{await task();}catch(e){setError(cloudMessage(e));}finally{setBusy(false);}};
+  const [exists,setExists]=useState(false);
+  const run=async(task:()=>Promise<void>)=>{setBusy(true);setError('');setMessage('');setExists(false);try{await task();}catch(e){setError(cloudMessage(e));}finally{setBusy(false);}};
   const submit=(e:FormEvent)=>{e.preventDefault();void run(async()=>{
     if(mode==='reset'){await sendPasswordResetEmail(b.auth!,email.trim());setMessage('If this email has an account, a reset link has been sent.');return;}
     if(mode==='register') {
       if(!checkboxToken)throw new Error('Complete the checkbox before creating your account.');
       try {
         await b.prepareSignup();
-        await httpsCallable(b.functions!,'createAccount')({email:email.trim(),password,name:name.trim(),checkboxToken});
+        try {await httpsCallable(b.functions!,'createAccount')({email:email.trim(),password,name:name.trim(),checkboxToken});}
+        catch(e){const m=signupProblem(e);if(m.exists)setExists(true);throw new Error(m.text);}
         setCheckboxToken('');
         // Signed in, the code screen below opens and emails the 6-digit code.
         await signInWithEmailAndPassword(b.auth!,email.trim(),password);
@@ -49,7 +52,7 @@ export function LiveSignIn({ onActivated }: { onActivated?: (name: string) => vo
       </>}
       <button className="btn ghost" disabled={busy} onClick={()=>void run(async()=>{await b.logout();setMode('signin');setPassword('');setCheckboxToken('');})}>Sign out</button>
     </>:<><form className="stack" onSubmit={submit}>{mode==='register'&&<label>Your name<input required maxLength={100} autoComplete="name" value={name} onChange={e=>setName(e.target.value)} /></label>}<label>Email<input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></label>{mode!=='reset'&&<label>Password<input required type="password" minLength={mode==='register'?8:1} autoComplete={mode==='register'?'new-password':'current-password'} value={password} onChange={e=>setPassword(e.target.value)} /></label>}{mode==='register'&&<SignupCheckbox resetCount={checkboxReset} onToken={setCheckboxToken}/>}<button className="btn primary big" disabled={busy||(mode==='register'&&!checkboxToken)}>{busy?'Please wait…':mode==='register'?'Create account':mode==='reset'?'Send reset link':'Sign in'}</button></form>{mode!=='reset'&&<><p className="auth-or"><span>or</span></p><button type="button" className="btn big auth-google" disabled={busy} onClick={()=>void run(async()=>{await signInWithPopup(b.auth!,new GoogleAuthProvider());signedIn();})}><GoogleMark/>Continue with Google</button></>}{mode==='register'&&<p className="muted">We only email you verification and sign-in codes. No newsletters, no spam.</p>}<div className="row"><button className="btn ghost" onClick={()=>{setCheckboxToken('');setMode(mode==='signin'?'register':'signin');}}>{mode==='signin'?'Create account':'Back to sign in'}</button>{mode==='signin'&&<button className="btn ghost" onClick={()=>setMode('reset')}>Forgot password?</button>}</div></>}
-    {(error||b.cloudError)&&<p role="alert" className="auth-error">{error||b.cloudError}</p>}{message&&<p role="status">{message}</p>}
+    {(error||b.cloudError)&&<p role="alert" className="auth-error">{error||b.cloudError}</p>}{exists&&mode==='register'&&!user&&<div className="row"><button type="button" className="btn" onClick={()=>{setExists(false);setError('');setMode('signin');}}>Sign in instead</button><button type="button" className="btn ghost" onClick={()=>{setExists(false);setError('');setMode('reset');}}>Reset my password</button></div>}{message&&<p role="status">{message}</p>}
   </div></main>;
 }
 

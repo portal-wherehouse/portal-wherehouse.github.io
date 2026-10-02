@@ -58,6 +58,33 @@ export function codeEmail(to: string, code: string) {
   };
 }
 
+/** How long a mail document may wait for the extension before email codes count as not set up. */
+export const MAIL_DELIVERY_WAIT_MS = 3 * 60 * 1000;
+
+/**
+ * Whether the "Trigger Email from Firestore" extension delivers mail in this project. It marks every
+ * mail document it handles with a `delivery` field; a document older than a few minutes without one
+ * means nothing is sending. EMAIL_CODES=off turns codes off outright. With no mail yet, codes are tried.
+ */
+export async function emailCodesWork(): Promise<boolean> {
+  if (process.env.EMAIL_CODES === "off") return false;
+  try {
+    const old = await getFirestore()
+      .collection("mail")
+      .where(
+        "created_at",
+        "<=",
+        Timestamp.fromMillis(Date.now() - MAIL_DELIVERY_WAIT_MS),
+      )
+      .orderBy("created_at", "desc")
+      .limit(1)
+      .get();
+    return old.empty || old.docs[0].get("delivery") !== undefined;
+  } catch {
+    return true;
+  }
+}
+
 export async function sendCode(request: CallableRequest) {
   const user = await currentUser(request);
   if (user.emailVerified) return { verified: true };
@@ -67,6 +94,8 @@ export async function sendCode(request: CallableRequest) {
       "failed-precondition",
       "This account has no email to verify.",
     );
+  // Without the email extension, the app sends Firebase's own verification link instead (free, built in).
+  if (!(await emailCodesWork())) return { sent: false, fallback: "link" };
   const firestore = getFirestore();
   const ref = firestore.doc(`emailCodes/${user.uid}`);
   const code = String(randomInt(0, 1000000)).padStart(6, "0");
@@ -99,7 +128,10 @@ export async function sendCode(request: CallableRequest) {
       day,
       sent_today: sentToday + 1,
     });
-    tx.create(firestore.collection("mail").doc(), codeEmail(email, code));
+    tx.create(firestore.collection("mail").doc(), {
+      ...codeEmail(email, code),
+      created_at: Timestamp.fromMillis(now),
+    });
   });
   return {
     sent: true,

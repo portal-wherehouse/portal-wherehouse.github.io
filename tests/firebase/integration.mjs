@@ -102,6 +102,9 @@ try {
  await adminDb.doc(`licenses/${ws}`).update({active:true,expires_at:Timestamp.fromMillis(Date.now()-1000)});await assert.rejects(send(owner,'receive',{job_id:job.target_id,description:'Expired license'}));assert.ok((await getDoc(doc(viewer.db,'workspaces',ws))).exists());
  assert.equal((await getBytes(ref(owner.storage,path))).byteLength,bytes.length);
  assert.ok((await owner.call('getWarehouseSummary',{workspaceId:ws})).counts);
+ assert.ok((await owner.call('getWarehouseSummary',{workspaceId:ws})).server_version>=2);
+ await assert.rejects(owner.call('command',{schema_version:1,command_id:randomUUID(),workspace_id:ws,kind:'a_command_from_a_newer_app',payload:{}}),e=>e.code==='functions/invalid-argument'&&/^The request is not valid\./.test(e.message)&&e.details?.reason==='invalid-command');
+ ok('the summary names the server version, and an unknown command says so, so a newer app can tell owners the server needs an update');
  assert.ok((await owner.call('getDirectoryCounts',{workspaceId:ws,table:'jobs',ids:[job.target_id]})).values);
  assert.ok((await getDocs(query(collection(owner.db,'workspaces',ws,'events'),limit(100)))).size>0);
  await assert.rejects(owner.call('reservePhotoUpload',{workspaceId:ws,uploadId:randomUUID(),bytes:8,thumbBytes:4}));
