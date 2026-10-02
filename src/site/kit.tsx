@@ -25,11 +25,12 @@ export function PortalCTA({ variant = 'hero', note = '' }: { variant?: 'hero' | 
 }
 
 /** A text-style button that moves to another website page. */
-export function SiteLink({ to, children, className = 'site-link', hash }: { to: SiteRouteName; children: ReactNode; className?: string; hash?: string }) {
+export function SiteLink({ to, children, className = 'site-link', hash, 'data-testid': testId }: { to: SiteRouteName; children: ReactNode; className?: string; hash?: string; 'data-testid'?: string }) {
   const { go } = useSite();
   return (
     <button
       className={className}
+      data-testid={testId}
       onClick={() => {
         go(to);
         if (hash) setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);

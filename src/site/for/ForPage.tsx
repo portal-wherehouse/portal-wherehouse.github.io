@@ -10,6 +10,7 @@ import { GroupCards, openGroup } from './GroupCards';
 import { groupById, groupHref, groupTitle } from './groups';
 import { FEATURES, GROUP_PAGES, type Group } from './groupPages';
 import { GroupShowcase, Label } from './GroupShowcase';
+import { Examples } from './Examples';
 import './for.css';
 
 /** The sample warehouse: opens the app with sample data, no account. */
@@ -21,7 +22,7 @@ export function ForPage() {
   return summary ? <GroupPage key={summary.id} g={{ ...summary, ...GROUP_PAGES[summary.id] }} /> : <Overview />;
 }
 
-/** #for (and the old #industries link): the kinds of business, then what Wherehouse is and isn't. */
+/** #for (and the old #industries link): the kinds of business, three worked examples, then what Wherehouse is and isn't. */
 function Overview() {
   return (
     <>
@@ -33,7 +34,10 @@ function Overview() {
           <SiteLink to="fit">Check your exact business →</SiteLink>
         </p>
       </Section>
-      <Section tone="surface" narrow title="Built around one question.">
+      <Section tone="surface" id="examples" eyebrow="Examples" title="Different businesses. Same routine." lede="Wherehouse works anywhere you store inventory. Here is how three very different businesses could set it up.">
+        <Examples />
+      </Section>
+      <Section narrow title="Built around one question.">
         <p className="fg-prose">If someone in your building asks “where did we put it?”, Wherehouse is built around that question. At setup you tell it what you store (pallets, big single items, parts on shelves, long goods or equipment) and it uses your words and hides what you don’t need.</p>
         <p className="fg-prose">It tracks physical inventory and exactly where it is. It sits beside the software you already use for sales, stock counts, purchasing and accounting, and doesn’t replace it.</p>
         <div className="site-hero-actions">

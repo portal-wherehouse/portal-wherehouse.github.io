@@ -11,7 +11,7 @@ test('short public pages load, pricing is consistent, and contact opens a real e
 test('phone navigation and browser back work without overflow',async({page})=>{
  await page.setViewportSize({width:390,height:844});await page.goto('/');await page.getByRole('button',{name:'Menu',exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:/How it works/}).click();await expect(page).toHaveURL(/#product$/);
- await page.getByRole('button',{name:'Why Wherehouse →',exact:true}).click();await expect(page).toHaveURL(/#why$/);await page.goBack();await expect(page).toHaveURL(/#product$/);
+ await page.getByRole('button',{name:'Why Wherehouse →',exact:true}).click();await expect(page).toHaveURL(/#simple$/);await page.goBack();await expect(page).toHaveURL(/#product$/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth)).toBeLessThanOrEqual(1);
 });
 test('walkthrough contains only the requested one-second placeholder',async({page})=>{
@@ -47,33 +47,93 @@ test('Why Wherehouse compares price, features and support with other tools and d
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test('homepage shows the product, labeled examples and the founding-customer offer before setup', async ({ page }) => {
+test('homepage is short: product picture first, a compact business row, a calm beta note and a closing band', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/');
   await expect(page.getByTestId('hero-sample')).toHaveAttribute('href', /demo=1/);
   await expect(page.getByTestId('see-it-work')).toBeVisible();
-  const examples = page.getByTestId('home-examples');
-  await expect(examples.locator('.ex-card')).toHaveCount(3);
-  await expect(examples.locator('.ex-tag')).toHaveText(['Example', 'Example', 'Example']);
-  await expect(examples).toContainText('They are not customer stories.');
-  const founding = page.getByTestId('home-founding');
-  await expect(founding).toContainText('Founding customers');
-  await expect(founding.locator('a[href^="mailto:support@wherehousetracking.com"]')).toHaveCount(1);
-  await page.goto('/#founder');
+  // Examples and the long survey section moved off the home page.
+  await expect(page.getByTestId('home-examples')).toHaveCount(0);
+  await expect(page.getByTestId('for-examples')).toHaveCount(0);
+  await expect(page.getByText('See how it works first')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Take the 2-minute survey' })).toHaveCount(0);
+  // Founding customers: one line that links to About.
+  const note = page.getByTestId('home-founding');
+  await expect(note).toContainText('In beta');
+  await note.getByRole('button', { name: /^About / }).click();
+  await expect(page).toHaveURL(/#founder$/);
   await expect(page.getByTestId('about-facts')).toContainText('Charleston, SC');
-  await expect(page.locator('main a[href*="linkedin.com"]').first()).toBeVisible();
+  await page.goto('/');
+  // The closing band repeats the two main buttons; the trial still opens the survey at #start.
+  const close = page.getByTestId('home-close');
+  await expect(close.getByTestId('close-sample')).toHaveAttribute('href', /demo=1/);
+  await close.getByRole('button', { name: 'Start your free trial' }).click();
+  await expect(page).toHaveURL(/#start$/);
+  // On a phone, the product picture shows on the first screen under the headline, and nothing scrolls sideways.
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const route of ['/', '/#founder']) {
-    await page.goto(route);
-    await page.getByTestId(route === '/' ? 'home-founding' : 'about-facts').scrollIntoViewIfNeeded();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
-  }
+  await page.goto('/');
+  const art = await page.locator('.home-art').boundingBox();
+  const h1 = await page.getByRole('heading', { level: 1 }).boundingBox();
+  expect(art!.y).toBeGreaterThan(h1!.y);
+  expect(art!.y).toBeLessThan(844);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  // About four phone screens.
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(844 * 4.8);
   expect(errors).toEqual([]);
 });
 
-test('home page cards open a "Wherehouse for" page with an example showcase and both calls to action', async ({ page }) => {
+test('header shows four links and a free trial button beside Sign in, on wide screens and in the phone menu', async ({ page }) => {
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByRole('button')).toHaveText(['How it works', 'Who it’s for', 'Pricing', 'Get help']);
+  const header = page.locator('.shell-header');
+  await expect(header.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await header.getByTestId('header-trial').click();
+  await expect(page).toHaveURL(/#start$/);
+  // Why Wherehouse and Printing & scanning are still in the footer, under How it works and under Pricing.
+  await page.goto('/#pricing');
+  await page.getByRole('main').getByRole('button', { name: /Printing & scanning/ }).click();
+  await expect(page).toHaveURL(/#hardware$/);
+  const footer = page.locator('footer');
+  await footer.getByRole('button', { name: 'Why Wherehouse', exact: true }).click();
+  await expect(page).toHaveURL(/#simple$/);
+  await page.locator('footer').getByRole('button', { name: 'Printing & scanning', exact: true }).click();
+  await expect(page).toHaveURL(/#hardware$/);
+  // Phones: the header trial button moves into the menu, next to Sign in.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('.shell-header').getByTestId('header-trial')).toBeHidden();
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  const menu = page.getByRole('dialog');
+  await expect(menu.locator('.shell-menu-item .shell-menu-label')).toHaveText(['How it works', 'Who it’s for', 'Pricing', 'Get help']);
+  await expect(menu.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await menu.getByTestId('menu-trial').click();
+  await expect(page).toHaveURL(/#start$/);
+});
+
+test('home page business row opens a group page, and See all opens the overview with the examples', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/');
+  const chips = page.getByTestId('home-for-chips');
+  await expect(chips.locator('a')).toHaveCount(6);
+  await chips.getByRole('link', { name: 'Lumberyards' }).click();
+  await expect(page).toHaveURL(/#for\/lumberyards$/);
+  await page.goto('/');
+  await page.getByTestId('home-for-all').click();
+  await expect(page).toHaveURL(/#for$/);
+  const examples = page.getByTestId('for-examples');
+  await expect(examples.locator('.ex-card')).toHaveCount(3);
+  await expect(examples.locator('.ex-tag')).toHaveText(['Example', 'Example', 'Example']);
+  await expect(examples).toContainText('They are not customer stories.');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await examples.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
+});
+
+test('overview cards open a "Wherehouse for" page with an example showcase and both calls to action', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/#for');
   const cards = page.getByTestId('group-cards');
   await expect(cards.locator('.fg-card')).toHaveCount(8);
   await expect(cards).toContainText('Wherehouse for lumberyards and building supply');

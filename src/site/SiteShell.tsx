@@ -7,7 +7,7 @@ import type { SiteRouteName } from '../app/state';
 import { useSite } from './routing';
 import { copyText, IS_PREVIEW } from '../device/output';
 import { BrandMark, Icon } from '../ui/icons';
-import { PortalCTA } from './kit';
+import { PortalCTA, SiteLink } from './kit';
 import { SITE_FOOTER_EXTRA, SITE_NAV, siteLabel } from './nav';
 import './shell.css';
 
@@ -16,7 +16,7 @@ const label = (route: SiteRouteName) => siteLabel({ name: route });
 const FOOTER_COLUMNS: { title: string; routes: SiteRouteName[]; portal?: boolean }[] = [
   { title: 'Product', routes: ['product', 'for', 'fit', 'hardware', 'showcase'] },
   { title: 'Company', routes: ['mission', 'customers', 'founder', 'contact'] },
-  { title: 'Resources', routes: ['why', 'pricing', 'security'], portal: true },
+  { title: 'Resources', routes: ['simple', 'pricing', 'security'], portal: true },
 ];
 
 export function SiteShell({ children }: { children: ReactNode }) {
@@ -82,6 +82,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
           <div className="shell-header-end">
             <PortalCTA variant="nav" />
+            <SiteLink to="start" className="shell-trial" data-testid="header-trial">
+              Start free trial
+            </SiteLink>
             <button ref={menuButton} className="shell-menu-btn" aria-expanded={menuOpen} aria-controls="site-menu" onClick={() => setMenuOpen(true)}>
               <Icon name="menu" />
               <span>Menu</span>
@@ -130,7 +133,7 @@ function useNavFits(navRef: RefObject<HTMLElement | null>, menuRef: RefObject<HT
   return fits;
 }
 
-/** Full-height menu for phones and tablets: every page with its one-line blurb, then the portal. */
+/** Full-height menu for phones and tablets: every page with its one-line blurb, then the free trial and Sign in. */
 function SiteMenu({ current, onGo, onClose }: { current: SiteRouteName; onGo: (r: SiteRouteName) => void; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
@@ -199,6 +202,9 @@ function SiteMenu({ current, onGo, onClose }: { current: SiteRouteName; onGo: (r
           </div>
         </nav>
         <div className="shell-menu-portal">
+          <button className="site-btn primary shell-menu-trial" onClick={() => onGo('start')} data-testid="menu-trial">
+            Start free trial
+          </button>
           <PortalCTA variant="hero" />
         </div>
       </div>
