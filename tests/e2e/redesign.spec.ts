@@ -26,7 +26,7 @@ test('the owner sees Dashboard, three groups and Help, with Setup folded', async
   expect(await sidebar(page)).toEqual({
     groups: {
       'Daily work': ['Receive', 'Put away and move', 'Ship', 'Find', 'Jobs'],
-      Inventory: ['Stock', 'Counts', 'History'],
+      Inventory: ['Stock', 'Transfers', 'Counts', 'History'],
       Setup: ['Spots and labels', 'Products and barcodes', 'People', 'Scanners and printers', 'Import and export', 'Settings'],
     },
     foot: ['Help'],
@@ -50,7 +50,7 @@ test('an operator sees the daily work and inventory, with Settings and Help at t
   const { groups, foot } = await sidebar(page);
   expect(Object.keys(groups)).toEqual(['Daily work', 'Inventory']);
   expect(groups['Daily work']).toEqual(expect.arrayContaining(['Receive', 'Put away and move', 'Find']));
-  expect(groups.Inventory).toEqual(['Stock', 'Counts', 'History']);
+  expect(groups.Inventory).toEqual(['Stock', 'Transfers', 'Counts', 'History']);
   expect(foot).toEqual(['Settings', 'Help']);
 });
 

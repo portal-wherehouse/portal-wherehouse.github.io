@@ -65,6 +65,8 @@ export interface OrderLine {
   description: string;
   qty: number;
   units: OrderUnit[];
+  /** Set on an order made from a transfer: this line is that one pallet, and no other record will do. */
+  pallet_id?: string | null;
   /** How many could not be picked, and why. Shorts never block packing. */
   short: { qty: number; reason: ShortReason; by_name: string; at: string } | null;
 }
@@ -83,6 +85,14 @@ export interface OrderHandoff {
   carrier: string | null;
   tracking: string | null;
   destination: string;
+}
+
+/** The transfer an order was made from. Handing the order off sends the transfer to the other warehouse. */
+export interface OrderTransfer {
+  id: string;
+  number: string;
+  to_workspace_id: string;
+  to_name: string;
 }
 
 export interface Order {
@@ -106,6 +116,8 @@ export interface Order {
   tote_code: string | null;
   package_ids: string[];
   handoff: OrderHandoff | null;
+  /** Set when this order picks a transfer's pallets. */
+  transfer?: OrderTransfer | null;
   created_by: string;
   created_by_name: string;
   created_at: string;
@@ -143,6 +155,8 @@ export interface PickStop {
   short_reason: ShortReason | null;
   /** Set when a short sent the rest of this stop to another spot. */
   moved_to: string | null;
+  /** On a transfer's order: the one pallet this stop takes. */
+  pallet_id?: string | null;
 }
 
 export type BatchStatus = 'PICKING' | 'DONE';

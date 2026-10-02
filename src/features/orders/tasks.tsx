@@ -301,7 +301,12 @@ export function usePickTask(data: PickData, flash: Flash, active: boolean): Flow
       flash.bad(`${unit.code} is not on a spot (${unit.state.toLowerCase().replace('_', ' ')}). Take another, or tap Can't pick.`);
       return 'error';
     }
-    const kind: 'pick' | 'substitute' = sameProduct(palletProduct(unit), stop.product_code) ? 'pick' : 'substitute';
+    // A transfer's order takes the very pallets on the transfer, nothing else.
+    if (stop.pallet_id && unit.id !== stop.pallet_id) {
+      flash.bad(`That is ${unit.code}. This stop needs ${stop.suggested[0]?.code ?? 'the pallet on the transfer'}.`);
+      return 'error';
+    }
+    const kind: 'pick' | 'substitute' = stop.pallet_id || sameProduct(palletProduct(unit), stop.product_code) ? 'pick' : 'substitute';
     if (kind === 'substitute') {
       const may = o?.allow_subs && settings.subs !== 'never';
       setWrong(may ? unit : null);
@@ -981,23 +986,30 @@ export function useHandoffTask(data: HandoffData, flash: Flash): FlowTask {
   const confirm = async () => {
     if (!o || !all || busy.current) return;
     busy.current = true;
-    const r = await run(
-      'hand_off',
-      {
-        order_id: o.id,
-        package_ids: pkgs.map((k) => k.id),
-        ...(o.method === 'pickup' ? { collected_by: who.trim() } : { carrier: carrier.trim(), tracking: tracking.trim() }),
-        ...(refused.length ? { refused_ids: refused } : {}),
-      },
-      null,
-      o.version,
-    );
+    // A transfer's order is handed off by sending its transfer: the pallets go in transit to the other warehouse.
+    const r = o.transfer
+      ? await run('hand_off_transfer', { transfer_id: o.transfer.id, order_id: o.id, package_ids: pkgs.map((k) => k.id), carrier: carrier.trim(), tracking: tracking.trim() }, null, o.version)
+      : await run(
+          'hand_off',
+          {
+            order_id: o.id,
+            package_ids: pkgs.map((k) => k.id),
+            ...(o.method === 'pickup' ? { collected_by: who.trim() } : { carrier: carrier.trim(), tracking: tracking.trim() }),
+            ...(refused.length ? { refused_ids: refused } : {}),
+          },
+          null,
+          o.version,
+        );
     busy.current = false;
     if (!r.ok) return flash.bad(r.message);
     setDone(o.id);
     setOrderId(null);
     setScanned([]);
-    flash.ok(`${o.code} handed off. ${plural(orderUnits(o).length - refused.length, 'item')} recorded as gone.`);
+    flash.ok(
+      o.transfer
+        ? `${o.code} handed off. ${o.transfer.number} is in transit to ${o.transfer.to_name}.`
+        : `${o.code} handed off. ${plural(orderUnits(o).length - refused.length, 'item')} recorded as gone.`,
+    );
   };
 
   const finished = done ? backend.db.orders[done] : null;
@@ -1006,7 +1018,7 @@ export function useHandoffTask(data: HandoffData, flash: Flash): FlowTask {
     prompt: !o ? 'Scan a package or order' : all ? 'Confirm the handoff' : `Scan every package (${pkgs.filter((k) => scanned.includes(k.id)).length} of ${pkgs.length})`,
     sub: o ? (
       <>
-        {o.code} · <span data-keep-words>{o.customer.name}</span> · {o.method === 'pickup' ? 'Pickup' : 'Ship'}
+        {o.code} · <span data-keep-words>{o.customer.name}</span> · {o.transfer ? `Transfer ${o.transfer.number}` : o.method === 'pickup' ? 'Pickup' : 'Ship'}
       </>
     ) : ready.length ? (
       `${plural(ready.length, 'order')} ready to hand off.`
@@ -1091,7 +1103,7 @@ export function useHandoffTask(data: HandoffData, flash: Flash): FlowTask {
               </div>
             )}
             <button type="button" className="btn primary big" onClick={() => void confirm()} disabled={o.method === 'pickup' && !who.trim()} data-testid="confirm-handoff">
-              <Icon name="check" /> {o.method === 'pickup' ? 'Handed to customer' : 'Handed to carrier'}
+              <Icon name="check" /> {o.transfer ? `Send to ${o.transfer.to_name}` : o.method === 'pickup' ? 'Handed to customer' : 'Handed to carrier'}
             </button>
           </div>
         )}

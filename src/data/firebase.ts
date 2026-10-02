@@ -1113,6 +1113,22 @@ export class FirebaseBackend extends Backend {
             }
           }),
         );
+        // A transfer picked as an order shows that order's progress at the sending warehouse.
+        const t = this.db.transfers[id];
+        const orderId = t?.order?.id;
+        if (orderId && t.from_workspace_id === this.activeWorkspace) {
+          await this.one("orders", orderId, true);
+          if (gen !== this.viewGeneration) return;
+          this.viewStops.push(
+            onSnapshot(doc(this.col("orders"), orderId), (s) => {
+              this.metrics.reads++;
+              if (gen === this.viewGeneration && s.exists()) {
+                this.ingest("orders", [s.data()]);
+                this.bump(false);
+              }
+            }),
+          );
+        }
       } else if (name === "orders") await this.loadOrderBoard(gen);
       else if (name === "order" && id) {
         await this.one("orders", id, true);
@@ -1442,8 +1458,9 @@ export class FirebaseBackend extends Backend {
     if (typeof p.order_id === "string") orderIds.add(p.order_id);
     if (typeof p.package_id === "string") packageIds.add(p.package_id);
     if (cmd.kind === "start_batch") ids.forEach((id) => batchIds.add(id));
-    if (cmd.kind === "create_order" || cmd.kind === "import_batch")
+    if (cmd.kind === "create_order" || cmd.kind === "import_batch" || cmd.kind === "pick_transfer")
       ids.forEach((id) => orderIds.add(id));
+    if (typeof p.transfer_id === "string") await this.one("transfers", p.transfer_id, true);
     if (cmd.kind === "pack") ids.forEach((id) => packageIds.add(id));
     if (cmd.kind === "set_orders" && r.target_id)
       await this.one("warehouses", r.target_id, true);
@@ -2011,6 +2028,8 @@ export class FirebaseBackend extends Backend {
         if (
           this.activeWorkspace === cmd.workspace_id &&
           ((ORDER_COMMANDS as readonly string[]).includes(cmd.kind) ||
+            cmd.kind === "pick_transfer" ||
+            cmd.kind === "hand_off_transfer" ||
             (cmd.kind === "import_batch" &&
               cmd.payload.import_kind === "orders"))
         )

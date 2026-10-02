@@ -10,7 +10,6 @@ import { Icon, type IconName } from '../../ui/icons';
 import { PageHead } from '../../ui/ui';
 import { useJobsOn, useOrdersOn } from '../../app/words';
 import { useChecklistStatus } from '../setup/SetupChecklist';
-import { useHasTransferTargets } from '../transfers/targets';
 
 export interface NavItem {
   route: RouteName;
@@ -87,8 +86,11 @@ export interface VisibleNav {
   allowed: Set<RouteName>;
 }
 
-/** Navigation is task-oriented; permission checks still happen in the command engine. */
-export function visibleNav(role: Role | null, advanced: boolean, live = false, jobsOn = true, transfers = false, orders = false): VisibleNav {
+/**
+ * Navigation is task-oriented; permission checks still happen in the command engine. Transfers is always offered:
+ * with one warehouse its page explains how to add a second (`_transfers` is kept for older call sites).
+ */
+export function visibleNav(role: Role | null, advanced: boolean, live = false, jobsOn = true, _transfers = false, orders = false): VisibleNav {
   const manager = role === 'OWNER' || role === 'SUPERVISOR';
   const allowed = new Set<RouteName>(
     role === 'VIEWER'
@@ -104,11 +106,8 @@ export function visibleNav(role: Role | null, advanced: boolean, live = false, j
     allowed.delete('jobs');
     allowed.delete('job');
   }
-  // Transfers appear once the account has a second warehouse to send to.
-  if (transfers) {
-    allowed.add('transfers');
-    allowed.add('transfer');
-  }
+  allowed.add('transfers');
+  allowed.add('transfer');
   // Pick orders appears when an owner turns on "Orders and picking" in Settings. Viewers do not pick.
   if (orders && role !== 'VIEWER') {
     allowed.add('orders');
@@ -155,9 +154,8 @@ export function More() {
   const { go, role, prefs, backend } = useApp();
   const jobsOn = useJobsOn();
   const checklist = useChecklistStatus();
-  const transfers = useHasTransferTargets();
   const orders = useOrdersOn();
-  const nav = visibleNav(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, transfers, orders);
+  const nav = visibleNav(role, prefs.advancedTools, backend.mode === 'firebase', jobsOn, true, orders);
   const groups = [...nav.groups, { title: nav.foot.some((i) => i.route === 'settings') ? 'Help and settings' : 'Help', items: nav.foot }]
     .map((g) => ({ ...g, items: g.items.filter((i) => i.q || !PHONE_TABS.includes(i.route)) }))
     .filter((g) => g.items.length > 0);

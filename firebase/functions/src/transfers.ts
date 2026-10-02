@@ -50,6 +50,8 @@ function partition(db: Db): Map<string, Map<string, any>> {
     "pallets",
     "labels",
     "attachments",
+    "orders",
+    "packages",
   ] as const)
     for (const [id, v] of Object.entries(db[table]))
       put((v as { workspace_id?: string }).workspace_id, `${table}/${id}`, v);
@@ -204,6 +206,26 @@ export async function transferCommand(
         "warehouses",
         root(id).collection("warehouses").where("active", "==", true).limit(1),
       );
+
+    // The transfer's pick order lives at the sending warehouse: sending, cancelling and handing off check it.
+    const orderAt = transfer?.from_workspace_id;
+    if (transfer?.order && orderAt && validId(transfer.order.id)) {
+      await one("orders", transfer.order.id, orderAt);
+      if (cmd.kind === "hand_off_transfer")
+        for (const k of db.orders[transfer.order.id]?.package_ids ?? [])
+          await one("packages", k, orderAt);
+    }
+    // Order numbers (O-000123) run per warehouse.
+    const seqKey = orderAt ? `${orderAt}:O` : "";
+    const seqRef =
+      cmd.kind === "pick_transfer" && orderAt && allowed.has(orderAt)
+        ? root(orderAt).collection("private").doc("seq_O")
+        : null;
+    let seqBefore: number | undefined;
+    if (seqRef) {
+      seqBefore = (await tx.get(seqRef)).get("value") || 0;
+      db.counters[seqKey] = seqBefore!;
+    }
 
     const counterRef = account
       ? store.doc(`transferCounters/${account}`)
@@ -361,6 +383,8 @@ export async function transferCommand(
           account_id: account,
         }),
       );
+    if (seqRef && seqBefore !== undefined && db.counters[seqKey] !== seqBefore)
+      writes.push(() => tx.set(seqRef, { value: db.counters[seqKey] }));
     if (writes.length > MAX_WRITES)
       throw new HttpsError(
         "resource-exhausted",

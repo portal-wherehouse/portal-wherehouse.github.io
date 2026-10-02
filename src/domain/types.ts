@@ -229,13 +229,19 @@ export interface TransferLine {
   received_by: string | null;
 }
 
+/** A transfer's pick order, as both warehouses see it. The order itself lives at the sending warehouse. */
+export interface TransferOrderRef {
+  id: string;
+  code: string;
+}
+
 /** One step of a transfer's history, readable from both warehouses. */
 export interface TransferStep {
   at: string;
   actor_id: string;
   actor_name: string;
   workspace_id: string;
-  action: 'created' | 'sent' | 'received' | 'cancelled' | 'returned';
+  action: 'created' | 'sent' | 'received' | 'cancelled' | 'returned' | 'order';
   text: string;
 }
 
@@ -266,6 +272,8 @@ export interface Transfer {
   cancelled_by: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
+  /** The pick order made from this transfer at the sending warehouse. Handing that order off sends the transfer. */
+  order?: TransferOrderRef | null;
   log: TransferStep[];
   version: number;
   updated_at: string;
@@ -421,6 +429,8 @@ export const ADMIN_COMMANDS = [
   'receive_transfer',
   'cancel_transfer',
   'transfer_now',
+  'pick_transfer',
+  'hand_off_transfer',
   'set_orders',
   'create_order',
   'cancel_order',
@@ -451,7 +461,7 @@ export type CommandKind = PalletCommandKind | AdminCommandKind;
 export type EventType = PalletCommandKind | 'split_child' | 'import_receive' | 'transfer_send' | 'transfer_receive' | 'transfer_return' | 'pack' | 'unpick' | 'hand_off' | 'pick_missing' | 'pick_hold';
 
 /** Commands that change a transfer and the pallets on it, in two warehouses of one account. */
-export const TRANSFER_COMMANDS = ['create_transfer', 'send_transfer', 'receive_transfer', 'cancel_transfer', 'transfer_now'] as const;
+export const TRANSFER_COMMANDS = ['create_transfer', 'send_transfer', 'receive_transfer', 'cancel_transfer', 'transfer_now', 'pick_transfer', 'hand_off_transfer'] as const;
 export type TransferCommandKind = (typeof TRANSFER_COMMANDS)[number];
 
 /** Commands of orders and picking, handled together by the order engine (src/demo/orderEngine.ts). */
