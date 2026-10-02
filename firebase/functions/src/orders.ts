@@ -137,6 +137,11 @@ export async function loadOrderCommand(l: Loader) {
         ),
       ))
         await stock(l, code);
+      // A transfer's order takes the very pallets on the transfer.
+      for (const o of Object.values(l.db.orders))
+        if (o.status === "OPEN")
+          for (const line of o.lines)
+            if (line.pallet_id) await l.one("pallets", line.pallet_id);
       await spotsOfLoadedStock(l);
       return;
     }

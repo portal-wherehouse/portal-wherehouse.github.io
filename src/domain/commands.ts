@@ -130,6 +130,8 @@ export const PAYLOAD_SCHEMAS: Record<CommandKind, z.ZodType<Record<string, unkno
   receive_transfer: z.object({ transfer_id: id, location_id: id.optional() }),
   cancel_transfer: z.object({ transfer_id: id, reason }),
   transfer_now: z.object({ to_workspace_id: id, lines: transferLines.max(20), note: text(500).optional(), location_id: id.optional() }),
+  pick_transfer: z.object({ transfer_id: id }),
+  hand_off_transfer: z.object({ transfer_id: id, order_id: id, package_ids: z.array(id).min(1).max(50), carrier: text(60).optional(), tracking: text(80).optional() }),
   // Orders and picking (src/demo/orderEngine.ts).
   set_orders: z.object({
     on: z.boolean(),
@@ -224,7 +226,7 @@ export function validateEnvelope(
   if (c.kind === 'receive_transfer' && (!c.pallet_id || c.expected_version === undefined)) {
     return { ok: false, message: 'receive_transfer requires pallet_id and expected_version.' };
   }
-  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer' || c.kind === 'cancel_order' || c.kind === 'hand_off' || c.kind === 'submit_count' || c.kind === 'review_count') && c.expected_version === undefined) {
+  if ((c.kind === 'send_transfer' || c.kind === 'cancel_transfer' || c.kind === 'pick_transfer' || c.kind === 'hand_off_transfer' || c.kind === 'cancel_order' || c.kind === 'hand_off' || c.kind === 'submit_count' || c.kind === 'review_count') && c.expected_version === undefined) {
     return { ok: false, message: `${c.kind} requires expected_version.` };
   }
   if ((VERSIONED_PALLET_COMMANDS as readonly string[]).includes(c.kind)) {

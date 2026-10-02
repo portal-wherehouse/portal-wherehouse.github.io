@@ -56,6 +56,9 @@ export const MIN_ROLE: Record<CommandKind, Role> = {
   // Anyone who can send may cancel a draft. Once sent, the engine requires a manager or owner.
   cancel_transfer: 'OPERATOR',
   transfer_now: 'OPERATOR',
+  // Turning a draft transfer into a pick order is a manager's call; anyone who hands off orders can send it that way.
+  pick_transfer: 'SUPERVISOR',
+  hand_off_transfer: 'OPERATOR',
   // Orders: operators pick, pack, stage and hand off; managers manage orders and batches and decide substitutions;
   // owners choose the settings (box types, cart size, substitution policy).
   set_orders: 'OWNER',
@@ -144,6 +147,8 @@ export const COMMAND_LABEL: Record<CommandKind, string> = {
   receive_transfer: 'Received from transfer',
   cancel_transfer: 'Transfer cancelled',
   transfer_now: 'Transferred',
+  pick_transfer: 'Transfer picked as an order',
+  hand_off_transfer: 'Transfer handed off',
   set_orders: 'Orders settings changed',
   create_order: 'Order created',
   cancel_order: 'Order cancelled',

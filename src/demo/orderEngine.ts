@@ -62,19 +62,32 @@ export function pickableStock(e: Engine, ws: string, product: string, exclude: S
     .sort((a, b) => compareExpiry(a, b) || code(a.current_location_id).localeCompare(code(b.current_location_id), 'en', { numeric: true }) || a.received_at.localeCompare(b.received_at) || a.code.localeCompare(b.code));
 }
 
-/** Units chosen for open stops of batches being picked: other batches leave them alone. */
-function reservedUnits(e: Engine, ws: string, skipBatch?: string): Set<string> {
+/**
+ * Units chosen for open stops of batches being picked, and pallets waiting on a transfer's order: other orders
+ * leave them alone. `skipOrders` are the orders being planned now, which may take their own pallets.
+ */
+function reservedUnits(e: Engine, ws: string, skipBatch?: string, skipOrders?: Set<string>): Set<string> {
   const out = new Set<string>();
   for (const b of Object.values(e.db.batches)) {
     if (b.workspace_id !== ws || b.status !== 'PICKING' || b.id === skipBatch) continue;
     for (const s of b.stops) if (s.status === 'open') for (const u of s.suggested) if (!s.picked.includes(u.pallet_id)) out.add(u.pallet_id);
   }
+  for (const o of Object.values(e.db.orders)) {
+    if (o.workspace_id !== ws || o.status !== 'OPEN' || skipOrders?.has(o.id)) continue;
+    for (const l of o.lines) if (l.pallet_id && lineFilled(l) < l.qty) out.add(l.pallet_id);
+  }
   return out;
+}
+
+/** The one pallet a transfer order's line takes, when it can be picked now. */
+function pinnedStock(e: Engine, ws: string, palletId: string, exclude: Set<string>): Pallet[] {
+  const p = e.db.pallets[palletId];
+  return p && p.workspace_id === ws && p.state === 'STORED' && !p.hold && !p.archived_at && !exclude.has(p.id) ? [p] : [];
 }
 
 /** Stops for `need` units of one line: one stop per spot, then one without a spot for anything not in stock. */
 function planStops(e: Engine, ws: string, order: Order, slot: string, line: OrderLine, need: number, exclude: Set<string>, keyBase: string): PickStop[] {
-  const found = pickableStock(e, ws, line.product_code, exclude).slice(0, need);
+  const found = (line.pallet_id ? pinnedStock(e, ws, line.pallet_id, exclude) : pickableStock(e, ws, line.product_code, exclude)).slice(0, need);
   const bySpot = new Map<string, Pallet[]>();
   for (const p of found) {
     exclude.add(p.id);
@@ -98,6 +111,7 @@ function planStops(e: Engine, ws: string, order: Order, slot: string, line: Orde
     status: 'open',
     short_reason: null,
     moved_to: null,
+    ...(line.pallet_id ? { pallet_id: line.pallet_id } : {}),
   });
   for (const [loc, units] of bySpot) stops.push(stop(loc || null, units.length, units));
   if (found.length < need) stops.push(stop(null, need - found.length, []));
@@ -274,7 +288,7 @@ export function orderCommand(e: Engine, tx: Tx, actorId: string, cmd: CommandEnv
         version: 0,
         updated_at: now,
       };
-      const used = reservedUnits(e, ws);
+      const used = reservedUnits(e, ws, undefined, new Set(chosen.map((o) => o.id)));
       chosen.forEach((o, i) => {
         const letter = SLOT_LETTERS[i];
         b.slots.push({ letter, order_id: o.id, order_code: o.code, customer: o.customer.name, tote_code: null });
@@ -336,9 +350,12 @@ export function orderCommand(e: Engine, tx: Tx, actorId: string, cmd: CommandEnv
       const line = o.lines.find((l) => l.line_no === stop.line_no)!;
       const rules = checkTransition(cmd.kind, { pallet: pal, job: undefined, payload: p, now, actorId });
       if (!rules.ok) return reject(rules.code, rules.message, pal);
-      const same = sameProduct(palletProduct(pal), stop.product_code);
-      if (cmd.kind === 'pick' && !same) return reject('INVALID_INPUT', `That is ${pal.code}, ${pal.description}. This stop needs ${stop.description}.`);
+      // A transfer's order takes the very pallets on the transfer.
+      const same = stop.pallet_id ? pal.id === stop.pallet_id : sameProduct(palletProduct(pal), stop.product_code);
+      if (cmd.kind === 'pick' && !same)
+        return reject('INVALID_INPUT', stop.pallet_id ? `That is ${pal.code}. This stop needs ${stop.suggested[0]?.code ?? 'the pallet on the transfer'}.` : `That is ${pal.code}, ${pal.description}. This stop needs ${stop.description}.`);
       if (cmd.kind === 'substitute') {
+        if (stop.pallet_id || o.transfer) return reject('INVALID_STATE', `${o.code} is a transfer. Only the pallets on it can be picked.`);
         if (same) return reject('INVALID_INPUT', `${pal.code} is the ordered product. Scan it as a normal pick.`);
         if (settings.subs === 'never') return reject('INVALID_STATE', 'This warehouse does not substitute products.');
         if (!o.allow_subs) return reject('INVALID_STATE', `${o.customer.name} did not allow substitutes on ${o.code}.`);
@@ -574,6 +591,8 @@ export function orderCommand(e: Engine, tx: Tx, actorId: string, cmd: CommandEnv
       if (cmd.expected_version !== e.db.orders[o.id].version) return reject('VERSION_CONFLICT', `${o.code} changed since you opened it. Review it and scan the packages again.`);
       if (o.status === 'DONE') return reject('INVALID_STATE', `${o.code} was already handed off.`);
       if (o.status !== 'PACKED' && o.status !== 'STAGED') return reject('INVALID_STATE', `${o.code} is not packed yet.`);
+      // Handing off a transfer's order sends the transfer, which also changes the other warehouse: hand_off_transfer.
+      if (o.transfer) return reject('INVALID_STATE', `${o.code} goes to ${o.transfer.to_name} on ${o.transfer.number}. Hand it off as that transfer.`);
       const live = o.package_ids.map((id) => pkg(id)).filter((k): k is Package => !!k && k.status !== 'CANCELLED');
       const scanned = new Set(p.package_ids as string[]);
       const missing = live.filter((k) => !scanned.has(k.id));
@@ -627,6 +646,26 @@ function settleOrder(o: Order, packages: Map<string, Package>, pkg: (id: string)
   if (!allPacked) o.status = 'PICKED';
   else if (live.length && live.every((k) => k.status === 'STAGED')) o.status = 'STAGED';
   else o.status = 'PACKED';
+}
+
+/**
+ * A pick order for a draft transfer: one line per pallet, for the receiving warehouse. Picking it takes those pallets
+ * off their spots; handing it off sends the transfer (Engine.transfer, hand_off_transfer).
+ */
+export function transferOrder(e: Engine, tx: Tx, ws: string, wh: Warehouse, actorId: string, now: string, t: { id: string; number: string; to_workspace_id: string; to_name: string; note: string | null }, pallets: Pallet[]): Order {
+  const actorName = e.db.users[actorId]?.name ?? '';
+  const o = newOrder(e, tx, ws, wh, actorId, actorName, now, {
+    external_ref: null,
+    customer: { name: t.to_name, phone: '', email: '', address: '' },
+    method: 'ship',
+    due_at: null,
+    allow_subs: false,
+    notes: `Transfer ${t.number} to ${t.to_name}${t.note ? `. ${t.note}` : ''}`.slice(0, 1000),
+    lines: pallets.map((p, i) => ({ line_no: i + 1, product_code: palletProduct(p) || p.code, description: p.description, qty: 1, units: [], short: null, pallet_id: p.id })),
+  });
+  o.transfer = { id: t.id, number: t.number, to_workspace_id: t.to_workspace_id, to_name: t.to_name };
+  o.log.push({ at: now, actor_name: actorName, text: `Created from transfer ${t.number} with ${plural(pallets.length, 'pallet')}` });
+  return o;
 }
 
 function newOrder(

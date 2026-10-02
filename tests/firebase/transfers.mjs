@@ -110,4 +110,65 @@ export async function testTransfers({ client, ok, issueKey, adminDb }) {
   const nowHistory = await getDocs(query(collection(worker.db, 'workspaces', B, 'events'), where('pallet_id', '==', pallets[2].id), limit(50)));
   assert.ok(nowHistory.docs.some((d) => d.get('type') === 'transfer_send'));
   ok('transfer now sends and receives in one step, numbers per account, and a retry does not repeat it');
+
+  // Pick a transfer as an order: the order lives at the sending warehouse, and handing it off sends the transfer.
+  const readAt = async (who, ws, table, docId) => (await getDoc(doc(who.db, 'workspaces', ws, table, docId))).data();
+  const loose = [];
+  for (let i = 1; i <= 2; i++) {
+    const r = await must(send(worker, A, 'receive', { description: `Order transfer pallet ${i}` }));
+    loose.push((await must(send(worker, A, 'place', { location_id: rackA.target_id }, { pallet_id: r.current_state.id, expected_version: r.current_state.version }))).current_state);
+  }
+  const draftId = (await must(send(worker, A, 'create_transfer', { to_workspace_id: B, lines: loose.map(line) }))).target_id;
+  let draftAt = await readAt(boss, A, 'transfers', draftId);
+  assert.equal((await send(worker, A, 'pick_transfer', { transfer_id: draftId }, { expected_version: draftAt.version })).code, 'FORBIDDEN');
+  const ordersOff = await send(boss, A, 'pick_transfer', { transfer_id: draftId }, { expected_version: draftAt.version });
+  assert.equal(ordersOff.code, 'INVALID_STATE');
+  assert.match(ordersOff.message, /Orders and picking is off/);
+  await must(send(boss, A, 'set_orders', { on: true, cart_size: 4, box_types: ['Pallet wrap'], subs: 'never' }));
+  const asOrder = await must(send(boss, A, 'pick_transfer', { transfer_id: draftId }, { expected_version: draftAt.version }));
+  const trOrderId = asOrder.created_ids[0];
+  let trOrder = await readAt(worker, A, 'orders', trOrderId);
+  assert.equal(trOrder.code, 'O-000001');
+  assert.equal(trOrder.customer.name, 'Transfer overflow');
+  assert.equal(trOrder.transfer.id, draftId);
+  draftAt = await readAt(worker, A, 'transfers', draftId);
+  assert.deepEqual(draftAt.order, { id: trOrderId, code: 'O-000001' });
+  assert.deepEqual(draftAt, await readAt(worker, B, 'transfers', draftId));
+  assert.equal((await adminDb.doc(`workspaces/${A}/private/seq_O`).get()).get('value'), 1);
+  assert.equal((await send(worker, A, 'send_transfer', { transfer_id: draftId }, { expected_version: draftAt.version })).code, 'INVALID_STATE');
+  ok('a manager picks a draft transfer as an order for the other warehouse, once orders are on; both copies link it');
+
+  const trBatchId = (await must(send(worker, A, 'start_batch', {}))).target_id;
+  let trBatch = await readAt(worker, A, 'batches', trBatchId);
+  assert.deepEqual(trBatch.stops.map((s) => s.pallet_id).sort(), loose.map((p) => p.id).sort());
+  for (const s of trBatch.stops) {
+    const u = await readAt(worker, A, 'pallets', s.suggested[0].pallet_id);
+    await must(send(worker, A, 'pick', { batch_id: trBatchId, stop_key: s.key }, { pallet_id: u.id, expected_version: u.version }));
+  }
+  await must(send(worker, A, 'finish_batch', { batch_id: trBatchId, reason: '' }));
+  trOrder = await readAt(worker, A, 'orders', trOrderId);
+  const trPkg = await must(send(worker, A, 'pack', { order_id: trOrderId, unit_ids: trOrder.lines.flatMap((l) => l.units.map((u) => u.pallet_id)), box_type: 'Pallet wrap' }));
+  trOrder = await readAt(worker, A, 'orders', trOrderId);
+  assert.equal(trOrder.status, 'PACKED');
+  assert.equal((await send(worker, A, 'hand_off', { order_id: trOrderId, package_ids: [trPkg.target_id], carrier: 'Own truck' }, { expected_version: trOrder.version })).code, 'INVALID_STATE');
+  const handoff = envelope(A, 'hand_off_transfer', { transfer_id: draftId, order_id: trOrderId, package_ids: [trPkg.target_id], carrier: 'Own truck' }, { expected_version: trOrder.version });
+  const handed = await worker.call('command', handoff);
+  assert.equal(handed.ok, true, JSON.stringify(handed));
+  assert.equal((await worker.call('command', handoff)).target_id, handed.target_id);
+  const shipped = await readAt(worker, A, 'transfers', draftId);
+  assert.equal(shipped.status, 'IN_TRANSIT');
+  assert.deepEqual(shipped, await readAt(worker, B, 'transfers', draftId));
+  assert.deepEqual(shipped.lines.map((l) => l.from_location_code), ['A-01-01', 'A-01-01']);
+  assert.equal((await readAt(worker, A, 'orders', trOrderId)).status, 'DONE');
+  assert.equal((await readAt(worker, A, 'packages', trPkg.target_id)).status, 'HANDED_OFF');
+  for (const p of loose) {
+    const now = await readAt(worker, A, 'pallets', p.id);
+    assert.equal(now.state, 'IN_TRANSIT');
+    assert.equal(now.order, null);
+    assert.equal(now.transfer.id, draftId);
+  }
+  const arriving = shipped.lines[0];
+  await must(send(worker, B, 'receive_transfer', { transfer_id: draftId, location_id: dock.target_id }, { pallet_id: arriving.pallet_id, expected_version: arriving.version }));
+  assert.equal((await readAt(worker, B, 'pallets', arriving.pallet_id)).state, 'STORED');
+  ok('picking, packing and handing off the order sends the transfer in both warehouses, once; the other end receives it');
 }

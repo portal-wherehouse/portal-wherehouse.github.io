@@ -212,3 +212,41 @@
   margin: 10px 0 0;
   font-size: 12px;
 }
+
+/* One warehouse: what transfers do, as three short steps. */
+.tr-one .empty p {
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.tr-steps {
+  max-width: 520px;
+  margin: 12px auto;
+  padding-left: 22px;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+}
+
+.tr-steps li {
+  overflow-wrap: anywhere;
+}
+
+/* A sent transfer that was picked as an order. */
+.tr-order-done {
+  gap: 10px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.tr-order-done > svg {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.tr-order-done .grow {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

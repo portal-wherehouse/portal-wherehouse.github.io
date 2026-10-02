@@ -54,8 +54,8 @@ import type {
   Workspace,
 } from '../domain/types';
 import { ORDER_COMMANDS, TRANSFER_COMMANDS, WORK_COMMANDS, type CountTask, type MoveTask, type TransferCommandKind } from '../domain/types';
-import { ordersOf, parseOrderCode, parsePackageCode, parseToteCode, type Order, type Package, type PickBatch } from '../domain/orders';
-import { importOrders, orderCommand } from './orderEngine';
+import { orderUnits, ordersOf, parseOrderCode, parsePackageCode, parseToteCode, type Order, type Package, type PickBatch } from '../domain/orders';
+import { importOrders, orderCommand, transferOrder } from './orderEngine';
 import { workCommand } from './workEngine';
 import { moveTaskId, sortCounts, taskDoneBy } from '../domain/work';
 import { ISSUE_KINDS, ISSUE_STATUSES, LOCATION_KINDS, type Issue, type IssueKind, type IssueStatus, type Onboarding, type WarehouseSetup } from '../domain/types';
@@ -1214,11 +1214,96 @@ export class Engine {
     const t = this.db.transfers[String(p.transfer_id)];
     if (!t || (t.from_workspace_id !== ws && t.to_workspace_id !== ws)) return reject('NOT_FOUND', 'Transfer not found.');
     const next: Transfer = structuredClone(t);
+    // The transfer's pick order while it is still under way: the transfer is then sent by handing that order off.
+    const linked = t.order ? this.db.orders[t.order.id] : undefined;
+    const picking = linked && linked.workspace_id === t.from_workspace_id && linked.status !== 'CANCELLED' && linked.status !== 'DONE' ? linked : null;
+
+    if (kind === 'pick_transfer') {
+      if (ws !== t.from_workspace_id) return reject('INVALID_STATE', `${t.number} is picked at ${t.from_name}.`);
+      if (ROLE_RANK[member.role] < ROLE_RANK.SUPERVISOR) return reject('FORBIDDEN', 'Only a manager or owner can pick a transfer as an order.');
+      if (cmd.expected_version !== t.version) return reject('VERSION_CONFLICT', `${t.number} changed since you opened it. Review the current transfer.`);
+      if (t.status !== 'DRAFT') return reject('INVALID_STATE', t.status === 'CANCELLED' ? `${t.number} is cancelled.` : `${t.number} was already sent.`);
+      if (picking) return reject('INVALID_STATE', `${t.number} is already being picked as ${picking.code}.`);
+      const wh = this.activeWarehouse(ws);
+      if (!wh) return reject('INVALID_STATE', 'This company has no active warehouse.');
+      if (!ordersOf(wh).on) return reject('INVALID_STATE', 'Orders and picking is off for this warehouse. An owner can turn it on in Settings.');
+      const pallets: Pallet[] = [];
+      for (const line of t.lines) {
+        const pal = this.db.pallets[line.pallet_id];
+        if (!pal || pal.workspace_id !== ws) return reject('NOT_FOUND', `${line.code} is no longer in this warehouse. Cancel this draft and start a new transfer.`);
+        const blocked = transferBlocker(pal);
+        if (blocked) return reject('INVALID_STATE', blocked, pal);
+        if (pal.state !== 'STORED') return reject('INVALID_STATE', `${pal.code} is not on a spot yet. Put it away first, so a picker knows where to find it.`, pal);
+      }
+      for (const line of t.lines) pallets.push(this.db.pallets[line.pallet_id]);
+      const o = transferOrder(this, tx, ws, wh, actorId, now, t, pallets);
+      tx.put('orders', o.id, o);
+      next.order = { id: o.id, code: o.code };
+      step(next, 'order', `Picking as order ${o.code}. Handing that order off sends the transfer`);
+      save(next);
+      const res = this.accepted(cmd, now, null, null, t.id);
+      res.created_ids = [o.id];
+      return res;
+    }
+
+    if (kind === 'hand_off_transfer') {
+      if (ws !== t.from_workspace_id) return reject('INVALID_STATE', `${t.number} is sent from ${t.from_name}.`);
+      const o = this.db.orders[String(p.order_id)];
+      if (!o || o.workspace_id !== ws || o.transfer?.id !== t.id || t.order?.id !== o.id) return reject('NOT_FOUND', `That order is not the pick order of ${t.number}.`);
+      if (cmd.expected_version !== o.version) return reject('VERSION_CONFLICT', `${o.code} changed since you opened it. Review it and scan the packages again.`);
+      if (o.status === 'DONE') return reject('INVALID_STATE', `${o.code} was already handed off.`);
+      if (o.status !== 'PACKED' && o.status !== 'STAGED') return reject('INVALID_STATE', `${o.code} is not packed yet.`);
+      if (t.status !== 'DRAFT') return reject('INVALID_STATE', t.status === 'CANCELLED' ? `${t.number} is cancelled.` : `${t.number} was already sent.`);
+      if (this.db.workspaces[t.to_workspace_id]?.account_id !== account) return reject('NOT_FOUND', 'The destination warehouse is no longer part of this account.');
+      const live = o.package_ids.map((id) => this.db.packages[id]).filter((k): k is Package => !!k && k.workspace_id === ws && k.status !== 'CANCELLED');
+      const scanned = new Set(p.package_ids as string[]);
+      const missing = live.filter((k) => !scanned.has(k.id));
+      if (missing.length) return reject('INVALID_INPUT', `Scan every package. Not scanned: ${missing.map((k) => k.code).join(', ')}.`);
+      if ([...scanned].some((id) => !live.some((k) => k.id === id))) return reject('INVALID_INPUT', `A scanned package is not part of ${o.code}.`);
+      const units = orderUnits(o);
+      for (const u of units) {
+        const pal = this.db.pallets[u.pallet_id];
+        if (!pal || pal.state !== 'PICKED' || pal.order?.order_id !== o.id) return reject('INVALID_STATE', `${u.code} is no longer picked for ${o.code}. Review the order.`);
+      }
+      // Pallets that were picked go; any the picker could not find come off the transfer and stay here.
+      const left: string[] = [];
+      next.lines = next.lines.filter((line) => {
+        const u = units.find((x) => x.pallet_id === line.pallet_id);
+        if (u) return true;
+        left.push(line.code);
+        return false;
+      });
+      if (!next.lines.length) return reject('INVALID_STATE', `None of the pallets on ${t.number} were picked.`);
+      for (const line of next.lines) {
+        const u = units.find((x) => x.pallet_id === line.pallet_id)!;
+        const from = u.from_location_id ? { id: u.from_location_id, code: u.from_location_code ?? '' } : null;
+        track(this.sendLine(tx, next, line, this.db.pallets[line.pallet_id], actorId, now, from));
+      }
+      const carrier = String(p.carrier ?? '').trim();
+      const tracking = String(p.tracking ?? '').trim();
+      const destination = `Sent to ${t.to_name} on ${t.number}${carrier ? ` by ${carrier}` : ''}${tracking ? `, tracking ${tracking}` : ''}`.slice(0, 200);
+      for (const k of live) tx.put('packages', k.id, { ...k, status: 'HANDED_OFF', location_id: null, location_code: null, version: k.version + 1, updated_at: now });
+      tx.put('orders', o.id, {
+        ...o,
+        status: 'DONE',
+        handoff: { at: now, by_name: actorName, collected_by: null, carrier: carrier || null, tracking: tracking || null, destination },
+        log: [...o.log, { at: now, actor_name: actorName, text: `Handed off: ${count(next.lines.length)} in ${live.length} package${live.length === 1 ? '' : 's'}. ${destination}` }],
+        version: o.version + 1,
+        updated_at: now,
+      });
+      next.status = 'IN_TRANSIT';
+      next.sent_by = actorId;
+      next.sent_at = now;
+      step(next, 'sent', `Sent ${count(next.lines.length)} to ${t.to_name} with order ${o.code}${carrier ? ` by ${carrier}` : ''}${left.length ? `. Not picked, so left off the transfer: ${left.join(', ')}` : ''}`);
+      save(next);
+      return this.accepted(cmd, now, firstEvent, null, t.id);
+    }
 
     if (kind === 'send_transfer') {
       if (ws !== t.from_workspace_id) return reject('INVALID_STATE', `${t.number} is sent from ${t.from_name}.`);
       if (cmd.expected_version !== t.version) return reject('VERSION_CONFLICT', `${t.number} changed since you opened it. Review the current transfer.`);
       if (t.status !== 'DRAFT') return reject('INVALID_STATE', `${t.number} was already sent.`);
+      if (picking) return reject('INVALID_STATE', `${t.number} is being picked as ${picking.code}. Hand that order off to send the transfer, or cancel the order first.`);
       if (this.db.workspaces[t.to_workspace_id]?.account_id !== account) return reject('NOT_FOUND', 'The destination warehouse is no longer part of this account.');
       for (const line of next.lines) {
         const pal = this.db.pallets[line.pallet_id];
@@ -1270,6 +1355,7 @@ export class Engine {
     // cancel_transfer, from either warehouse.
     if (cmd.expected_version !== t.version) return reject('VERSION_CONFLICT', `${t.number} changed since you opened it. Review the current transfer.`);
     if (!['DRAFT', 'IN_TRANSIT', 'PARTLY_RECEIVED'].includes(t.status)) return reject('INVALID_STATE', `${t.number} is ${t.status === 'CANCELLED' ? 'already cancelled' : 'fully received'}.`);
+    if (picking) return reject('INVALID_STATE', `${t.number} is being picked as ${picking.code}. Cancel that order first, then the transfer.`);
     const reason = String(p.reason ?? '').trim();
     if (t.status !== 'DRAFT') {
       if (ROLE_RANK[member.role] < ROLE_RANK.SUPERVISOR) return reject('FORBIDDEN', 'Only a manager or owner can cancel a transfer that was sent.');
@@ -1293,12 +1379,14 @@ export class Engine {
   }
 
   /** Take a pallet off its spot and mark it in transit, with a history entry at the origin. */
-  private sendLine(tx: Tx, t: Transfer, line: TransferLine, pallet: Pallet, actorId: string, now: string): string {
-    const from = pallet.current_location_id ? this.db.locations[pallet.current_location_id] : null;
+  private sendLine(tx: Tx, t: Transfer, line: TransferLine, pallet: Pallet, actorId: string, now: string, picked: { id: string; code: string } | null = null): string {
+    // A pallet picked for the transfer's order already left its spot: the order remembers which.
+    const from = pallet.current_location_id ? this.db.locations[pallet.current_location_id] : picked;
     const next: Pallet = {
       ...pallet,
       state: 'IN_TRANSIT',
       current_location_id: null,
+      ...(pallet.order ? { order: null } : {}),
       transfer: { id: t.id, number: t.number, from_workspace_id: t.from_workspace_id, from_name: t.from_name, to_workspace_id: t.to_workspace_id, to_name: t.to_name },
       version: pallet.version + 1,
       updated_at: now,

@@ -413,6 +413,18 @@ function OneOrder({ id }: { id: string }) {
       />
       <div className="panel">
         <dl className="order-facts">
+          {order.transfer && (
+            <div data-testid="order-transfer">
+              <dt>Transfer</dt>
+              <dd>
+                <button className="link mono" onClick={() => go({ name: 'transfer', id: order.transfer!.id })}>
+                  {order.transfer.number}
+                </button>{' '}
+                to <span data-keep-words>{order.transfer.to_name}</span>
+                {order.status === 'DONE' ? ', sent.' : order.status === 'CANCELLED' ? '. The transfer stays a draft.' : '. Handing this order off sends the transfer.'}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>Due</dt>
             <dd>{order.due_at ? new Date(order.due_at).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'No due time'}</dd>

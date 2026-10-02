@@ -32,7 +32,9 @@ import { parseScanCommand } from '../../device/scanCommands';
 import { ReadError } from '../../demo/engine';
 import { useHasTransferTargets, useTransferTargets } from './targets';
 import './transfers.css';
-import { sameProduct } from '../../domain/orders';
+import { DEFAULT_BOX_TYPES, ORDER_STATUS_LABEL, ordersOf, sameProduct } from '../../domain/orders';
+import { uuid } from '../../domain/codes';
+import { useOrdersOn } from '../../app/words';
 import { parseQty } from '../../domain/stock';
 
 const STATUS_TONE: Record<TransferStatus, string> = { DRAFT: '', IN_TRANSIT: 'accent', PARTLY_RECEIVED: 'warn', RECEIVED: 'ok', CANCELLED: '' };
@@ -52,17 +54,44 @@ const TABS: { id: Tab; title: string; test: (t: Transfer) => boolean }[] = [
   { id: 'all', title: 'All', test: () => true },
 ];
 
-/** Shown when there is no second warehouse to send to. */
+/** Opens the warehouse menu at the top of the screen, where Add warehouse is. */
+function openWarehouseMenu() {
+  const button = document.querySelector<HTMLButtonElement>('.warehouse-name-button');
+  if (!button) return;
+  window.scrollTo({ top: 0 });
+  button.focus();
+  button.click();
+}
+
+/** Shown when there is no second warehouse to send to: what transfers do, and how to get one. */
 function OneWarehouse() {
   const { backend } = useApp();
   return (
-    <div className="panel">
-      <Empty icon="swap" title="Transfers need a second warehouse">
-        <p>A transfer moves pallets from one warehouse to another in the same account, with a record at both ends.</p>
-        <p>
+    <div className="panel tr-one" data-testid="transfers-one-warehouse">
+      <Empty
+        icon="swap"
+        title="Transfers need a second warehouse"
+        actions={
+          <button className="btn primary" onClick={openWarehouseMenu}>
+            <Icon name="plus" /> Add a warehouse
+          </button>
+        }
+      >
+        <p>Move pallets between your sites with a record at both ends. Each pallet keeps its code, label and history on the way.</p>
+        <ol className="tr-steps">
+          <li>
+            <strong>Send.</strong> Scan the pallets, choose the other warehouse, and send. They show as in transit until they arrive.
+          </li>
+          <li>
+            <strong>Or pick it as an order.</strong> A manager can turn a transfer into a pick order, so it is picked, packed and handed off with the day's orders.
+          </li>
+          <li>
+            <strong>Receive.</strong> At the other warehouse, scan each pallet onto a spot.
+          </li>
+        </ol>
+        <p className="muted">
           To add one, open the warehouse menu (the warehouse name at the top) and choose Add warehouse.
-          {backend instanceof FirebaseBackend ? ' More than one warehouse depends on your plan. ' : ' '}
-          You also need access to both warehouses. Transfers then appears under Floor.
+          {backend instanceof FirebaseBackend ? ' More than one warehouse depends on your plan.' : ''} You also need access to both warehouses.
         </p>
       </Empty>
     </div>
@@ -79,7 +108,7 @@ export function Transfers() {
   return (
     <div className="stack">
       <PageHead
-        eyebrow="Floor"
+        eyebrow="Inventory"
         title="Transfers"
         sub="Pallets sent between your warehouses"
         actions={
@@ -140,6 +169,7 @@ function TransferRow({ t, outgoing, onOpen }: { t: Transfer; outgoing: boolean; 
       </span>
       <span className="tr-row-meta">
         <StatusTag status={t.status} />
+        {t.order && t.status === 'DRAFT' && <span className="tag">Order {t.order.code}</span>}
         <span className="muted">
           {isOnTheWay(t) ? `${received} of ${count(live)} received` : count(t.lines.length)}
         </span>
@@ -370,9 +400,16 @@ function TransferView({ id }: { id: string }) {
   const app = useApp();
   const { read, role, workspaceId, go, toast } = app;
   const t = read((e, a, ws) => e.transferRecord(a, ws, id));
+  // The transfer's pick order, readable at the sending warehouse where it lives.
+  const linked = read((e, _a, ws) => {
+    const ref = e.db.transfers[id]?.order;
+    const o = ref ? e.db.orders[ref.id] : undefined;
+    return o && o.workspace_id === ws ? o : null;
+  });
   const send = useCommand();
   const [printing, setPrinting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [starting, setStarting] = useState(false);
   if (!t)
     return (
       <div className="stack">
@@ -386,11 +423,22 @@ function TransferView({ id }: { id: string }) {
     );
 
   const outgoing = t.from_workspace_id === workspaceId;
-  const canSend = outgoing && t.status === 'DRAFT' && roleAllows(role, 'send_transfer');
-  const canCancel = isOpenTransfer(t) && !!role && (t.status === 'DRAFT' ? roleAllows(role, 'cancel_transfer') : ROLE_RANK[role] >= ROLE_RANK.SUPERVISOR);
+  // While its pick order is under way, the transfer is sent by handing that order off.
+  const picking = t.status === 'DRAFT' && !!t.order && (!linked || (linked.status !== 'CANCELLED' && linked.status !== 'DONE'));
+  const canSend = outgoing && t.status === 'DRAFT' && !picking && roleAllows(role, 'send_transfer');
+  const canCancel = isOpenTransfer(t) && !picking && !!role && (t.status === 'DRAFT' ? roleAllows(role, 'cancel_transfer') : ROLE_RANK[role] >= ROLE_RANK.SUPERVISOR);
   const receiving = !outgoing && isOnTheWay(t) && roleAllows(role, 'receive_transfer');
   const placeName = (ws: string) => (ws === t.from_workspace_id ? t.from_name : t.to_name);
   const palletHere = (l: TransferLine) => (outgoing ? l.status !== 'RECEIVED' : l.status === 'RECEIVED');
+
+  // A manager can start picking the transfer's order straight away, on their own cart.
+  const pickNow = async (orderId: string) => {
+    setStarting(true);
+    const r = await app.send('start_batch', { order_ids: [orderId] }, null, { commandId: uuid() });
+    setStarting(false);
+    if (r.status === 'result' && r.result.ok) go({ name: 'orders', q: 'pick' });
+    else toast(r.status === 'result' && !r.result.ok ? r.result.message : 'No answer from the server. Check Pick orders before trying again.', 'error');
+  };
 
   const doSend = async () => {
     const r = await send.run('send_transfer', { transfer_id: t.id }, null, { expectedVersion: t.version });
@@ -420,7 +468,39 @@ function TransferView({ id }: { id: string }) {
           </>
         }
       />
-      {t.status === 'DRAFT' && (
+      {t.status === 'DRAFT' && picking && t.order && (
+        <Notice
+          tone="info"
+          icon="box"
+          title={`Picking as order ${t.order.code}`}
+          actions={
+            linked ? (
+              <>
+                {linked.status === 'OPEN' && !linked.batch_id && roleAllows(role, 'pick') && !!role && ROLE_RANK[role] >= ROLE_RANK.SUPERVISOR && (
+                  <button className="btn primary small" onClick={() => void pickNow(linked.id)} disabled={starting}>
+                    {starting ? <Spinner /> : <Icon name="box" />} Pick it now
+                  </button>
+                )}
+                <button className="btn small" onClick={() => go({ name: 'order', id: linked.id })}>
+                  Open order
+                </button>
+              </>
+            ) : undefined
+          }
+        >
+          <span data-testid="transfer-order-status">
+            {linked && (
+              <>
+                <span className="tag accent">{ORDER_STATUS_LABEL[linked.status]}</span>{' '}
+              </>
+            )}
+            {outgoing
+              ? `When ${t.order.code} is packed and handed off, this transfer is sent and its pallets go in transit to ${t.to_name}. To cancel the transfer, cancel the order first.`
+              : `${t.from_name} is picking these pallets as an order. They go in transit when it is handed off.`}
+          </span>
+        </Notice>
+      )}
+      {t.status === 'DRAFT' && !picking && (
         <Notice
           tone="info"
           title="Draft, not sent yet"
@@ -433,9 +513,27 @@ function TransferView({ id }: { id: string }) {
           }
         >
           {outgoing ? 'The pallets stay on their spots until the transfer is sent.' : `${t.from_name} has not sent these pallets yet.`}
+          {outgoing && t.order && linked?.status === 'CANCELLED' ? ` Its order ${t.order.code} was cancelled.` : ''}
         </Notice>
       )}
       <CommandFeedback state={send.state} onRecover={() => void send.recover()} onDiscard={send.reset} />
+      {outgoing && t.status === 'DRAFT' && !picking && !!role && ROLE_RANK[role] >= ROLE_RANK.SUPERVISOR && <PickAsOrder t={t} />}
+      {t.status !== 'DRAFT' && t.order && (
+        <div className="panel row tr-order-done" data-testid="transfer-order-status">
+          <Icon name="box" />
+          <span className="grow">
+            Picked as order{' '}
+            {linked ? (
+              <button className="link mono" onClick={() => go({ name: 'order', id: linked.id })}>
+                {t.order.code}
+              </button>
+            ) : (
+              <span className="mono">{t.order.code}</span>
+            )}
+            {linked ? ` · ${ORDER_STATUS_LABEL[linked.status]}` : ` at ${t.from_name}`}
+          </span>
+        </div>
+      )}
       {isOnTheWay(t) && outgoing && (
         <Notice tone="info" icon="truck" title={`On the way to ${t.to_name}`}>
           The pallets are in transit and off their spots. {t.to_name} receives them by scanning each one.
@@ -535,6 +633,81 @@ function TransferView({ id }: { id: string }) {
           expectedVersion={t.version}
           onClose={() => setCancelling(false)}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A manager turns a draft into a pick order for the receiving warehouse: picked by spot with the day's orders, packed,
+ * and handed off, which sends the transfer. With Orders and picking off, an owner can turn it on here.
+ */
+function PickAsOrder({ t }: { t: Transfer }) {
+  const { role, send: sendCommand, toast, go, backend, workspaceId } = useApp();
+  const ordersOn = useOrdersOn();
+  const cmd = useCommand();
+  const [turning, setTurning] = useState(false);
+  const [error, setError] = useState('');
+  const owner = role === 'OWNER';
+  const pick = async () => {
+    const r = await cmd.run('pick_transfer', { transfer_id: t.id }, null, { expectedVersion: t.version });
+    if (r.phase !== 'done') return;
+    const orderId = r.accepted?.created_ids?.[0];
+    const code = orderId ? backend.db.orders[orderId]?.code : null;
+    toast(`${code ?? 'The order'} is ready to pick. Handing it off sends ${t.number}.`);
+  };
+  const turnOn = async () => {
+    setTurning(true);
+    setError('');
+    const wh = Object.values(backend.db.warehouses).find((w) => w.workspace_id === workspaceId && w.active);
+    const cur = ordersOf(wh);
+    const o = await sendCommand('set_orders', { on: true, cart_size: cur.cart_size, box_types: cur.box_types.length ? cur.box_types : DEFAULT_BOX_TYPES, subs: cur.subs }, null, { commandId: uuid() });
+    setTurning(false);
+    if (o.status === 'result' && o.result.ok) toast('Orders and picking is on. Pick orders is in the menu.');
+    else setError(o.status === 'result' && !o.result.ok ? o.result.message : o.status === 'offline' ? o.message : 'No answer from the server. Reload to check.');
+  };
+  return (
+    <div className="panel stack tr-pick-order" data-testid="pick-as-order">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h2 className="panel-title" style={{ margin: 0 }}>
+          Pick as an order
+        </h2>
+        {ordersOn && <span className="tag">For {t.to_name}</span>}
+      </div>
+      <p className="muted" style={{ margin: 0 }}>
+        Creates a pick order for these {count(t.lines.length)}, addressed to {t.to_name}. It is picked by spot with the other orders, packed and handed off. Handing it off sends this
+        transfer, so the pallets go in transit.
+      </p>
+      {ordersOn ? (
+        <>
+          <CommandFeedback state={cmd.state} onRecover={() => void cmd.recover()} onDiscard={cmd.reset} />
+          {!cmd.locked && (
+            <div className="row">
+              <button className="btn primary" onClick={() => void pick()} disabled={cmd.busy}>
+                {cmd.busy ? <Spinner /> : <Icon name="box" />} Pick as an order
+              </button>
+              <button className="btn" onClick={() => go('orders')}>
+                Open Pick orders
+              </button>
+            </div>
+          )}
+        </>
+      ) : owner ? (
+        <>
+          <Notice tone="info" title="Orders and picking is off">
+            Turn it on to pick transfers and customer orders: by spot into lettered totes, then packed, staged and handed off.
+          </Notice>
+          <div className="row">
+            <button className="btn primary" onClick={() => void turnOn()} disabled={turning || backend.network === 'offline'}>
+              {turning ? <Spinner /> : <Icon name="check" />} Turn on Orders and picking
+            </button>
+          </div>
+          {error && <Notice tone="error">{error}</Notice>}
+        </>
+      ) : (
+        <Notice tone="info" title="Orders and picking is off">
+          An owner can turn it on in Settings. Then this transfer can be picked as an order.
+        </Notice>
       )}
     </div>
   );
