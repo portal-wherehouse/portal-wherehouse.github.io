@@ -13,6 +13,7 @@ import { useSetup } from '../../app/words';
 import { ScanReadyPanel } from '../scan/ScanReady';
 import { useLowStock } from '../stock/useStock';
 import { MyWork } from './MyWork';
+import { FinishSetupCard } from '../setup/SetupChecklist';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'PICKED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', PICKED: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -75,6 +76,7 @@ export function Overview() {
       <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><p className="warehouse-greeting">Welcome, {name}. <span className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</span></p></div>
       {role==='OPERATOR'&&<button className="btn small" onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}
     </header>
+    <FinishSetupCard/>
     <ScanReadyPanel/>
     <section aria-label="Everyday tasks" data-tour="overview-summary"><div className="warehouse-actions">
       {actions.map(a=><button className="warehouse-action" key={a.title} aria-label={a.title} onClick={()=>go(a.to)}><span className="warehouse-action-icon"><Icon name={a.icon}/></span><span><strong>{a.title}</strong><small>{a.hint}</small></span><Icon name="chevronRight"/></button>)}

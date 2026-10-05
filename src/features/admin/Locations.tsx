@@ -31,7 +31,6 @@ export function Locations() {
   const [inactive, setInactive] = useState(false);
   const [creating, setCreating] = useState(false);
   const [building, setBuilding] = useState(false);
-  const [printAll, setPrintAll] = useState<string[] | null>(null);
   const data = useMemo(
     () => read((e, a, ws) => ({ ctx: e.context(a, ws), occ: e.occupancy(ws) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,8 +49,8 @@ export function Locations() {
         sub={`${data.ctx.locations.filter((l) => l.active).length} active in ${data.ctx.warehouse?.code}. Each has its own printed QR label.`}
         actions={
           <>
-            <button className="btn" onClick={() => setPrintAll(list.filter((l) => l.active).map((l) => l.id))} disabled={!list.some((l) => l.active)}>
-              <Icon name="print" /> Rack labels
+            <button className="btn" onClick={() => go('labels')} disabled={!list.some((l) => l.active)}>
+              <Icon name="print" /> Print labels
             </button>
             {canAdmin && (
               <button className="btn" onClick={() => setBuilding(true)} disabled={backend.network === 'offline'}>
@@ -120,7 +119,6 @@ export function Locations() {
       )}
       {creating && <CreateLocation onClose={() => setCreating(false)} />}
       {building && <RackBuilder onClose={() => setBuilding(false)} />}
-      {printAll && <LabelSheet locationIds={printAll} onClose={() => setPrintAll(null)} />}
     </div>
   );
 }

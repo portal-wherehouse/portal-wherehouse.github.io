@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../../app/state';
+import { rewindSteps, useHistoryStep } from '../../app/stepHistory';
 import { useSite } from '../../site/routing';
 import { uuid } from '../../domain/codes';
 import {
@@ -227,7 +228,22 @@ const VERDICT: Record<string, { label: string; tone: string; icon: IconName }> =
 const fmt = (n: number) => n.toLocaleString('en-US');
 
 /** Full screen over everything (rendered on the page body, so no card or animation around it can box it in). onSkip adds a Skip button. */
-export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site' | 'portal'; onClose: () => void; onApplied?: (rec: Recommendation) => void; onSkip?: () => void }) {
+export function SetupSurvey({ mode, onClose: closeNow, onApplied: appliedNow, onSkip: skipNow }: { mode: 'site' | 'portal'; onClose: () => void; onApplied?: (rec: Recommendation) => void; onSkip?: () => void }) {
+  // In the portal the survey sits over a setup step. Leaving it first steps back over the question entries it
+  // added to browser history, so Back afterwards goes to the step before, not through old questions.
+  const rewinding = useRef<Promise<void> | null>(null);
+  const leaving = useRef(false);
+  const leave = <A extends unknown[]>(fn: ((...args: A) => void) | undefined) =>
+    fn &&
+    ((...args: A) => {
+      if (mode !== 'portal') return fn(...args);
+      leaving.current = true;
+      rewinding.current ??= rewindSteps('survey');
+      void rewinding.current.then(() => fn(...args));
+    });
+  const onClose = leave(closeNow)!;
+  const onApplied = leave(appliedNow);
+  const onSkip = leave(skipNow);
   const resume = useMemo(() => loadSurveyProgress(mode), [mode]);
   const planned = useMemo(() => (mode === 'portal' ? loadSavedSurvey() : null), [mode]);
   const [a, setA] = useState<SurveyAnswers>(resume?.answers ?? planned ?? BLANK_ANSWERS);
@@ -269,8 +285,23 @@ export function SetupSurvey({ mode, onClose, onApplied, onSkip }: { mode: 'site'
     setPhase('curate');
     timer.current = window.setTimeout(() => setPhase('result'), matchMedia('(prefers-reduced-motion: reduce)').matches ? 300 : 2600);
   };
+  // Each question is a browser history entry: Back and Forward step through the questions, answers kept.
+  const at = phase === 'ask' ? (step ? `q:${String(step.id)}` : 'intro') : phase === 'result' ? 'result' : null;
+  const hist = useHistoryStep('survey', at, (v) => {
+    if (leaving.current) return;
+    window.clearTimeout(timer.current);
+    if (v === 'result') {
+      setDir('fwd');
+      return setPhase('result');
+    }
+    const to = v === 'intro' ? -1 : steps.findIndex((s) => `q:${String(s.id)}` === v);
+    setDir(to < i || phase === 'result' ? 'back' : 'fwd');
+    setPhase('ask');
+    setI(v === 'intro' ? -1 : Math.max(0, to));
+  });
   const back = () => {
     window.clearTimeout(timer.current);
+    if (hist.back()) return;
     setDir('back');
     if (phase !== 'ask') return (setPhase('ask'), setI(steps.length - 1));
     setI(Math.max(-1, i - 1));

@@ -58,6 +58,8 @@ export class Backend {
   configured = false;
   async logout() {}
   async chooseWorkspace(_id: string) {}
+  /** Every spot of the active warehouse. This device already holds them all; the live backend reads past its first page. */
+  async loadAllLocations(): Promise<void> {}
   db!: Db;
   engine!: Engine;
   meta!: Meta;

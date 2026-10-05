@@ -16,7 +16,7 @@ async function sidebar(page: Page) {
   return { groups, foot };
 }
 
-test('the owner sees Dashboard, three groups and Help, with Setup folded', async ({ page }) => {
+test('the owner sees Dashboard, the daily groups, and one Settings and setup item above Help', async ({ page }) => {
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await signInAs(page, 'owner');
@@ -27,12 +27,13 @@ test('the owner sees Dashboard, three groups and Help, with Setup folded', async
     groups: {
       'Daily work': ['Receive', 'Put away and move', 'Ship', 'Find', 'Jobs'],
       Inventory: ['Stock', 'Counts', 'History'],
-      Setup: ['Spots and labels', 'Products and barcodes', 'People', 'Scanners and printers', 'Import and export', 'Settings'],
     },
-    foot: ['Help'],
+    foot: ['Settings and setup', 'Help'],
   });
-  const setup = page.locator('.sidebar details', { has: page.locator('summary', { hasText: 'Setup' }) });
-  await expect(setup).not.toHaveAttribute('open', '');
+  // The setup tools live on one page, opened from a single menu item.
+  await page.locator('.sidebar').getByRole('button', { name: 'Settings and setup' }).click();
+  const hub = page.getByTestId('setup-hub');
+  for (const tool of ['Spots and labels', 'Products and barcodes', 'People', 'Scanners and printers', 'Import and export', 'Settings']) await expect(hub.getByRole('button', { name: new RegExp(`^${tool}`) })).toBeVisible();
   // The old menu names are gone from the sidebar.
   for (const old of ['Needs attention', 'Incoming', 'Scan station', 'Integrity lab', 'Guide', 'About', 'Labels', 'Export', 'Data and storage', 'Manager dashboard']) {
     await expect(page.locator('.sidebar').getByRole('button', { name: old, exact: true, includeHidden: true })).toHaveCount(0);
@@ -60,9 +61,9 @@ test('older screens still open from their links, and mark the item that covers t
   const cases: [hash: string, h1: string | RegExp, item: string][] = [
     ['incoming', 'Incoming', 'Receive'],
     ['reconcile', 'Needs attention', 'Dashboard'],
-    ['labels', 'Labels', 'Spots and labels'],
-    ['export', 'Export', 'Import and export'],
-    ['data', 'Data and storage', 'Settings'],
+    ['labels', 'Labels', 'Settings and setup'],
+    ['export', 'Export', 'Settings and setup'],
+    ['data', 'Data and storage', 'Settings and setup'],
     ['station', 'Scan station', 'Counts'],
     ['guide', 'Guide', 'Help'],
     ['about', 'About', 'Help'],

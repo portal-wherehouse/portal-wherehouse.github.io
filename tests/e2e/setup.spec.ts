@@ -12,7 +12,7 @@ test('choosing "Big single items" renames pallets to items and hides jobs', asyn
   await expect(setup).toContainText('Saved.');
   await page.keyboard.press('Escape');
   const nav = page.locator('.sidebar');
-  await expect(nav.getByRole('button', { name: 'Products and barcodes', includeHidden: true })).toHaveCount(1);
+  await expect(nav.getByRole('button', { name: 'Settings and setup' })).toHaveCount(1);
   await expect(nav.getByRole('button', { name: /^Jobs/ })).toHaveCount(0);
   await page.goto('/?demo=1#move');
   await expect(page.locator('body')).not.toContainText(/\bpallet/i);

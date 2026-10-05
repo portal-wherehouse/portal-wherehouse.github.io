@@ -9,6 +9,7 @@ import { canPrint, IS_PREVIEW, printNow } from '../../device/output';
 import { Icon } from '../../ui/icons';
 import { Notice, Sheet } from '../../ui/ui';
 import { Calibration, PalletLabel, RackLabel, type LabelFormat } from './LabelCard';
+import { printableName } from './printers';
 
 export function LabelSheet({ palletIds = [], locationIds = [], onClose, closeHint }: { palletIds?: string[]; locationIds?: string[]; onClose: () => void; closeHint?: React.ReactNode }) {
   const {backend}=useApp();const [error,setError]=useState('');const [ready,setReady]=useState(backend.mode!=='firebase');
@@ -70,7 +71,7 @@ export function LabelSet({ palletIds, locationIds, format, forPrint }: { palletI
   const data = read((e, _a, ws) => {
     const wh = e.activeWarehouse(ws);
     return {
-      wh: wh ? `${wh.code} · ${wh.name}` : 'WH',
+      wh: printableName(wh?.name),
       pallets: palletIds.map((id) => e.db.pallets[id]).filter((p) => p && p.workspace_id === ws).map((p) => ({ p, job: e.db.jobs[p.job_id], token: e.activeLabel(p.id)?.token ?? '' })),
       locs: locationIds.map((id) => e.db.locations[id]).filter((l) => l && l.workspace_id === ws).map((l) => ({ l, token: e.activeLabel(l.id)?.token ?? '' })),
     };

@@ -21,6 +21,8 @@ export type RouteName =
   | 'signin'
   /** The setup checklist: its own page at the top of the sidebar until setup is finished. */
   | 'checklist'
+  /** Settings and setup: one page listing the setup tools (spots, products, people, scanners, import, settings). */
+  | 'setup'
   | 'receive'
   | 'move'
   | 'find'
@@ -156,7 +158,8 @@ interface AppState {
   signOut(): void;
   setWorkspace(id: string): void;
   route: Route;
-  go(r: Route | RouteName): void;
+  /** Open a screen. `replace` swaps it in for the current history entry, so Back skips the one being left. */
+  go(r: Route | RouteName, opts?: { replace?: boolean }): void;
   back(): void;
   canGoBack: boolean;
   prefs: Prefs;
@@ -197,6 +200,7 @@ const ROUTE_TOKENS: RouteName[] = [
   ...SITE_ROUTES.filter((r) => r !== 'home'),
   'signin',
   'checklist',
+  'setup',
   'receive',
   'move',
   'find',
@@ -488,9 +492,14 @@ export function AppProvider({ backend, children }: { backend: Backend; children:
   }, [touch]);
 
   const go = useCallback(
-    (r: Route | RouteName) => {
+    (r: Route | RouteName, opts?: { replace?: boolean }) => {
       if (guard.current) setBlocked({ message: guard.current, next: r });
-      else rawGo(r);
+      else {
+        const next = typeof r === 'string' ? { name: r } : r;
+        const top = stackRef.current[stackRef.current.length - 1];
+        if (opts?.replace && !(top && sameRoute(top, next))) replaceNext.current = true;
+        rawGo(r);
+      }
     },
     [rawGo],
   );
