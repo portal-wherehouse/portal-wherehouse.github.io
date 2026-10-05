@@ -1,0 +1,420 @@
+/* The guided print flow (PrintFlow.tsx) and the true-size label pages it previews and prints. */
+
+.print-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pf-step {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.pf-step.later {
+  opacity: 0.6;
+}
+.pf-step.open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.pf-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.pf-num {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pf-step.done .pf-num {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.pf-num svg {
+  width: 16px;
+  height: 16px;
+}
+.pf-title {
+  flex: 1;
+  min-width: 0;
+}
+.pf-title h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.pf-hint,
+.pf-summary {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+.pf-summary {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pf-body {
+  padding: 0 16px 16px;
+  min-width: 0;
+}
+.pf-group + .pf-group {
+  margin-top: 14px;
+}
+.pf-group .eyebrow {
+  margin: 0 0 8px;
+}
+.pf-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 10px;
+}
+.pf-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+}
+.pf-card:hover {
+  border-color: var(--accent);
+}
+.pf-card.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.pf-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pf-card-text small {
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.pf-card-text .pf-size {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pf-card-text .pf-makes {
+  color: var(--accent);
+}
+.pf-art {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.pf-art-page,
+.pf-art-label {
+  fill: #fff;
+  stroke: var(--ink-3);
+  stroke-width: 1;
+}
+.pf-art-cell {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 0.4;
+}
+.pf-art-body {
+  fill: var(--slate);
+}
+.pf-art-ink {
+  fill: #14171a;
+}
+.pf-art-shelf {
+  fill: var(--ink-3);
+}
+.pf-art-box {
+  fill: #d9b98a;
+}
+.pf-art-letter {
+  font: 700 15px var(--font-display);
+  fill: #14171a;
+}
+
+.pf-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pf-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.pf-radio.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.pf-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-3);
+  flex: none;
+}
+.pf-radio.on .pf-dot {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 45%, transparent 50%);
+}
+.pf-select {
+  max-width: 340px;
+}
+.pf-tip {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+.pf-tip svg,
+.pf-advice > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+.pf-advice {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: 0.9rem;
+}
+.pf-advice p {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+}
+.pf-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.pf-pager {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.pf-pager svg {
+  width: 16px;
+  height: 16px;
+}
+/* The preview: one sheet (or label) at true size on a grey desk. Scrolls inside itself on small screens. */
+.pf-preview {
+  overflow: auto;
+  max-width: 100%;
+  max-height: min(78vh, 1150px);
+  padding: 18px;
+  border-radius: var(--radius);
+  background: repeating-linear-gradient(45deg, var(--surface-3), var(--surface-3) 6px, var(--surface-2) 6px, var(--surface-2) 12px);
+}
+.pf-preview .pp-page {
+  margin: 0 auto;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+}
+.pf-go svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---------------------------------------------------------------- the pages themselves (screen and paper) */
+
+.pp-page {
+  display: grid;
+  align-content: start;
+  box-sizing: border-box;
+  background: #fff;
+  color: #000;
+  overflow: hidden;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.pp-cell {
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+/* Pre-cut sheets: show where each label is on screen only. Plain paper: light cut lines on paper too. */
+@media screen {
+  .pf-preview .pp-cell {
+    box-shadow: inset 0 0 0 1px #c9ced6;
+    border-radius: 2px;
+  }
+  .pf-preview.thermal .pp-page {
+    border-radius: 4px;
+  }
+}
+.pp-page.cut .pp-cell {
+  outline: 0.5px dashed #9aa0a6;
+  outline-offset: -0.25px;
+}
+.pp-cell .label-card {
+  border: 0 !important;
+  box-shadow: none !important;
+  max-width: none;
+}
+
+.pl-label {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05in;
+  overflow: hidden;
+  background: #fff;
+  color: #000;
+  font-family: var(--font-body);
+  line-height: 1.15;
+}
+.pl-label .pl-code {
+  display: block;
+  width: 100%;
+  font-family: var(--font-display);
+}
+.pl-kind {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pl-qr {
+  flex: none;
+}
+.pl-qr > div,
+.pl-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.pl-bc {
+  min-width: 0;
+}
+.pl-bc .bc128 svg {
+  width: 100%;
+}
+.pl-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.15in;
+  margin-top: auto;
+  font-family: var(--font-mono);
+}
+.pl-small {
+  font-family: var(--font-mono);
+  line-height: 1.2;
+}
+.pl-one {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-tall {
+  align-items: stretch;
+}
+.pl-tall .pl-qr {
+  margin: 0.05in auto;
+}
+.pl-row {
+  display: flex;
+  gap: 0.18in;
+  align-items: flex-end;
+  flex: 1;
+  min-height: 0;
+}
+.pl-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.04in;
+  align-self: stretch;
+}
+.pl-stacked .pl-col {
+  justify-content: flex-end;
+}
+.pl-wide {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.1in;
+}
+.pl-shelf {
+  align-items: center;
+  justify-content: center;
+  gap: 0.03in;
+}
+.pl-shelf-code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.pl-sign {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.12in;
+}
+.pl-sign-eyebrow {
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.pl-sign-code {
+  max-width: 100%;
+  margin: 0 auto;
+}
+.pl-sign-name {
+  font-weight: 700;
+  line-height: 1.1;
+}
+.pl-sign-range {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+/* Printing: only the pages, each exactly one sheet or one label. */
+.pp-print {
+  display: block;
+}
+@media print {
+  .pp-print .pp-page {
+    break-after: page;
+    page-break-after: always;
+    box-shadow: none;
+    margin: 0;
+  }
+  .pp-print .pp-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

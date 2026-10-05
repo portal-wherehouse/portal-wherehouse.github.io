@@ -427,9 +427,13 @@ export function planZones(a: SurveyAnswers): ZonePlan[] {
   return out;
 }
 
-/** The storage zones the setup wizard creates from the survey: "Tires and wheels 1", "Tires and wheels 2"… */
-export function surveyZones(a: SurveyAnswers): { letter: string; name: string; kind: 'RACK' | 'FLOOR' }[] {
-  return planZones(a).flatMap((z) => z.letters.map((letter, k) => ({ letter, name: z.letters.length > 1 ? `${z.group} ${k + 1}` : z.group, kind: z.kind })));
+/**
+ * The storage zones the setup wizard starts from the survey: letters and kinds only. Names start blank, so
+ * people name each zone the way their crew talks about it; `from` says which survey answer the zone holds
+ * ("Tires and wheels, area 2"), shown as a hint beside the name.
+ */
+export function surveyZones(a: SurveyAnswers): { letter: string; name: string; kind: 'RACK' | 'FLOOR'; from: string }[] {
+  return planZones(a).flatMap((z) => z.letters.map((letter, k) => ({ letter, name: '', kind: z.kind, from: z.letters.length > 1 ? `${z.group}, area ${k + 1}` : z.group })));
 }
 
 export interface Numbers {

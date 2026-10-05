@@ -1374,6 +1374,35 @@ export class FirebaseBackend extends Backend {
     }
   }
   /** Everything a label preview draws: the pallets or locations, their jobs, and their active labels. */
+  /**
+   * Every spot of this warehouse, not just the directory's first page of 50. Setup and label printing count and
+   * print every spot, so they read them all (in pages of 500, up to 10,000).
+   */
+  override async loadAllLocations(max = 10000) {
+    if (this.network === "offline" || !this.firestore || !this.activeWorkspace)
+      return;
+    const gen = this.generation;
+    let cursor: QueryDocumentSnapshot | undefined;
+    let got = 0;
+    do {
+      const s = await this.docs(
+        query(
+          this.col("locations"),
+          orderBy("code"),
+          ...(cursor ? [startAfter(cursor)] : []),
+          limit(500),
+        ),
+      );
+      if (gen !== this.generation) return;
+      this.ingest(
+        "locations",
+        s.docs.map((d) => d.data()),
+      );
+      got += s.size;
+      cursor = s.size === 500 && got < max ? s.docs.at(-1) : undefined;
+    } while (cursor);
+    this.bump(false);
+  }
   async loadForLabels(palletIds: string[], locationIds: string[]) {
     await Promise.all([
       ...palletIds.map((id) => this.one("pallets", id)),

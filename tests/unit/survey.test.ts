@@ -32,7 +32,9 @@ describe('setup survey', () => {
     // 30 transmissions, one each, with 25% room: 38 spots. 500 bottles of fluid in bins of 30: 17 bins, 22 spots.
     expect(z[0]).toMatchObject({ units: 30, labeled: 30, spots: 38 });
     expect(z[1]).toMatchObject({ units: 500, labeled: 17, spots: 22 });
-    expect(surveyZones(auto).map((x) => x.name)).toEqual(['Engines and transmissions 1', 'Engines and transmissions 2', 'Fluids and chemicals', 'Tires and wheels 1', 'Tires and wheels 2', 'Tires and wheels 3']);
+    // Zone names start blank; the survey answer each zone holds is only a hint.
+    expect(surveyZones(auto).map((x) => x.name)).toEqual(['', '', '', '', '', '']);
+    expect(surveyZones(auto).map((x) => x.from)).toEqual(['Engines and transmissions, area 1', 'Engines and transmissions, area 2', 'Fluids and chemicals', 'Tires and wheels, area 1', 'Tires and wheels, area 2', 'Tires and wheels, area 3']);
   });
   it('counts labels by size and estimates setup time', () => {
     const n = surveyNumbers(auto);

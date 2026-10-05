@@ -17,6 +17,7 @@
 .ck-step.done .ck-dot { background: var(--ok); color: #fff; border-color: var(--ok); }
 .ck-text { display: grid; gap: 2px; }
 .ck-text small { color: var(--ink-3); }
+.ck-text .ck-tip { color: var(--ink-2); font-size: 13px; padding-left: 8px; border-left: 2px solid var(--accent-soft); margin-top: 2px; }
 @media (max-width: 520px) { .ck-step { grid-template-columns: 30px minmax(0, 1fr); align-items: start; } .ck-step > .btn { grid-column: 2; justify-self: start; } }
 .ck-skip { flex: none; }
 .ck-confirm p, .setup-oops p { margin: 0; }
@@ -35,3 +36,11 @@
 .setup-oops .oops-head { display: flex; align-items: center; gap: 12px; }
 .setup-oops .oops-bubble { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
 .setup-oops .oops-bubble svg { width: 22px; height: 22px; }
+
+/* "Finish setup (6 of 8)" at the top of the Dashboard. */
+.finish-setup-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer; border: 1.5px solid var(--accent); background: var(--accent-soft); color: var(--ink); font: inherit; }
+.finish-setup-card > span:not(.finish-setup-ring) { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.finish-setup-card small { color: var(--ink-2); }
+.finish-setup-card > svg { width: 20px; height: 20px; flex: none; color: var(--accent); }
+.finish-setup-ring { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: conic-gradient(var(--accent) calc(var(--p, 0) * 360deg), var(--surface) 0); }
+.finish-setup-ring svg { width: 20px; height: 20px; padding: 6px; box-sizing: content-box; border-radius: 50%; background: var(--surface); }

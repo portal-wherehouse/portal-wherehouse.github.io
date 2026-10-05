@@ -42,9 +42,15 @@ export function watchErrors(page: Page): string[] {
   return errors;
 }
 
-/** The portal sidebar (desktop width). */
+/** The portal sidebar (desktop width). Setup tools open from the "Settings and setup" page for managers. */
 export const nav = async (page: Page, name: string) => {
   const button=page.locator('.sidebar').getByRole('button',{name,exact:true,includeHidden:true});
+  const hub=page.locator('.sidebar').getByRole('button',{name:'Settings and setup',exact:true});
+  if(!(await button.count()) && await hub.count()){
+    await hub.click();
+    await page.getByTestId('setup-hub').getByRole('button',{name:new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`)}).first().click();
+    return;
+  }
   const group=button.locator('xpath=ancestor::details');
   if(await group.count() && !(await group.getAttribute('open')) && !await button.isVisible())await group.locator('summary').click();
   await button.click();

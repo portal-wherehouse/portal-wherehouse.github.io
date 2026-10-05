@@ -54,6 +54,7 @@ import { ChecklistNav, SetupChecklist, SetupOops, useChecklistStatus } from '../
 import { useApplySavedSurvey } from '../features/setup/GettingStarted';
 import { SignIn } from '../portal/SignIn';
 import { SitePage } from '../site/SitePage';
+import { SetupHub } from '../features/more/SetupHub';
 import { SiteRouting } from '../site/routing';
 import './customer.css';
 import { InstallBanner, InstallGuide, installHelpShown } from '../features/install/Install';
@@ -63,6 +64,7 @@ import { ScanStatusChip } from '../features/scan/ScanReady';
 
 const SCREENS: Record<Exclude<RouteName, SiteRouteName | 'signin'>, () => React.ReactNode> = {
   checklist: SetupChecklist,
+  setup: SetupHub,
   receive: Receive,
   move: Move,
   find: Find,

@@ -74,7 +74,7 @@ export function PalletLabel({ pallet, job, token, format, warehouse, jobsOn = tr
 }
 
 /** The kind line printed on a location label, in the words the app uses elsewhere. */
-const KIND_LINE: Record<LocationKind, string> = { RACK: 'Rack location', RECEIVING: 'Receiving area', QUARANTINE: 'Quarantine area', STAGING: 'Staging area', FLOOR: 'Floor area' };
+export const KIND_LINE: Record<LocationKind, string> = { RACK: 'Rack location', RECEIVING: 'Receiving area', QUARANTINE: 'Quarantine area', STAGING: 'Staging area', FLOOR: 'Floor area' };
 
 export function RackLabel({ location, token, warehouse, format = 'sheet' }: { location: Location; token: string; warehouse: string; format?: LabelFormat }) {
   if (format === 'avery5160')
@@ -107,7 +107,7 @@ export function RackLabel({ location, token, warehouse, format = 'sheet' }: { lo
  * The big printed code, drawn as SVG text squeezed to a fixed width per character, so it never
  * wraps mid-code or spills off the label, whichever font the printer's browser ends up using.
  */
-function FitCode({ text, className, maxHeight }: { text: string; className?: string; maxHeight: string }) {
+export function FitCode({ text, className, maxHeight }: { text: string; className?: string; maxHeight: string }) {
   const w = Math.max(1, text.length) * 52;
   return (
     <svg className={className} viewBox={`0 0 ${w} 100`} preserveAspectRatio="xMinYMid meet" role="img" aria-label={text} style={{ width: '100%', maxHeight, display: 'block' }}>

@@ -7,7 +7,7 @@ import { isSiteRoute, useApp, type Route, type RouteName } from '../../app/state
 import { MIN_ROLE, roleAllows } from '../../domain/transitions';
 import { Icon } from '../../ui/icons';
 import { ROLE_LABEL } from '../../ui/ui';
-import { HELP_ITEM, NAV_GROUPS, reachableRoutes, visibleNav } from '../more/More';
+import { HELP_ITEM, NAV_GROUPS, SETUP_ITEM, reachableRoutes, visibleNav } from '../more/More';
 import { STOPS, copy, type TourStop, type Chapter } from './stops';
 
 interface Box {
@@ -290,7 +290,13 @@ const sameRoute = (a: Route, b: Route) => a.name === b.name && (a.id ?? '') === 
 /** Pages reached through a menu item that covers them, by the name on their tab or link. */
 const COVERED_NAME: Partial<Record<RouteName, string>> = {
   incoming: 'Incoming',
-  labels: 'Labels',
+  locations: 'Spots and labels',
+  products: 'Products and barcodes',
+  people: 'People',
+  scanners: 'Scanners and printers',
+  import: 'Import and export',
+  settings: 'Settings',
+  labels: 'Spots and labels › Labels',
   export: 'Export',
   data: 'Data and storage',
   lab: 'Integrity lab',
@@ -307,7 +313,7 @@ function whereLine(stop: TourStop, route: RouteName | null, sidebar: boolean): s
   if (!name) return null;
   if (name === 'overview') return sidebar ? 'Top of sidebar › Dashboard' : 'Bottom tabs › Dashboard';
   if (name === 'reconcile') return sidebar ? 'Top of sidebar › Dashboard › Needs attention' : 'Bottom tabs › Dashboard › Needs attention';
-  const groups = [...NAV_GROUPS, { title: '', items: [HELP_ITEM] }];
+  const groups = [...NAV_GROUPS, { title: '', items: [SETUP_ITEM, HELP_ITEM] }];
   const own = (g: (typeof groups)[number]) => g.items.find((i) => i.route === name && !i.q) ?? g.items.find((i) => i.covers?.includes(name));
   const group = groups.find((g) => own(g));
   const item = group && own(group);

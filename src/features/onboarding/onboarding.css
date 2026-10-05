@@ -95,3 +95,63 @@
 .wizard-manual { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
 .wizard-manual > summary { cursor: pointer; font-weight: 700; color: var(--ink-2); padding: 6px 0; }
 .wizard-manual[open] > summary { margin-bottom: 12px; }
+
+/* The step list at the top of the wizard (it used to sit in the sidebar). */
+.wizard-steps { margin-top: 12px; }
+.wizard-steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 900px) { .wizard-steps ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.wizard-step-btn { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.wizard-step-btn:hover { border-color: var(--accent); }
+.wizard-step-btn.done { color: var(--ink-3); }
+.wizard-step-btn.done .setup-nav-dot { color: #fff; border-color: var(--ok); background: var(--ok); }
+.wizard-step-btn .setup-nav-dot svg { width: 14px; height: 14px; }
+.wizard-step-btn[aria-current] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.wizard-step-btn[aria-current] .setup-nav-dot { border-color: var(--accent); color: var(--accent); }
+.wizard-step-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Short hints beside fields and steps. */
+.wz-hints { display: grid; gap: 6px; }
+.wz-hint { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.wizard .wz-hint svg { width: 16px; height: 16px; margin-top: 2px; color: var(--accent); }
+.wizard-manual .wz-hint { margin-bottom: 10px; }
+.wz-need { margin: 0; font-size: 14px; color: var(--warn); font-weight: 600; }
+.wz-ok { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ok); font-weight: 600; font-size: 14px; }
+.wizard .wz-ok svg { width: 16px; height: 16px; }
+.field .hint { display: block; }
+.zone-build .field .hint { font-size: 12.5px; color: var(--ink-3); line-height: 1.35; margin-top: 2px; }
+.zone-row-wrap { display: grid; gap: 4px; }
+.zone-row-head { font-size: 12.5px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+@media (max-width: 640px) { .zone-row-head { display: none; } }
+.zone-row-hint { margin: 0 0 4px 72px; font-size: 13px; color: var(--ink-3); }
+@media (max-width: 640px) { .zone-row-hint { margin-left: 0; } }
+.zone-math { margin: 0; font-weight: 600; font-size: 14px; }
+.rack-diagram { margin: 0; display: grid; gap: 8px; justify-items: center; }
+.rack-diagram svg { width: min(460px, 100%); height: auto; }
+.rack-diagram figcaption { color: var(--ink-2); font-size: 14px; text-align: center; max-width: 620px; line-height: 1.45; }
+.rd-post { fill: #d9661f; }
+.rd-beam { fill: #1d4e9e; }
+.rd-load { fill: var(--surface-2); stroke: var(--line); }
+.rd-load.hot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.rd-code { font: 600 10px var(--font-mono); fill: var(--ink-2); }
+.rd-code.hot { fill: var(--accent); font-weight: 800; }
+.rd-axis { font: 600 11px var(--font-body); fill: var(--ink-3); }
+.rd-title { font: 700 12px var(--font-body); fill: var(--ink-2); }
+
+/* On a phone: "Set up your warehouse on a computer". */
+.setup-computer { max-width: 560px; margin: 16px auto; display: grid; gap: 14px; justify-items: center; text-align: center; padding: clamp(20px, 5vw, 32px); border-radius: 20px; border: 1px solid var(--line); background: var(--surface); }
+.setup-computer h1 { margin: 0; font-size: clamp(24px, 6vw, 30px); line-height: 1.15; letter-spacing: -0.01em; }
+.setup-computer p { margin: 0; color: var(--ink-2); line-height: 1.5; }
+.setup-computer-art svg { width: 120px; height: 80px; display: block; }
+.sc-screen { fill: var(--slate); }
+.sc-glass { fill: var(--surface-2); }
+.sc-base { fill: var(--ink-3); }
+.sc-label { fill: #fff; stroke: var(--accent); stroke-width: 1; }
+.setup-computer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; text-align: left; width: 100%; }
+.setup-computer-list li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; }
+.setup-computer-list svg, .setup-computer-actions svg { width: 20px; height: 20px; flex: none; }
+.setup-computer-list svg { color: var(--accent); margin-top: 1px; }
+.setup-computer-actions { display: grid; gap: 8px; width: 100%; }
+.setup-computer-actions .btn { width: 100%; justify-content: center; }
+.setup-computer-link { font-size: 12.5px; overflow-wrap: anywhere; color: var(--ink-3) !important; }
+.setup-computer-skip { display: grid; gap: 8px; justify-items: center; padding-top: 10px; border-top: 1px solid var(--line); width: 100%; }
+.setup-computer-skip svg { width: 18px; height: 18px; }
