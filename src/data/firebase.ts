@@ -19,6 +19,12 @@ import {
 import { palletQuery, PAGE_SIZE, type LiveFilter } from "./liveQueries";
 import { parseTransferNumber } from "../domain/transfers";
 import {
+  SERVER_BEHIND_MESSAGE,
+  SERVER_VERSION,
+  serverTooOld,
+} from "../config/serverVersion";
+export { SERVER_BEHIND_MESSAGE };
+import {
   parseOrderCode,
   parsePackageCode,
   parseToteCode,
@@ -551,6 +557,17 @@ export class FirebaseBackend extends Backend {
   /** The authorization check that runs at sign-in, while it is still running. */
   joining: Promise<void> | null = null;
   summary: any = null;
+  /** The deployed functions' version from getWarehouseSummary: 1 for functions older than the number. */
+  serverVersion: number | null = null;
+  /** A command was refused as unknown by the server: the functions are older than this app. */
+  commandBehind = false;
+  /** The warehouse server is older than this app, so some features wait for an update. */
+  get serverBehind(): boolean {
+    return (
+      this.commandBehind ||
+      (this.serverVersion !== null && this.serverVersion < SERVER_VERSION)
+    );
+  }
   viewLoading = false;
   viewError = "";
   viewKey = "";
@@ -863,6 +880,7 @@ export class FirebaseBackend extends Backend {
     ).data;
     if (gen === this.generation) {
       this.summary = data;
+      this.serverVersion = Number((data as any)?.server_version) || 1;
       this.bump(false);
     }
   }
@@ -2050,6 +2068,23 @@ export class FirebaseBackend extends Backend {
             "Your account changed. Sign in to the original account to check this request.",
         };
       const code = (err as { code?: string }).code;
+      // The server never ran it: the command is newer than the deployed functions.
+      if (serverTooOld(err)) {
+        await this.discardPending(cmd.command_id);
+        this.commandBehind = true;
+        this.bump(false);
+        return {
+          status: "result",
+          result: {
+            ok: false,
+            command_id: cmd.command_id,
+            kind: cmd.kind,
+            code: "INVALID_INPUT",
+            message: SERVER_BEHIND_MESSAGE,
+            correlation_id: cmd.command_id,
+          },
+        };
+      }
       if (
         [
           "functions/permission-denied",
@@ -2366,11 +2401,27 @@ export function cloudMessage(err: unknown): string {
     return "Too many attempts. Wait a little before trying again.";
   if (code.includes("weak-password"))
     return "Use a stronger password with at least 8 characters.";
+  if (code.includes("unauthorized-domain"))
+    return "Google sign-in is not set up for this website address yet. Ask your Wherehouse contact.";
+  // Direct client sign-up is closed (secure-signup.cjs): a new Google account cannot be created here.
+  if (code.includes("admin-restricted-operation"))
+    return "This Google account has no Wherehouse account yet. Choose Create account and sign up with this email instead.";
+  if (code.includes("operation-not-allowed"))
+    return "This way of signing in is not turned on yet. Ask your Wherehouse contact.";
+  if (
+    code.includes("popup-closed-by-user") ||
+    code.includes("cancelled-popup-request")
+  )
+    return "The Google window closed before sign-in finished. Try again.";
+  if (code.includes("popup-blocked"))
+    return "The browser blocked the Google window. Allow pop-ups for this site and try again.";
   if (code.includes("network-request-failed"))
     return "Could not connect. Check your internet connection.";
   return err instanceof Error
     ? err.message
         .replace(/^Firebase:\s*/, "")
         .replace(/\s*\(auth\/[^)]+\)\.?$/, "")
+        // The callable SDK adds the HTTP status, as in "... [400]".
+        .replace(/\s*\[\d{3}\]$/, "")
     : "Something went wrong. Please try again.";
 }

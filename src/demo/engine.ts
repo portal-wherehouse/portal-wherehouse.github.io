@@ -971,7 +971,7 @@ export class Engine {
         const next: WarehouseSetup = { preset: q.preset ?? null, thing: clean(q.thing), things: clean(q.things), job: clean(q.job), jobs: clean(q.jobs), jobs_on: !!q.jobs_on };
         if (![next.thing, next.things, next.job, next.jobs].every((w) => /^[\p{L}][\p{L}\p{N} '&-]*$/u.test(w))) return reject('INVALID_INPUT', 'Use letters for the words, like "Item" or "Order".');
         // With orders and picking on, "Order" means a customer order only, so the grouping word stays "Job".
-        if (ordersOf(wh).on && /^orders?$/i.test(next.job)) Object.assign(next, { job: 'Job', jobs: 'Jobs' });
+        if (wh.orders?.on && /^orders?$/i.test(next.job)) Object.assign(next, { job: 'Job', jobs: 'Jobs' });
         const advanced = typeof q.advanced === 'boolean' ? q.advanced : !!wh.advanced_measurements;
         // No version bump, like set_measurements: it must not conflict with an open warehouse details form.
         tx.put('warehouses', wh.id, { ...wh, setup: next, advanced_measurements: advanced, updated_at: now });

@@ -56,23 +56,43 @@ function DueTag({ order }: { order: Order }) {
   return <span className={`tag ${d === 'late' ? 'bad' : d === 'soon' ? 'warn' : ''}`}>{d === 'late' ? `Late, due ${fmtTime(order.due_at)}` : `Due ${fmtTime(order.due_at)}`}</span>;
 }
 
-/** Shown when the warehouse has not turned on orders, or to someone who cannot pick. */
+/** Shown when an owner turned orders off, or to someone who cannot pick. An owner turns it on here with one tap. */
 function OrdersOff() {
-  const { role, go } = useApp();
+  const { role, backend, workspaceId, send, toast } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const wh = Object.values(backend.db.warehouses).find((w) => w.workspace_id === workspaceId && w.active);
+  const viewer = !role || role === 'VIEWER';
+  const turnOn = async () => {
+    const cur = ordersOf(wh);
+    setBusy(true);
+    setError('');
+    const o = await send('set_orders', { on: true, cart_size: cur.cart_size, box_types: cur.box_types, subs: cur.subs }, null, { commandId: uuid() });
+    setBusy(false);
+    if (o.status === 'result' && o.result.ok) toast('Orders and picking is on.');
+    else setError(o.status === 'result' && !o.result.ok ? o.result.message : o.status === 'offline' ? o.message : 'No answer from the server. Reload to check.');
+  };
   return (
     <div className="stack">
       <PageHead title="Pick orders" />
-      <div className="panel">
-        <Empty icon="box" title="Orders and picking is off">
-          <p>Turn it on to pick customer orders by spot, pack them with a packing slip and label, stage them, and hand them off.</p>
-          {role === 'OWNER' ? (
-            <button className="btn primary" onClick={() => go('settings')}>
-              Open Settings
-            </button>
+      <div className="panel" data-testid="orders-off">
+        <Empty icon="box" title={viewer ? 'Pick orders is for the warehouse crew' : 'Orders and picking is off'}>
+          {viewer ? (
+            <p>Viewers can find pallets and see stock. Ask a manager if you need to pick orders.</p>
           ) : (
-            <p>An owner can turn it on in Settings.</p>
+            <>
+              <p>Turn it on to pick customer orders by spot, pack them with a packing slip and label, stage them, and hand them off.</p>
+              {role === 'OWNER' ? (
+                <button className="btn primary" disabled={busy || !wh || backend.network === 'offline'} onClick={() => void turnOn()}>
+                  {busy ? 'Turning on…' : 'Turn on'}
+                </button>
+              ) : (
+                <p>An owner can turn it on here or in Settings.</p>
+              )}
+            </>
           )}
         </Empty>
+        {error && <Notice tone="error">{error}</Notice>}
       </div>
     </div>
   );

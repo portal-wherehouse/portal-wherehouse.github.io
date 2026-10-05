@@ -38,6 +38,14 @@ export async function testEmailCodes({client,ok}){
  const google=await client('google');assert.deepEqual(await google.call('sendEmailCode',{}),{verified:true});
  assert.equal((await db.collection('mail').where('to','==',email).get()).size,before);assert.equal((await db.collection('mail').where('to','==',google.user.email.toLowerCase()).get()).size,0);
  ok('already-verified accounts (Google sign-in) get no code and no email');
+ // Without the email extension (a mail document left undelivered for minutes), codes give way to Firebase's link.
+ const stale=db.collection('mail').doc();await stale.set({to:'nobody@example.com',message:{subject:'x',text:'x'},created_at:Timestamp.fromMillis(Date.now()-10*60000)});
+ const linked=await client('linked',false);const before2=(await db.collection('mail').count().get()).data().count;
+ assert.deepEqual(await linked.call('sendEmailCode',{}),{sent:false,fallback:'link'});
+ assert.equal((await db.collection('mail').count().get()).data().count,before2);assert.equal((await db.doc(`emailCodes/${linked.user.uid}`).get()).exists,false);
+ await stale.update({delivery:{state:'SUCCESS'}});assert.equal((await linked.call('sendEmailCode',{})).sent,true);
+ await stale.delete();
+ ok('without the email extension, sign-up falls back to the built-in verification link; once mail is delivered, codes are used');
  const busy=await client('busy',false);
  await db.doc(`emailCodes/${busy.user.uid}`).set({day:new Date().toISOString().slice(0,10),sent_today:10,sent_at:Timestamp.fromMillis(Date.now()-120000)});
  await assert.rejects(busy.call('sendEmailCode',{}),e=>e.code==='functions/resource-exhausted'&&/today/.test(e.message));ok('an account gets at most ten codes a day');

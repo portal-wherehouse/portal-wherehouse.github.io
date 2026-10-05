@@ -31,6 +31,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { Engine, emptyDb, type Db } from "../../../src/demo/engine";
 import { validateEnvelope } from "../../../src/domain/commands";
 import { TRIAL_DAYS } from "../../../src/domain/license";
+import { SERVER_VERSION } from "../../../src/config/serverVersion";
 import {
   TRANSFER_COMMANDS,
   type CommandEnvelope,
@@ -310,8 +311,12 @@ export const command = onCall(options, async (request) => {
   if (Buffer.byteLength(JSON.stringify(request.data || {})) > 256 * 1024)
     throw new HttpsError("invalid-argument", "Request too large.");
   const parsed = validateEnvelope(request.data);
+  // An app newer than these functions can send a command or field they do not know yet.
   if (!parsed.ok)
-    throw new HttpsError("invalid-argument", "The request is not valid.");
+    throw new HttpsError("invalid-argument", "The request is not valid.", {
+      reason: "invalid-command",
+      server_version: SERVER_VERSION,
+    });
   const cmd = parsed.cmd as CommandEnvelope;
   if (!validId(cmd.workspace_id) || !validId(cmd.command_id))
     throw new HttpsError(

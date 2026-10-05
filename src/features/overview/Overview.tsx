@@ -13,6 +13,7 @@ import { useSetup } from '../../app/words';
 import { ScanReadyPanel } from '../scan/ScanReady';
 import { useLowStock } from '../stock/useStock';
 import { MyWork } from './MyWork';
+import { ServerBehindNotice } from '../settings/ServerBehind';
 
 const STATE_ORDER: PalletState[] = ['STORED', 'RECEIVED', 'IN_TRANSIT', 'PICKED', 'MISSING', 'DISPATCHED', 'RETIRED'];
 const STATE_VAR: Record<PalletState, string> = { STORED: 'var(--ok)', RECEIVED: 'var(--warn)', IN_TRANSIT: 'var(--accent)', PICKED: 'var(--accent)', MISSING: 'var(--bad)', DISPATCHED: 'var(--slate)', RETIRED: 'var(--ink-3)' };
@@ -71,6 +72,7 @@ export function Overview() {
     {label:'On hold',value:summary?.holds || 0,detail:'Review before dispatching',route:'reconcile'},
   ] as const;
   return <div className="stack warehouse-home">
+    <ServerBehindNotice/>
     <header className="warehouse-home-head">
       <div><p className="eyebrow">{data.ctx.workspace.name}</p><h1>Dashboard</h1><p className="warehouse-greeting">Welcome, {name}. <span className="warehouse-identity">{role?ROLE_LABEL[role]:'Team member'}</span></p></div>
       {role==='OPERATOR'&&<button className="btn small" onClick={()=>{setCrewFull(false);try{localStorage.removeItem('pl.crewFull');}catch{/* this visit only */}}}>Back to the simple screen</button>}

@@ -100,7 +100,87 @@ export function applyUpdate() {
   setTimeout(() => location.reload(), 3000);
 }
 
-const CHECK_GAP_MS = 5 * 60_000;
+// ------------------------------------------------------------------ updating without being asked
+// A prompt alone is easy to miss: an installed app can stay open for weeks. So a waiting update also
+// loads by itself at a quiet moment: when the app goes to the background, on the next change of screen,
+// after a few idle minutes, or right away when it was found just after the page opened. Never while
+// someone is typing, or while the app says work is unsaved (queued moves, a pending save).
+
+let blocker: () => boolean = () => false;
+/** The app says when reloading would lose work, e.g. saves still waiting for the server. */
+export function setUpdateBlocker(fn: () => boolean) {
+  blocker = fn;
+}
+
+/** Someone is typing in a field, or the app has unsaved work: not a moment to reload. */
+function busyNow(): boolean {
+  try {
+    if (blocker()) return true;
+  } catch {
+    return true;
+  }
+  const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null);
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file'].includes(el.type)) return el.value !== '';
+  return false;
+}
+
+const IDLE_MS = 3 * 60_000;
+const FRESH_MS = 20_000;
+const loadedAt = typeof performance === 'undefined' ? 0 : performance.now();
+let lastInput = Date.now();
+let autoTimer: ReturnType<typeof setInterval> | null = null;
+
+// The build an automatic reload went for, once per tab: if the server's version.json and the page it serves
+// ever disagree (a stale cache in between), the app reloads once and then waits for the Reload button.
+const AUTO_KEY = 'wh.autoUpdate';
+let target = '';
+function triedAlready(): boolean {
+  try {
+    return sessionStorage.getItem(AUTO_KEY) === target;
+  } catch {
+    return true;
+  }
+}
+
+/** Loads the waiting update now if nothing would be lost. Returns whether it started. */
+export function applyUpdateIfQuiet(): boolean {
+  if (!state.updateReady || reloading || busyNow() || triedAlready()) return false;
+  try {
+    sessionStorage.setItem(AUTO_KEY, target);
+  } catch {
+    return false;
+  }
+  applyUpdate();
+  return true;
+}
+
+function watchForQuietMoment(build: string) {
+  target = build;
+  if (autoTimer || typeof window === 'undefined') return;
+  // Found within moments of opening: nobody has started anything yet.
+  if (performance.now() - loadedAt < FRESH_MS && applyUpdateIfQuiet()) return;
+  let href = location.href;
+  const mark = () => {
+    lastInput = Date.now();
+  };
+  for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) window.addEventListener(ev, mark, { passive: true, capture: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') applyUpdateIfQuiet();
+  });
+  autoTimer = setInterval(() => {
+    // The next change of screen (the address changes with every screen).
+    if (location.href !== href) {
+      href = location.href;
+      if (applyUpdateIfQuiet()) return;
+    }
+    if (Date.now() - lastInput > IDLE_MS) applyUpdateIfQuiet();
+  }, 1000);
+}
+
+const CHECK_GAP_MS = 60_000;
 let lastCheck = 0;
 
 /**
@@ -116,7 +196,10 @@ async function checkForUpdate(force = false) {
     const res = await fetch(`${import.meta.env.BASE_URL}version.json?t=${now}`, { cache: 'no-store' });
     if (!res.ok) return;
     const { build } = (await res.json()) as { build?: string };
-    if (build && build !== __BUILD_ID__) set({ updateReady: true });
+    if (build && build !== __BUILD_ID__) {
+      set({ updateReady: true });
+      watchForQuietMoment(build);
+    }
   } catch {
     /* offline or blocked: try again later */
   }
@@ -149,12 +232,12 @@ export function setupInstallableShell() {
   };
   link('manifest', `${import.meta.env.BASE_URL}manifest.webmanifest`);
   link('apple-touch-icon', `${import.meta.env.BASE_URL}apple-touch-icon.png`);
-  // Look for a new version when the app comes back to the screen, and every half hour while it is open.
+  // Look for a new version when the app comes back to the screen, and every ten minutes while it is open.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void checkForUpdate();
   });
   window.addEventListener('online', () => void checkForUpdate(true));
-  setInterval(() => void checkForUpdate(true), 30 * 60_000);
+  setInterval(() => void checkForUpdate(true), 10 * 60_000);
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
     navigator.serviceWorker

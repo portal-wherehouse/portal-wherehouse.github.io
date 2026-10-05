@@ -1,10 +1,10 @@
 // Installing the portal as a home-screen app: the steps for each platform (Help), a dismissible banner on
 // phones, and the "New version ready" prompt. All of it hides once the app is opened from the home screen.
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BRAND } from '../../brand';
 import { useApp } from '../../app/state';
-import { applyUpdate, promptInstall, usePwa, type InstallPlatform, type PwaState } from '../../device/pwa';
+import { applyUpdate, promptInstall, setUpdateBlocker, usePwa, type InstallPlatform, type PwaState } from '../../device/pwa';
 import { Icon } from '../../ui/icons';
 import './install.css';
 
@@ -185,12 +185,17 @@ export function InstallBanner() {
 /** A newer version was deployed while this page was open. Sits with the toasts. */
 export function UpdatePrompt() {
   const { updateReady } = usePwa();
+  const { backend, actorId, workspaceId } = useApp();
   const [busy, setBusy] = useState(false);
+  // A new version also loads by itself at a quiet moment (src/device/pwa.ts), but never over saves still on their way.
+  useEffect(() => {
+    setUpdateBlocker(() => backend.pending.length > 0 || (!!actorId && !!workspaceId && !!backend.outbox && backend.outbox.pending(actorId, workspaceId).length > 0));
+  }, [backend, actorId, workspaceId]);
   if (!updateReady) return null;
   return (
     <div className="toast inst-update" role="status">
       <Icon name="refresh" />
-      <span className="grow">New version ready</span>
+      <span className="grow">New version ready. It loads on your next screen.</span>
       <button
         type="button"
         className="btn small"

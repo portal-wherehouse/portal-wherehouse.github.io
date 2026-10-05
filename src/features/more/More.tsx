@@ -108,8 +108,9 @@ export function visibleNav(role: Role | null, advanced: boolean, live = false, j
   }
   allowed.add('transfers');
   allowed.add('transfer');
-  // Pick orders appears when an owner turns on "Orders and picking" in Settings. Viewers do not pick.
-  if (orders && role !== 'VIEWER') {
+  // Pick orders is on for every warehouse unless an owner turned it off. Managers still see it when it is off:
+  // the screen turns it back on with one tap. Viewers do not pick.
+  if ((orders && role !== 'VIEWER') || manager) {
     allowed.add('orders');
     allowed.add('order');
   }

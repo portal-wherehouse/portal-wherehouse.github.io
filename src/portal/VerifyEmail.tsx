@@ -27,6 +27,8 @@ export function VerifyEmail({ b, user, onVerified }: { b: FirebaseBackend; user:
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(() => sentRecently(user.uid));
   const [linkSent, setLinkSent] = useState(false);
+  // Email codes are not set up on the server: verify with Firebase's built-in link instead.
+  const [codesOff, setCodesOff] = useState(false);
   const [waitUntil, setWaitUntil] = useState(0);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
@@ -57,12 +59,24 @@ export function VerifyEmail({ b, user, onVerified }: { b: FirebaseBackend; user:
     if (!user.emailVerified) throw new Error('Your email is not verified yet.');
     onVerified();
   };
+  // Firebase's own verification link: free and built in, so it works when email codes are not set up.
+  const sendLink = async () => {
+    await b.prepareSignup();
+    await sendEmailVerification(user);
+    setLinkSent(true);
+    setMessage('We sent a verification link. Open it, then come back and choose I’ve verified my email.');
+  };
   const send = async (first: boolean) => {
     // Callables require App Check in production; unverified accounts have not started it yet.
     await b.prepareSignup();
     try {
-      const r = (await httpsCallable(b.functions!, 'sendEmailCode')({})).data as { verified?: boolean };
+      const r = (await httpsCallable(b.functions!, 'sendEmailCode')({})).data as { verified?: boolean; fallback?: string };
       if (r.verified) return finish();
+      // The server has no email service for codes: send the link instead.
+      if (r.fallback === 'link') {
+        setCodesOff(true);
+        return sendLink();
+      }
       markSent(user.uid);
       setSent(true);
       setWaitUntil(Date.now() + RESEND_S * 1000);
@@ -73,6 +87,12 @@ export function VerifyEmail({ b, user, onVerified }: { b: FirebaseBackend; user:
       if (first && (e as { code?: string }).code === 'functions/resource-exhausted') {
         setSent(true);
         return;
+      }
+      // A server without email codes (not deployed yet, or failing): the link still verifies the account.
+      const code = (e as { code?: string }).code ?? '';
+      if (['functions/not-found', 'functions/internal', 'functions/unimplemented', 'functions/unavailable'].includes(code)) {
+        setCodesOff(true);
+        return sendLink();
       }
       throw e;
     }
@@ -91,6 +111,17 @@ export function VerifyEmail({ b, user, onVerified }: { b: FirebaseBackend; user:
       await finish();
     });
   };
+  if (codesOff)
+    return (
+      <div className="stack verify-code" data-testid="verify-link">
+        <p>{linkSent ? <>We emailed a verification link to <strong>{user.email}</strong>. Open it, then come back here.</> : busy ? <>Sending a verification link to <strong>{user.email}</strong>…</> : <>We’ll email a verification link to <strong>{user.email}</strong>.</>}</p>
+        <button type="button" className="btn primary big" disabled={busy} onClick={() => void run(finish)}>I’ve verified my email</button>
+        <button type="button" className="btn" disabled={busy} onClick={() => void run(sendLink)}>{linkSent ? 'Send the link again' : 'Send the link'}</button>
+        <p className="muted">Can’t find it? Check spam or promotions. You can also sign out and use Continue with Google.</p>
+        {error && <p role="alert" className="auth-error">{error}</p>}
+        {message && <p role="status">{message}</p>}
+      </div>
+    );
   return (
     <div className="stack verify-code">
       <p>{sent ? <>We emailed a 6-digit code to <strong>{user.email}</strong>. It expires in 10 minutes.</> : busy ? <>Sending a 6-digit code to <strong>{user.email}</strong>…</> : <>We’ll email a 6-digit code to <strong>{user.email}</strong>.</>}</p>
@@ -105,7 +136,7 @@ export function VerifyEmail({ b, user, onVerified }: { b: FirebaseBackend; user:
         <button type="button" className="btn" disabled={busy || wait > 0} onClick={() => void run(() => send(false))}>{sent ? (wait ? `Resend code (${wait}s)` : 'Resend code') : 'Send code'}</button>
         {linkSent && <button type="button" className="btn" disabled={busy} onClick={() => void run(finish)}>I’ve verified my email</button>}
       </div>
-      <button type="button" className="btn ghost verify-link" disabled={busy} onClick={() => void run(async () => { await sendEmailVerification(user); setLinkSent(true); setMessage('We sent a verification link. Open it, then come back and choose I’ve verified my email.'); })}>Send me a link instead</button>
+      <button type="button" className="btn ghost verify-link" disabled={busy} onClick={() => void run(sendLink)}>Send me a link instead</button>
       <p className="muted">Can’t find it? Check spam or promotions. We only email you verification and sign-in codes.</p>
       {error && <p role="alert" className="auth-error">{error}</p>}
       {message && <p role="status">{message}</p>}

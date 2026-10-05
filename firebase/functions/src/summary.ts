@@ -3,6 +3,9 @@ import { warehouseDate } from "../../../src/domain/receiving";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { lowStock, productStock } from "./stock";
+import { SERVER_VERSION } from "../../../src/config/serverVersion";
+// Every answer says which functions are deployed, so the app can tell owners when the server is behind.
+const stamped = (value: any) => ({ ...value, server_version: SERVER_VERSION });
 export async function warehouseSummary(request: any) {
   const uid = request.auth?.uid,
     ws = request.data?.workspaceId;
@@ -34,7 +37,7 @@ export async function warehouseSummary(request: any) {
     cached.get("value")?.stock_version === 1 &&
     Date.now() - cached.get("at") < 60000
   )
-    return cached.get("value");
+    return stamped(cached.get("value"));
   // A short lease coalesces concurrent requests; a crashed worker can be retried after 30 seconds.
   const lease = await db.runTransaction(async (tx) => {
     const c = await tx.get(cache);
@@ -43,7 +46,7 @@ export async function warehouseSummary(request: any) {
     return true;
   });
   if (!lease) {
-    if (cached.get("value")) return cached.get("value");
+    if (cached.get("value")) return stamped(cached.get("value"));
     throw new HttpsError(
       "unavailable",
       "Overview is refreshing. Try again shortly.",
@@ -128,7 +131,7 @@ export async function warehouseSummary(request: any) {
     at: new Date().toISOString(),
   };
   await cache.set({ value, at: Date.now(), leaseUntil: 0 });
-  return value;
+  return stamped(value);
 }
 
 export async function directoryCounts(request: any) {

@@ -18,13 +18,21 @@ export async function testOrders({ client, ok, issueKey, adminDb }) {
   const read = async (who, table, id) => (await getDoc(doc(who.db, 'workspaces', W, table, id))).data();
   await must(send(boss, 'invite_member', { name: 'Picker', email: picker.user.email, role: 'OPERATOR' }));
 
+  // A warehouse with no saved setting (every warehouse made before the setting existed) picks orders.
+  const whDoc = (await adminDb.collection('workspaces').doc(W).collection('warehouses').get()).docs[0].data();
+  assert.equal(whDoc.orders, undefined);
+  const early = await send(boss, 'create_order', { customer: { name: 'Early' }, method: 'ship', allow_subs: false, lines: [{ product_code: 'SKU-1', qty: 1 }] });
+  assert.equal(early.code, 'INVALID_INPUT');
+  assert.match(early.message, /No product with barcode or SKU SKU-1/);
+  ok('a warehouse with no saved orders setting has orders and picking on');
+  await must(send(boss, 'set_orders', { on: false, cart_size: 4, box_types: ['Small box'], subs: 'ask' }));
   const off = await send(boss, 'create_order', { customer: { name: 'Early' }, method: 'ship', allow_subs: false, lines: [{ product_code: 'SKU-1', qty: 1 }] });
   assert.equal(off.code, 'INVALID_STATE');
   assert.match(off.message, /Orders and picking is off/);
   const notOwner = await send(picker, 'set_orders', { on: true, cart_size: 4, box_types: ['Small box'], subs: 'ask' });
   assert.equal(notOwner.code, 'FORBIDDEN');
   await must(send(boss, 'set_orders', { on: true, cart_size: 4, box_types: ['Small box', 'Mailer'], subs: 'ask' }));
-  ok('orders are off until an owner turns them on');
+  ok('an owner turns orders off and back on; others cannot');
 
   const rack1 = await must(send(boss, 'create_location', { code: 'A-01', kind: 'RACK' }));
   const rack2 = await must(send(boss, 'create_location', { code: 'A-02', kind: 'RACK' }));

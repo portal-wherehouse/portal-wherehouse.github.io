@@ -25,10 +25,17 @@ export async function testSignup(){
  const user=await getAuth().getUserByEmail(base.email);assert.equal(user.emailVerified,false);assert.equal(user.displayName,base.name);
  assert.equal((await call({...base,email:`replay-${Date.now()}@example.com`,checkboxToken:token})).status,403);
  console.log('PASS signup creates an unverified account once and rejects checkbox token replay');
- const duplicate=await call({...base,checkboxToken:await signupToken()});assert.equal(duplicate.status,400);assert.match(duplicate.error.message,/signing in/);
+ const duplicate=await call({...base,checkboxToken:await signupToken()});assert.equal(duplicate.status,400);assert.match(duplicate.error.message,/signing in/);assert.equal(duplicate.error.details.reason,'exists');
  for(let i=0;i<3;i++)await call({...base,checkboxToken:'fake'});
  assert.equal((await call({...base,checkboxToken:await signupToken()})).status,429);
  assert.equal((await getAuth().getUser(user.uid)).uid,user.uid);
  console.log('PASS signup attempt limits preserve existing accounts');
+ await getFirestore().doc('registrationLimits/current').delete();
+ const missing=await call(base);assert.equal(missing.error.status,'INVALID_ARGUMENT');assert.match(missing.error.message,/Complete the checkbox/);
+ const short=await call({...base,password:'short'});assert.equal(short.status,400);assert.match(short.error.message,/password of 8/);
+ const host=await call({...base,checkboxToken:await signupToken({hostname:'old.example'})});assert.equal(host.status,403);assert.match(host.error.message,/didn't recognize this website address \(old\.example\)/);assert.equal(host.error.details.reason,'hostname');
+ const expired=await call({...base,checkboxToken:await signupToken({createTime:new Date(Date.now()-180000).toISOString()})});assert.match(expired.error.message,/Complete the checkbox again/);assert.equal(expired.error.details.reason,'expired');
+ for(const h of ['portal-wherehouse.github.io','wherehousetracking.com','app.wherehousetracking.com']){const r=await call({...base,email:`host-${h.replace(/\W/g,'')}-${Date.now()}@example.com`,checkboxToken:await signupToken({hostname:h})});assert.equal(r.status,200,`${h}: ${JSON.stringify(r)}`);}
+ console.log('PASS signup says which check failed: missing checkbox, short password, unknown website address, expired checkbox; the custom domain hosts are accepted');
  await getFirestore().doc('registrationLimits/current').delete();
 }

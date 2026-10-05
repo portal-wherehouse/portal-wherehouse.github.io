@@ -18,6 +18,7 @@ import {
 import { OrdersSetting } from "../orders/OrdersSetting";
 import { ApprovalSetting } from "../stock/ApprovalSetting";
 import { LotsSetting } from "../stock/LotsSetting";
+import { ServerBehindNotice } from "./ServerBehind";
 
 export function Settings() {
   const { backend } = useApp();
@@ -69,6 +70,7 @@ function DemoSettings() {
         sub="Display choices are saved on this device only."
       />
 
+      <ServerBehindNotice />
       {(role === "OWNER" || role === "SUPERVISOR") && <OrdersSetting />}
       {(role === "OWNER" || role === "SUPERVISOR") && <ApprovalSetting />}
       {(role === "OWNER" || role === "SUPERVISOR") && <LotsSetting />}
