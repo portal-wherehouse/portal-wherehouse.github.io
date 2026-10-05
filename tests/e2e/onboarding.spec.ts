@@ -1,10 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
+import { pickSample } from './helpers';
 
 /** Open the sample's fresh warehouse: new, and locked to its setup checklist. */
 async function practiceSetup(page: Page, width = 1280) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width, height: 900 });
   await page.goto('/?demo=1#signin');
+  await pickSample(page);
   await page.getByTestId('practice-setup').click();
   await expect(page.getByTestId('setup-wizard')).toBeVisible();
 }

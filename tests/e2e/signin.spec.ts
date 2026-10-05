@@ -1,38 +1,42 @@
 import { expect,test } from '@playwright/test';
-import { portalReady,watchErrors } from './helpers';
+import { pickSample,portalReady,watchErrors } from './helpers';
 test('sample entry offers management and employee views plus setup practice',async({page})=>{
  const errors=watchErrors(page);await page.goto('/?demo=1#signin');
  await expect(page.getByRole('heading',{name:'Sample warehouse',exact:true})).toBeVisible();
- await expect(page.locator('.sample-choice')).toHaveCount(3);await expect(page.getByRole('radio')).toHaveCount(0);
+ // First the kind of business, then the three ways in.
+ await expect(page.getByRole('heading',{name:'Try the sample warehouse for your…'})).toBeVisible();
+ await expect(page.locator('.sd-kind')).toHaveCount(8);await expect(page.locator('.sample-choice')).toHaveCount(0);
+ await pickSample(page);await expect(page.getByRole('radio')).toHaveCount(0);
  await page.getByRole('button',{name:'View a management dashboard'}).click();await portalReady(page);
  await expect(page).toHaveURL(/#overview$/);await expect(page.locator('.sample-note').first()).toBeVisible();
  await page.locator('.sidebar').getByRole('button',{name:'Find',exact:true}).click();await expect(page.locator('.result')).toHaveCount(26);
- // Six example pallets, the stock that the sample customer orders are picked from, three running-low pallets and four
- // lots of hand sanitizer with expiry dates.
+ // Six pallets with a story, the cases that the store orders are picked from, three running-low pallets and four
+ // lots of granola bars with expiry dates.
+ const six=['Bottled water, 84 cases','Canned tomatoes, 120 cases','Paper plates, 60 cases','Laundry detergent, 40 cases','Breakfast cereal, mixed pallet','Dry dog food, 50 bags'];
  const descriptions=await page.locator('.result .desc').allTextContents();
- expect(descriptions.filter((d)=>/^Example pallet [1-6]$/.test(d))).toHaveLength(6);
- for(const description of descriptions)expect(description).toMatch(/^(Example pallet [1-6]|Work gloves|Packing tape|USB-C cable|LED work light|AA batteries|Zip ties|Hand sanitizer)/);
+ expect(descriptions.filter((d)=>six.includes(d))).toHaveLength(6);
+ for(const description of descriptions)expect(description).toMatch(/^(Bottled water|Canned tomatoes|Paper plates|Laundry detergent|Breakfast cereal|Dry dog food|Paper towels|Bath tissue|Dish soap|Kitchen trash bags|Stretch wrap|Shipping labels|Granola bars)/);
  expect(errors).toEqual([]);
 });
 test('employee sample keeps floor actions and explains them without a tour overlay',async({page})=>{
- const errors=watchErrors(page);await page.goto('/?demo=1#signin');await page.getByRole('button',{name:'View an employee dashboard'}).click();await portalReady(page);
+ const errors=watchErrors(page);await page.goto('/?demo=1#signin');await pickSample(page);await page.getByRole('button',{name:'View an employee dashboard'}).click();await portalReady(page);
  await expect(page).toHaveURL(/#overview$/);
  await expect(page.getByTestId('crew-home')).toBeVisible();await expect(page.locator('.sample-note').first()).toBeVisible();await page.getByRole('button',{name:'Show the full dashboard'}).click();
  await expect(page.locator('.warehouse-identity')).toContainText('Operator');await page.locator('.warehouse-actions').getByRole('button',{name:'Find',exact:true}).click();
  await expect(page.locator('.sidebar').getByRole('button',{name:'Receive',exact:true})).toBeVisible();
  await expect(page.locator('.sidebar').getByRole('button',{name:'People',exact:true})).toHaveCount(0);
- await page.locator('.result').filter({hasText:'Example pallet 1'}).click();await expect(page.locator('.tl-item')).toHaveCount(3);await expect(page.locator('.sample-note').first()).toBeVisible();
+ await page.locator('.result').filter({hasText:'Bottled water, 84 cases'}).click();await expect(page.locator('.tl-item')).toHaveCount(3);await expect(page.locator('.sample-note').first()).toBeVisible();
  expect(errors).toEqual([]);
 });
 test('a direct sample receiving link continues to its requested page',async({page})=>{
- await page.goto('/?demo=1#receive');await page.getByRole('button',{name:'View an employee dashboard'}).click();await portalReady(page);
+ await page.goto('/?demo=1#receive');await pickSample(page);await page.getByRole('button',{name:'View an employee dashboard'}).click();await portalReady(page);
  await expect(page.getByRole('heading',{name:'Receive a pallet'})).toBeVisible();
 });
 
 for (const [view, width] of [['management',1280],['employee',390]] as const) {
  test(`${view} sample Help starts an optional tour and every stop finishes`,async({page})=>{
   const errors=watchErrors(page);await page.setViewportSize({width,height:900});
-  await page.goto('/?demo=1#signin');await page.getByRole('button',{name:`View ${view==='employee'?'an':'a'} ${view} dashboard`}).click();
+  await page.goto('/?demo=1#signin');await pickSample(page);await page.getByRole('button',{name:`View ${view==='employee'?'an':'a'} ${view} dashboard`}).click();
   await expect(page.locator('.ptour-card')).toHaveCount(0);
   await page.goto('/?demo=1#help');await page.locator('.help-quick').getByRole('button',{name:/^Take the tour/}).click();
   const card=page.locator('.ptour-card');await expect(card).toBeVisible();
@@ -51,7 +55,7 @@ for (const [view, width] of [['management',1280],['employee',390]] as const) {
   await card.getByRole('button',{name:'Start the practice shift',exact:true}).click();
   await expect(card).toHaveCount(0);
   if(width<700)await page.getByRole('button',{name:'Expand practice shift'}).click();
-  await expect(page.getByRole('complementary',{name:'Practice shift'})).toContainText('JOB-1');
+  await expect(page.getByRole('complementary',{name:'Practice shift'})).toContainText('ACCT-HF');
   await page.getByRole('button',{name:'Close practice shift'}).click();
   await page.goto('/?demo=1#find');await expect(page.locator('.result')).toHaveCount(26);await expect(page.locator('.sample-note').first()).toBeVisible();
   // It can be restarted and dismissed without forcing another tour.
@@ -65,7 +69,7 @@ for(const width of [1280,375]){
  test(`Dashboard is first; refresh keeps Move until two hours away (${width}px)`,async({page})=>{
   await page.setViewportSize({width,height:900});
   await page.addInitScript(()=>localStorage.setItem('pl.prefs',JSON.stringify({startTab:'move'})));
-  await page.goto('/?demo=1#signin');await page.getByRole('button',{name:'View a management dashboard'}).click();
+  await page.goto('/?demo=1#signin');await pickSample(page);await page.getByRole('button',{name:'View a management dashboard'}).click();
   await expect(page.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
   await expect(page.locator(width>960?'.sidebar .nav-item':'.bottom-nav button').first()).toHaveText(/^Dashboard\d*$/);
   await expect(page.getByRole('region',{name:'Warehouse analytics'})).toBeVisible();

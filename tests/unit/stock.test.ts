@@ -117,75 +117,75 @@ describe('minimums', () => {
   it('lists the sample products that are running low, emptiest first, and leaves the rest out', () => {
     const s = setup();
     const rows = s.low();
-    expect(rows.map((r) => r.product.code)).toEqual(['BAT-AA', 'ZIP-100']);
+    expect(rows.map((r) => r.product.code)).toEqual(['SW-18', 'LBL-46']);
     expect(rows[0]).toMatchObject({ on_hand: 1, min: 4, suggest: 6 });
     expect(rows[1]).toMatchObject({ on_hand: 2, min: 4, suggest: 2 });
-    // Packing tape has a minimum of 2 and 4 on hand.
-    expect(stockOf(s.product('TAPE-48'), stockByKey(s.here()))).toMatchObject({ units: 4 });
+    // Bath tissue has a minimum of 2 and 4 on hand.
+    expect(stockOf(s.product('TT-48'), stockByKey(s.here()))).toMatchObject({ units: 4 });
   });
   it('leaves pallets on hold out of the count', () => {
     const s = setup();
     ok(s.run(MANAGER, 'apply_hold', { reason: 'Checking' }, s.pallet('P-000201')));
     const by = stockByKey(s.here());
-    expect(stockOf(s.product('GLV-12'), by)).toMatchObject({ units: 2, held: 1 });
+    expect(stockOf(s.product('PT-12'), by)).toMatchObject({ units: 2, held: 1 });
   });
   it('finds the product in the other warehouse for a transfer', () => {
     const s = setup();
-    expect(s.engine.stockElsewhere(MANAGER, s.ws, 'ZIP-100')).toEqual([{ workspace_id: s.overflow, name: 'Overflow yard', units: 2, qty: 40 }]);
-    expect(s.engine.stockElsewhere(MANAGER, s.ws, 'BAT-AA')).toEqual([]);
+    expect(s.engine.stockElsewhere(MANAGER, s.ws, 'LBL-46')).toEqual([{ workspace_id: s.overflow, name: 'Overflow yard', units: 2, qty: 40 }]);
+    expect(s.engine.stockElsewhere(MANAGER, s.ws, 'SW-18')).toEqual([]);
   });
 });
 
 describe('save_product minimums', () => {
   it('saves a minimum and reorder quantity, keeps them when left out, and clears them with null', () => {
     const s = setup();
-    ok(s.run(MANAGER, 'save_product', { code: 'GLV-12', description: 'Work gloves, box of 12', min_qty: 5, reorder_qty: 12 }));
-    expect(s.product('GLV-12')).toMatchObject({ min_qty: 5, reorder_qty: 12, count_by: 'units' });
-    ok(s.run(MANAGER, 'save_product', { code: 'GLV-12', description: 'Work gloves, 12 pairs' }));
-    expect(s.product('GLV-12')).toMatchObject({ description: 'Work gloves, 12 pairs', min_qty: 5, reorder_qty: 12 });
-    ok(s.run(MANAGER, 'save_product', { code: 'GLV-12', description: 'Work gloves, 12 pairs', min_qty: null, reorder_qty: null }));
-    expect(s.product('GLV-12')).toMatchObject({ min_qty: null, reorder_qty: null });
+    ok(s.run(MANAGER, 'save_product', { code: 'PT-12', description: 'Paper towels, case of 12 rolls', min_qty: 5, reorder_qty: 12 }));
+    expect(s.product('PT-12')).toMatchObject({ min_qty: 5, reorder_qty: 12, count_by: 'units' });
+    ok(s.run(MANAGER, 'save_product', { code: 'PT-12', description: 'Paper towels, 12 pairs' }));
+    expect(s.product('PT-12')).toMatchObject({ description: 'Paper towels, 12 pairs', min_qty: 5, reorder_qty: 12 });
+    ok(s.run(MANAGER, 'save_product', { code: 'PT-12', description: 'Paper towels, 12 pairs', min_qty: null, reorder_qty: null }));
+    expect(s.product('PT-12')).toMatchObject({ min_qty: null, reorder_qty: null });
   });
   it('counts whole pallets, and allows decimals when counting the quantity', () => {
     const s = setup();
-    const bad = s.run(MANAGER, 'save_product', { code: 'GLV-12', description: 'Gloves', min_qty: 2.5 });
+    const bad = s.run(MANAGER, 'save_product', { code: 'PT-12', description: 'Gloves', min_qty: 2.5 });
     expect(bad).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
-    ok(s.run(MANAGER, 'save_product', { code: 'GLV-12', description: 'Gloves', min_qty: 2.5, count_by: 'quantity' }));
-    expect(s.product('GLV-12')).toMatchObject({ min_qty: 2.5, count_by: 'quantity' });
+    ok(s.run(MANAGER, 'save_product', { code: 'PT-12', description: 'Gloves', min_qty: 2.5, count_by: 'quantity' }));
+    expect(s.product('PT-12')).toMatchObject({ min_qty: 2.5, count_by: 'quantity' });
     expect(validateEnvelope({ schema_version: 1, command_id: uuid(), workspace_id: s.ws, kind: 'save_product', payload: { code: 'X', description: 'Y', min_qty: -1 } }).ok).toBe(false);
   });
   it('keeps the minimum when a delivery is received with "Save as a product"', () => {
     const s = setup();
-    ok(s.run(OPERATOR, 'receive', { description: 'AA batteries', receiving: { product_code: 'BAT-AA', quantity: '6', unit: 'cases' }, remember_product: true }));
-    expect(s.product('BAT-AA')).toMatchObject({ min_qty: 4, reorder_qty: 6 });
+    ok(s.run(OPERATOR, 'receive', { description: 'Stretch wrap', receiving: { product_code: 'SW-18', quantity: '6', unit: 'cases' }, remember_product: true }));
+    expect(s.product('SW-18')).toMatchObject({ min_qty: 4, reorder_qty: 6 });
   });
 });
 
 describe('reorder notes', () => {
   it('a manager notes a reorder; receiving the product clears it', () => {
     const s = setup();
-    const id = s.product('BAT-AA').id;
+    const id = s.product('SW-18').id;
     expect(s.run(OPERATOR, 'note_reorder', { product_id: id, note: 'PO 1' })).toMatchObject({ ok: false, code: 'FORBIDDEN' });
     ok(s.run(MANAGER, 'note_reorder', { product_id: id, note: 'PO 4471, due Friday' }));
-    expect(s.product('BAT-AA').reorder_note).toMatchObject({ note: 'PO 4471, due Friday', by_name: expect.any(String) });
-    ok(s.run(OPERATOR, 'receive', { description: 'AA batteries', receiving: { product_code: 'BAT-AA', quantity: '6', unit: 'cases' } }));
-    expect(s.product('BAT-AA').reorder_note).toBeNull();
+    expect(s.product('SW-18').reorder_note).toMatchObject({ note: 'PO 4471, due Friday', by_name: expect.any(String) });
+    ok(s.run(OPERATOR, 'receive', { description: 'Stretch wrap', receiving: { product_code: 'SW-18', quantity: '6', unit: 'cases' } }));
+    expect(s.product('SW-18').reorder_note).toBeNull();
     expect(s.run(MANAGER, 'note_reorder', { product_id: id, clear: true })).toMatchObject({ ok: false, code: 'INVALID_STATE' });
   });
   it('can be cleared by hand, and refuses a product from another warehouse', () => {
     const s = setup();
-    const id = s.product('ZIP-100').id;
+    const id = s.product('LBL-46').id;
     ok(s.run(MANAGER, 'note_reorder', { product_id: id }));
     ok(s.run(MANAGER, 'note_reorder', { product_id: id, clear: true }));
-    expect(s.product('ZIP-100').reorder_note).toBeNull();
-    expect(s.run(MANAGER, 'note_reorder', { product_id: productKey(s.overflow, 'ZIP-100') })).toMatchObject({ ok: false, code: 'NOT_FOUND' });
+    expect(s.product('LBL-46').reorder_note).toBeNull();
+    expect(s.run(MANAGER, 'note_reorder', { product_id: productKey(s.overflow, 'LBL-46') })).toMatchObject({ ok: false, code: 'NOT_FOUND' });
   });
 });
 
 describe('adjust_qty', () => {
   it('records the reason, changes the quantity and keeps the unit words', () => {
     const s = setup();
-    const p = unitOf(s, 'BAT-AA');
+    const p = unitOf(s, 'SW-18');
     expect(p.receiving?.quantity).toBe('7');
     const r = ok(s.run(OPERATOR, 'adjust_qty', { reason: 'used', amount: 2, note: 'Shop' }, p));
     expect(r.ok && r.current_state?.receiving?.quantity).toBe('5');
@@ -194,14 +194,14 @@ describe('adjust_qty', () => {
   });
   it('retires a pallet when nothing is left', () => {
     const s = setup();
-    const p = unitOf(s, 'BAT-AA');
+    const p = unitOf(s, 'SW-18');
     ok(s.run(OPERATOR, 'adjust_qty', { reason: 'damaged', amount: 7 }, p));
     expect(s.db.pallets[p.id]).toMatchObject({ state: 'RETIRED', current_location_id: null });
-    expect(s.low()[0]).toMatchObject({ product: { code: 'BAT-AA' }, on_hand: 0 });
+    expect(s.low()[0]).toMatchObject({ product: { code: 'SW-18' }, on_hand: 0 });
   });
   it('refuses more than recorded, a pallet that is not here, a viewer and an old version', () => {
     const s = setup();
-    const p = unitOf(s, 'BAT-AA');
+    const p = unitOf(s, 'SW-18');
     expect(s.run(OPERATOR, 'adjust_qty', { reason: 'used', amount: 8 }, p)).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
     expect(s.run(VIEWER, 'adjust_qty', { reason: 'used', amount: 1 }, p)).toMatchObject({ ok: false, code: 'FORBIDDEN' });
     const old = { ...p };
@@ -239,7 +239,7 @@ describe('approving quantity changes', () => {
   it("holds an operator's change until a manager approves it", () => {
     const s = setup();
     ok(s.run(MANAGER, 'set_adjust_approval', { on: true }));
-    const p = unitOf(s, 'BAT-AA');
+    const p = unitOf(s, 'SW-18');
     ok(s.run(OPERATOR, 'adjust_qty', { reason: 'used', amount: 2, note: 'Two for the van' }, p));
     const waiting = s.db.pallets[p.id];
     expect(waiting.receiving?.quantity).toBe('7');
@@ -256,7 +256,7 @@ describe('approving quantity changes', () => {
   it('a turned-down change leaves the quantity alone; managers save at once', () => {
     const s = setup();
     ok(s.run(MANAGER, 'set_adjust_approval', { on: true }));
-    const p = unitOf(s, 'BAT-AA');
+    const p = unitOf(s, 'SW-18');
     ok(s.run(OPERATOR, 'adjust_qty', { reason: 'write_off', amount: 7 }, p));
     ok(s.run(MANAGER, 'review_adjust', { approve: false, note: 'They are on the shelf' }, s.db.pallets[p.id]));
     expect(s.db.pallets[p.id]).toMatchObject({ state: 'STORED', pending_adjust: null, receiving: { quantity: '7' } });
@@ -267,7 +267,7 @@ describe('approving quantity changes', () => {
   it('works an approved change out again from the quantity recorded now', () => {
     const s = setup();
     ok(s.run(MANAGER, 'set_adjust_approval', { on: true }));
-    const p = unitOf(s, 'BAT-AA');
+    const p = unitOf(s, 'SW-18');
     ok(s.run(OPERATOR, 'adjust_qty', { reason: 'used', amount: 6 }, p));
     ok(s.run(MANAGER, 'edit_details', { description: p.description, notes: '', supplier_ref: '', receiving: { ...p.receiving, quantity: '4' } }, s.db.pallets[p.id]));
     const r = s.run(MANAGER, 'review_adjust', { approve: true }, s.db.pallets[p.id]);
@@ -286,7 +286,7 @@ describe('dispatch numbers', () => {
   it('gives each send a number, lets pallets join it, and lists them for the slip', () => {
     const s = setup();
     // The sample already dispatched one pallet: D-000001.
-    expect(s.pallet('P-000006').dispatch).toMatchObject({ ref: 'D-000001', destination: 'Example job 2' });
+    expect(s.pallet('P-000006').dispatch).toMatchObject({ ref: 'D-000001', destination: 'Valley Home Goods, store 114' });
     const a = s.pallet('P-000201'),
       b = s.pallet('P-000202');
     const r1 = ok(s.run(OPERATOR, 'dispatch', { destination: 'Riverside site', note: 'Truck 4' }, a));
@@ -309,14 +309,15 @@ describe('reports', () => {
     const s = setup();
     const rows = productReport(s.here(), Object.values(s.db.products).filter((p) => p.workspace_id === s.ws));
     expect(rows.slice(0, 2).map((r) => [r.code, r.status])).toEqual([
-      ['BAT-AA', 'low'],
-      ['ZIP-100', 'low'],
+      // Low products first, by name: shipping labels, then stretch wrap.
+      ['LBL-46', 'low'],
+      ['SW-18', 'low'],
     ]);
-    expect(rows.find((r) => r.code === 'TAPE-48')).toMatchObject({ units: 4, status: 'ok', qty: 4 });
-    expect(rows.find((r) => r.code === 'BAT-AA')).toMatchObject({ units: 1, qty: 7, unit: 'cases' });
-    // Example pallet 5 is on hold.
-    expect(rows.find((r) => r.name === 'Example pallet 5')).toMatchObject({ linked: false, units: 0, held: 1 });
-    expect(rows.find((r) => r.name === 'Example pallet 6')).toBeUndefined();
+    expect(rows.find((r) => r.code === 'TT-48')).toMatchObject({ units: 4, status: 'ok', qty: 4 });
+    expect(rows.find((r) => r.code === 'SW-18')).toMatchObject({ units: 1, qty: 7, unit: 'cases' });
+    // Breakfast cereal, mixed pallet is on hold.
+    expect(rows.find((r) => r.name === 'Breakfast cereal, mixed pallet')).toMatchObject({ linked: false, units: 0, held: 1 });
+    expect(rows.find((r) => r.name === 'Dry dog food, 50 bags')).toBeUndefined();
   });
   it('by warehouse, by zone and aging', () => {
     const s = setup();

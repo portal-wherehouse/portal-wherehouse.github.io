@@ -25,9 +25,11 @@ test('a delivery list goes to Incoming, adds no stock, and each item is received
   await page.goto('/?demo=1#find');
   await expect(page.locator('.result')).toHaveCount(before);
 
-  // From the list: search, open, Receive pallet, save.
+  // From the list: search, open, Receive pallet, save. The sample already expects two deliveries of its own.
   await page.goto('/?demo=1#incoming');
-  await expect(page.getByTestId('incoming-list').locator('.import-row')).toHaveCount(2);
+  const rows = page.getByTestId('incoming-list').locator('.import-row');
+  await expect(rows).toHaveCount(4);
+  await expect(rows.filter({ hasText: 'Canned beans, 120 cases' })).toHaveCount(1);
   await page.getByLabel('Search incoming').fill('birch');
   await page.getByTestId('incoming-list').locator('.import-row').click();
   await page.getByRole('button', { name: 'Receive pallet' }).click();
@@ -36,7 +38,7 @@ test('a delivery list goes to Incoming, adds no stock, and each item is received
   await page.getByRole('button', { name: 'Save pallet', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pallet saved', exact: true })).toBeVisible();
   await page.goto('/?demo=1#incoming');
-  await expect(page.getByTestId('incoming-list').locator('.import-row')).toHaveCount(1);
+  await expect(rows).toHaveCount(3);
 
   // By scan: the barcode on the list fills everything in.
   await page.goto('/?demo=1#receive');
@@ -46,7 +48,8 @@ test('a delivery list goes to Incoming, adds no stock, and each item is received
   await page.getByRole('button', { name: 'Save pallet', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pallet saved', exact: true })).toBeVisible();
   await page.goto('/?demo=1#incoming');
-  await expect(page.getByText('Everything on your lists has been received.')).toBeVisible();
+  await expect(rows).toHaveCount(2);
+  await expect(rows.filter({ hasText: /Red oak|Birch/ })).toHaveCount(0);
 });
 
 test('an unknown barcode becomes a saved product, and the next scan fills it in', async ({ page }) => {

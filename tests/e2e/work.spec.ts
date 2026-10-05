@@ -157,7 +157,7 @@ test('lots and expiry: Expiring soon, receive fields, the Settings toggle and ol
   await noSideScroll(page);
 
   await nav(page, 'Find');
-  await page.locator('#find-q').fill('SAN-500');
+  await page.locator('#find-q').fill('GB-24');
   await expect(page.locator('button.result').first()).toContainText('Lot L-2405');
 
   await nav(page, 'Receive');

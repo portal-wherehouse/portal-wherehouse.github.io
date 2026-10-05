@@ -1,16 +1,21 @@
 import {test,expect} from '@playwright/test';
 import {signInAs} from './helpers';
 
-for (const width of [375,1280]) test(`warehouse menu, basic-plan upgrade and editable details at ${width}px`,async({page})=>{
+for (const width of [375,1280]) test(`warehouse menu, the demo-only Add warehouse and editable details at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:900});await signInAs(page,'owner');await page.goto('/?demo=1#overview');
  const button=page.locator('.warehouse-name-button');await expect(button).toBeVisible();
  await button.click();const menu=page.getByRole('menu',{name:'Warehouse menu'});
  await expect(menu).toBeVisible();
  await expect(menu.getByRole('menuitem',{name:'Settings',exact:true})).toBeVisible();
+ // In the sample, Add warehouse is a demo button: it says so and points to creating a real warehouse.
  await menu.getByRole('menuitem',{name:/Add warehouse/}).click();
- await expect(page.getByRole('heading',{name:'Oops!',exact:true})).toBeVisible();
- await expect(page.getByText('Your current plan does not include this feature. Please contact us to upgrade.',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Back to warehouse',exact:true}).click();
+ const oops=page.getByTestId('demo-only');
+ await expect(page.getByRole('heading',{name:'Oops! This is just a demo button',exact:true})).toBeVisible();
+ await expect(oops.getByRole('link',{name:'Create your warehouse'})).toHaveAttribute('href','/#start');
+ await expect(oops.getByRole('link',{name:'Go to the homepage'})).toHaveAttribute('href','/');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth)).toBeLessThanOrEqual(1);
+ await oops.getByRole('button',{name:'Keep exploring the sample',exact:true}).click();
+ await expect(oops).toHaveCount(0);
  await page.getByRole('button',{name:'Warehouse settings',exact:true}).click();
  await page.locator('#wh-name').fill('Charleston warehouse');await page.locator('#wh-code').fill('CHS');await page.locator('#wh-address').fill('Receiving building, Charleston, SC');
  await page.getByRole('button',{name:'Save warehouse',exact:true}).click();await expect(page.getByRole('dialog')).toBeHidden();

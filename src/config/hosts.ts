@@ -133,3 +133,26 @@ export function portalHref(relative: string): string {
 export function crossHostFromHere(route: Route): string | null {
   return currentHost().kind === 'single' ? null : crossHostUrl(location, route);
 }
+
+/** The sample warehouse from a website page, for one kind of business ('lumberyards') or for any. */
+export function sampleHref(kind?: string): string {
+  return portalHref(`?demo=1${kind ? `&kind=${encodeURIComponent(kind)}` : ''}#signin`);
+}
+
+/**
+ * Leaving the sample for the real website: the home page (no hash) or a page such as '#start', with no ?demo.
+ * On a custom domain the home page is the apex (https://example.com/) and #start is on the app host, where it signs
+ * people in; on a single host it is this same path.
+ */
+export function leaveSampleUrl(at: Pick<Address, 'hostname' | 'pathname'>, hash = ''): string {
+  const host = classifyHost(at.hostname);
+  if (host.kind === 'single') return `${path(at.pathname)}${hash}`;
+  const route = parseHash(hash);
+  return `${route && belongsOnApp(route) ? appOrigin(host.domain) : siteOrigin(host.domain)}/${hash}`;
+}
+
+/** `leaveSampleUrl` for the current page. */
+export function leaveSampleHref(hash = ''): string {
+  if (typeof location === 'undefined') return `/${hash}`;
+  return currentHost().kind === 'single' ? `${path(location.pathname)}${hash}` : leaveSampleUrl(location, hash);
+}

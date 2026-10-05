@@ -82,8 +82,8 @@ describe('order rules', () => {
 
   it('matches GTINs whatever their zero padding, and walks spots in natural order', () => {
     expect(sameProduct('012345678905', '0012345678905')).toBe(true);
-    expect(sameProduct('GLV-12', 'glv-12')).toBe(false);
-    expect(sameProduct('GLV-12', 'GLV-12')).toBe(true);
+    expect(sameProduct('PT-12', 'glv-12')).toBe(false);
+    expect(sameProduct('PT-12', 'PT-12')).toBe(true);
     expect(['B-01-01', 'A-01-10', null, 'A-01-02'].sort(compareSpots)).toEqual(['A-01-02', 'A-01-10', 'B-01-01', null]);
     const s = (key: string, location_code: string | null, slot: string) => ({ key, location_code, slot }) as PickStop;
     expect(sortStops([s('1', 'B-01', 'A'), s('2', null, 'A'), s('3', 'A-02', 'B'), s('4', 'A-02', 'A')]).map((x) => x.key)).toEqual(['4', '3', '1', '2']);
@@ -91,13 +91,13 @@ describe('order rules', () => {
 
   it('groups CSV rows into orders and reports every bad cell with its row', () => {
     const rows: Record<string, string>[] = [
-      { order_ref: '1001', customer: 'Ann', product: 'GLV-12', qty: '2', method: 'pickup', due: '2026-10-02 10:00', substitutes_ok: 'yes' },
-      { order_ref: '1001', customer: '', product: 'TAPE-48', qty: '1' },
-      { order_ref: '1002', customer: 'Bo', product: 'GLV-12', qty: 'two', method: 'drone' },
+      { order_ref: '1001', customer: 'Ann', product: 'PT-12', qty: '2', method: 'pickup', due: '2026-10-02 10:00', substitutes_ok: 'yes' },
+      { order_ref: '1001', customer: '', product: 'TT-48', qty: '1' },
+      { order_ref: '1002', customer: 'Bo', product: 'PT-12', qty: 'two', method: 'drone' },
       { order_ref: '', customer: 'Cy', product: '' },
     ];
     const { orders, errors } = draftOrders(rows);
-    expect(orders.find((o) => o.external_ref === '1001')).toMatchObject({ method: 'pickup', allow_subs: true, lines: [{ product_code: 'GLV-12', qty: 2 }, { product_code: 'TAPE-48', qty: 1 }] });
+    expect(orders.find((o) => o.external_ref === '1001')).toMatchObject({ method: 'pickup', allow_subs: true, lines: [{ product_code: 'PT-12', qty: 2 }, { product_code: 'TT-48', qty: 1 }] });
     expect(errors.map((e) => `${e.row}:${e.column}`)).toEqual(expect.arrayContaining(['4:qty', '4:method', '5:order_ref', '5:product']));
     expect(parseDue('10/2/2026 2:30 PM')).toBe(new Date(2026, 9, 2, 14, 30).toISOString());
     expect(parseDue('soon')).toBe('invalid');
@@ -126,9 +126,9 @@ describe('the sample warehouse', () => {
     const s = setup();
     const wh = Object.values(s.db.warehouses).find((w) => w.workspace_id === s.ws)!;
     expect(wh.orders?.on).toBe(true);
-    expect(pickQueue(Object.values(s.db.orders)).map((o) => o.customer.name)).toEqual(['Jordan Lee', 'Lakeside Dental', 'Maria Ortiz', 'Northside Print Shop']);
+    expect(pickQueue(Object.values(s.db.orders)).map((o) => o.customer.name)).toEqual(['Northgate Grocery', 'Corner Market, store 12', 'Hillside Pharmacy', 'Midstate Foods distribution center']);
     expect(s.loc('STAGING-01').kind).toBe('STAGING');
-    expect(s.pallet('P-000201').receiving?.product_code).toBe('GLV-12');
+    expect(s.pallet('P-000201').receiving?.product_code).toBe('PT-12');
     expect(s.db.counters[s.ws]).toBe(6);
     expect(s.db.counters[`${s.ws}:O`]).toBe(4);
   });
@@ -169,11 +169,11 @@ describe('settings and orders', () => {
 
   it('managers create orders from saved products or stock codes; operators and viewers cannot', () => {
     const s = setup();
-    const draft = { customer: { name: 'Test Co' }, method: 'ship', allow_subs: false, lines: [{ product_code: 'GLV-12', qty: 1 }, { product_code: 'GLV-12', qty: 2 }] };
+    const draft = { customer: { name: 'Test Co' }, method: 'ship', allow_subs: false, lines: [{ product_code: 'PT-12', qty: 1 }, { product_code: 'PT-12', qty: 2 }] };
     fails(s.run(OPERATOR, 'create_order', draft), 'FORBIDDEN');
     fails(s.run(VIEWER, 'create_order', draft), 'FORBIDDEN');
     const id = ok(s.run(MANAGER, 'create_order', { ...draft, external_ref: 'X-1' }));
-    expect(s.db.orders[id]).toMatchObject({ code: 'O-000005', status: 'OPEN', lines: [{ product_code: 'GLV-12', qty: 3, description: 'Work gloves, box of 12' }] });
+    expect(s.db.orders[id]).toMatchObject({ code: 'O-000005', status: 'OPEN', lines: [{ product_code: 'PT-12', qty: 3, description: 'Paper towels, case of 12 rolls' }] });
     fails(s.run(MANAGER, 'create_order', { ...draft, external_ref: 'X-1' }), 'INVALID_INPUT', /already exists/);
     fails(s.run(MANAGER, 'create_order', { ...draft, lines: [{ product_code: 'NOPE', qty: 1 }] }), 'INVALID_INPUT', /No product with barcode or SKU NOPE/);
   });
@@ -182,29 +182,29 @@ describe('settings and orders', () => {
     const s = setup();
     const imp = (rows: Record<string, string>[]) => s.run(MANAGER, 'import_batch', { import_kind: 'orders', checksum: uuid(), rows });
     const bad = imp([
-      { order_ref: 'W-1', customer: 'Ann', product: 'GLV-12', qty: '1' },
+      { order_ref: 'W-1', customer: 'Ann', product: 'PT-12', qty: '1' },
       { order_ref: 'W-2', customer: 'Bo', product: 'MISSING', qty: '1' },
     ]);
     expect(bad.ok).toBe(false);
     expect(Object.values(s.db.orders).some((o) => o.external_ref === 'W-1')).toBe(false);
     ok(
       imp([
-        { order_ref: 'W-1', customer: 'Ann', product: 'GLV-12', qty: '1', method: 'pickup' },
-        { order_ref: 'W-1', customer: '', product: 'LMP-20', qty: '1' },
-        { order_ref: 'W-2', customer: 'Bo', product: 'TAPE-48', qty: '2' },
+        { order_ref: 'W-1', customer: 'Ann', product: 'PT-12', qty: '1', method: 'pickup' },
+        { order_ref: 'W-1', customer: '', product: 'TB-13', qty: '1' },
+        { order_ref: 'W-2', customer: 'Bo', product: 'TT-48', qty: '2' },
       ]),
     );
-    expect(s.order('W-1')).toMatchObject({ method: 'pickup', lines: [{ product_code: 'GLV-12' }, { product_code: 'LMP-20' }] });
+    expect(s.order('W-1')).toMatchObject({ method: 'pickup', lines: [{ product_code: 'PT-12' }, { product_code: 'TB-13' }] });
     expect(s.order('W-2').lines[0].qty).toBe(2);
   });
 
   it('cancels an order that is not being picked, with the version the manager saw', () => {
     const s = setup();
-    const o = s.order('WEB-1043');
+    const o = s.order('SO-1043');
     fails(s.run(MANAGER, 'cancel_order', { order_id: o.id, reason: 'Customer called' }, { expected_version: o.version + 1 }), 'VERSION_CONFLICT');
     fails(s.run(OPERATOR, 'cancel_order', { order_id: o.id, reason: 'x' }, { expected_version: o.version }), 'FORBIDDEN');
     ok(s.run(MANAGER, 'cancel_order', { order_id: o.id, reason: 'Customer called' }, { expected_version: o.version }));
-    expect(s.order('WEB-1043').status).toBe('CANCELLED');
+    expect(s.order('SO-1043').status).toBe('CANCELLED');
   });
 });
 
@@ -214,15 +214,15 @@ describe('a batch from start to handoff', () => {
     const id = ok(s.run(OPERATOR, 'start_batch', {}));
     const b = s.batch(id);
     expect(b.code).toBe('B-0001');
-    expect(b.slots.map((x) => `${x.letter} ${x.customer}`)).toEqual(['A Jordan Lee', 'B Lakeside Dental', 'C Maria Ortiz', 'D Northside Print Shop']);
+    expect(b.slots.map((x) => `${x.letter} ${x.customer}`)).toEqual(['A Northgate Grocery', 'B Corner Market, store 12', 'C Hillside Pharmacy', 'D Midstate Foods distribution center']);
     const spots = b.stops.map((x) => x.location_code);
     expect(spots).toEqual([...spots].sort(compareSpots));
     expect(b.stops.every((x) => x.suggested.length === x.qty)).toBe(true);
-    expect(s.order('WEB-1042')).toMatchObject({ status: 'PICKING', slot: 'A', batch_code: 'B-0001' });
+    expect(s.order('SO-1042')).toMatchObject({ status: 'PICKING', slot: 'A', batch_code: 'B-0001' });
     // One batch at a time per picker; the queue is now empty for anyone else.
     fails(s.run(OPERATOR, 'start_batch', {}), 'INVALID_STATE', /in progress/);
     fails(s.run(MANAGER, 'start_batch', {}), 'INVALID_STATE', /No orders are waiting/);
-    fails(s.run(OPERATOR, 'start_batch', { order_ids: [s.order('WEB-1042').id] }), 'FORBIDDEN');
+    fails(s.run(OPERATOR, 'start_batch', { order_ids: [s.order('SO-1042').id] }), 'FORBIDDEN');
   });
 
   it('assigns reusable totes, never one already holding another order', () => {
@@ -230,7 +230,7 @@ describe('a batch from start to handoff', () => {
     const b = s.batch(ok(s.run(OPERATOR, 'start_batch', {})));
     ok(s.run(OPERATOR, 'assign_tote', { batch_id: b.id, letter: 'A', tote_code: 't7' }));
     expect(s.batch(b.id).slots[0].tote_code).toBe('T-07');
-    expect(s.order('WEB-1042').tote_code).toBe('T-07');
+    expect(s.order('SO-1042').tote_code).toBe('T-07');
     fails(s.run(OPERATOR, 'assign_tote', { batch_id: b.id, letter: 'B', tote_code: 'T-07' }), 'INVALID_INPUT', /already tote A/);
     fails(s.run(OPERATOR, 'assign_tote', { batch_id: b.id, letter: 'B', tote_code: 'BOX' }), 'INVALID_INPUT', /tote label/);
     // Another picker may not touch this batch; a manager may.
@@ -260,9 +260,9 @@ describe('a batch from start to handoff', () => {
 
   it('a short when the unit is not at its spot marks it missing and sends the picker to the next spot with stock', () => {
     const s = setup();
-    // TAPE-48 is on A-02-02 (3) and B-02-02 (1). Order WEB-1043 wants 2.
-    const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('WEB-1043').id], assign_to: OPERATOR })));
-    const tape = b.stops.find((x) => x.product_code === 'TAPE-48')!;
+    // TT-48 is on A-02-02 (3) and B-02-02 (1). Order SO-1043 wants 2.
+    const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('SO-1043').id], assign_to: OPERATOR })));
+    const tape = b.stops.find((x) => x.product_code === 'TT-48')!;
     expect(tape).toMatchObject({ location_code: 'A-02-02', qty: 2 });
     const [first, second] = tape.suggested.map((u) => u.pallet_id);
     ok(s.pick(OPERATOR, b, tape, first));
@@ -271,15 +271,15 @@ describe('a batch from start to handoff', () => {
     const after = s.batch(b.id);
     const old = after.stops.find((x) => x.key === tape.key)!;
     expect(old).toMatchObject({ status: 'done', qty: 1, moved_to: 'B-02-02' });
-    const extra = after.stops.find((x) => x.location_code === 'B-02-02' && x.product_code === 'TAPE-48')!;
+    const extra = after.stops.find((x) => x.location_code === 'B-02-02' && x.product_code === 'TT-48')!;
     expect(extra).toMatchObject({ status: 'open', qty: 1 });
-    expect(s.order('WEB-1043').lines[0].short).toBeNull();
+    expect(s.order('SO-1043').lines[0].short).toBeNull();
   });
 
   it('a short with no stock elsewhere leaves the line short, and shorts never block packing', () => {
     const s = setup();
-    // LMP-20: two in stock. Ask for three.
-    ok(s.run(MANAGER, 'create_order', { customer: { name: 'Short Co' }, method: 'pickup', allow_subs: false, lines: [{ product_code: 'LMP-20', qty: 3 }] }));
+    // TB-13: two in stock. Ask for three.
+    ok(s.run(MANAGER, 'create_order', { customer: { name: 'Short Co' }, method: 'pickup', allow_subs: false, lines: [{ product_code: 'TB-13', qty: 3 }] }));
     const o = Object.values(s.db.orders).find((x) => x.customer.name === 'Short Co')!;
     const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [o.id] })));
     expect(b.stops.map((x) => [x.location_code, x.qty])).toEqual([
@@ -295,7 +295,7 @@ describe('a batch from start to handoff', () => {
     const done = s.db.orders[o.id];
     expect(done.status).toBe('PICKED');
     expect(done.lines[0].short).toMatchObject({ qty: 1, reason: 'no_stock' });
-    ok(s.run(MANAGER, 'pack', { order_id: o.id, unit_ids: done.lines[0].units.map((u) => u.pallet_id), box_type: 'Large box' }));
+    ok(s.run(MANAGER, 'pack', { order_id: o.id, unit_ids: done.lines[0].units.map((u) => u.pallet_id), box_type: 'Full pallet' }));
     expect(s.db.orders[o.id].status).toBe('PACKED');
   });
 
@@ -311,22 +311,22 @@ describe('a batch from start to handoff', () => {
 
   it('substitutes: only where the customer allowed them, and a manager approves or refuses before packing', () => {
     const s = setup();
-    // Jordan Lee allows substitutes; Lakeside Dental does not.
-    const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('WEB-1042').id, s.order('WEB-1041').id], assign_to: OPERATOR })));
-    const cable = b.stops.find((x) => x.product_code === 'CBL-C2')!;
-    const gloves = b.stops.find((x) => x.product_code === 'GLV-12')!;
+    // Northgate Grocery allows substitutes; Corner Market, store 12 does not.
+    const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('SO-1042').id, s.order('SO-1041').id], assign_to: OPERATOR })));
+    const cable = b.stops.find((x) => x.product_code === 'DS-16')!;
+    const gloves = b.stops.find((x) => x.product_code === 'PT-12')!;
     const oneMetre = s.pallet('P-000210');
-    expect(oneMetre.receiving?.product_code).toBe('CBL-C1');
+    expect(oneMetre.receiving?.product_code).toBe('DS-24');
     fails(s.pick(OPERATOR, b, gloves, oneMetre.id, 'substitute'), 'INVALID_STATE', /did not allow substitutes/);
     ok(s.pick(OPERATOR, b, cable, oneMetre.id, 'substitute'));
     s.pickAll(OPERATOR, b.id);
     ok(s.run(OPERATOR, 'finish_batch', { batch_id: b.id, reason: '' }));
-    const jordan = s.order('WEB-1042');
+    const jordan = s.order('SO-1042');
     expect(jordan.lines[0].units[0].sub?.status).toBe('pending');
-    fails(s.run(OPERATOR, 'pack', { order_id: jordan.id, unit_ids: jordan.lines.flatMap((l) => l.units.map((u) => u.pallet_id)), box_type: 'Small box' }), 'INVALID_STATE', /approve the substitute/);
+    fails(s.run(OPERATOR, 'pack', { order_id: jordan.id, unit_ids: jordan.lines.flatMap((l) => l.units.map((u) => u.pallet_id)), box_type: 'Master carton' }), 'INVALID_STATE', /approve the substitute/);
     fails(s.run(OPERATOR, 'decide_sub', { order_id: jordan.id, pallet_id: oneMetre.id, approve: true }), 'FORBIDDEN');
     ok(s.run(MANAGER, 'decide_sub', { order_id: jordan.id, pallet_id: oneMetre.id, approve: false, note: 'Customer wants the 2 m only' }));
-    const after = s.order('WEB-1042');
+    const after = s.order('SO-1042');
     expect(after.lines[0].units).toHaveLength(0);
     expect(after.lines[0].short?.qty).toBe(1);
     // The refused unit is back in stock, waiting for a spot.
@@ -335,35 +335,35 @@ describe('a batch from start to handoff', () => {
 
   it('pack, stage on a staging spot, and hand off every package: each unit is dispatched to the customer', () => {
     const s = setup();
-    const o = s.order('WEB-1041');
+    const o = s.order('SO-1041');
     const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [o.id], assign_to: OPERATOR })));
     ok(s.run(OPERATOR, 'assign_tote', { batch_id: b.id, letter: 'A', tote_code: 'T-03' }));
     s.pickAll(OPERATOR, b.id);
     ok(s.run(OPERATOR, 'finish_batch', { batch_id: b.id, reason: '' }));
-    const units = s.order('WEB-1041').lines.flatMap((l) => l.units.map((u) => u.pallet_id));
+    const units = s.order('SO-1041').lines.flatMap((l) => l.units.map((u) => u.pallet_id));
     expect(units).toHaveLength(3);
     fails(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units, box_type: '' }), 'INVALID_INPUT', /box/);
-    const k1 = ok(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units.slice(0, 2), box_type: 'Medium box', weight_lb: 4.5 }));
+    const k1 = ok(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units.slice(0, 2), box_type: 'Mixed pallet', weight_lb: 4.5 }));
     expect(s.db.packages[k1]).toMatchObject({ code: 'K-000001', seq: 1, status: 'PACKED' });
-    expect(s.order('WEB-1041').status).toBe('PICKED');
-    fails(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units.slice(1), box_type: 'Mailer' }), 'INVALID_STATE', /already in a package/);
-    const k2 = ok(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units.slice(2), box_type: 'Mailer' }));
-    expect(s.order('WEB-1041').status).toBe('PACKED');
+    expect(s.order('SO-1041').status).toBe('PICKED');
+    fails(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units.slice(1), box_type: 'Tote' }), 'INVALID_STATE', /already in a package/);
+    const k2 = ok(s.run(OPERATOR, 'pack', { order_id: o.id, unit_ids: units.slice(2), box_type: 'Tote' }));
+    expect(s.order('SO-1041').status).toBe('PACKED');
     expect(s.db.pallets[units[0]].order?.package_code).toBe('K-000001');
 
     fails(s.run(OPERATOR, 'stage_package', { package_id: k1, location_id: s.loc('A-01-01').id }), 'INVALID_INPUT', /not a staging spot/);
     ok(s.run(OPERATOR, 'stage_package', { package_id: k1, location_id: s.loc('STAGING-01').id }));
-    expect(s.order('WEB-1041').status).toBe('PACKED');
+    expect(s.order('SO-1041').status).toBe('PACKED');
     ok(s.run(OPERATOR, 'stage_package', { package_id: k2, location_id: s.loc('STAGING-01').id }));
-    expect(s.order('WEB-1041').status).toBe('STAGED');
+    expect(s.order('SO-1041').status).toBe('STAGED');
 
-    const v = s.order('WEB-1041').version;
+    const v = s.order('SO-1041').version;
     fails(s.run(OPERATOR, 'hand_off', { order_id: o.id, package_ids: [k1], carrier: 'UPS' }, { expected_version: v }), 'INVALID_INPUT', /Not scanned: K-000002/);
     fails(s.run(OPERATOR, 'hand_off', { order_id: o.id, package_ids: [k1, k2], carrier: 'UPS' }, { expected_version: v - 1 }), 'VERSION_CONFLICT');
     ok(s.run(OPERATOR, 'hand_off', { order_id: o.id, package_ids: [k1, k2], carrier: 'UPS', tracking: '1Z999' }, { expected_version: v }));
-    const done = s.order('WEB-1041');
+    const done = s.order('SO-1041');
     expect(done.status).toBe('DONE');
-    expect(done.handoff?.destination).toBe('Shipped by UPS, tracking 1Z999 to Lakeside Dental (O-000001)');
+    expect(done.handoff?.destination).toBe('Shipped by UPS, tracking 1Z999 to Corner Market, store 12 (O-000001)');
     for (const id of units) {
       expect(s.db.pallets[id].state).toBe('DISPATCHED');
       expect(s.db.events[id].at(-1)!.type).toBe('hand_off');
@@ -373,22 +373,22 @@ describe('a batch from start to handoff', () => {
 
   it('a pickup needs the name of the person collecting it', () => {
     const s = setup();
-    const o = s.order('WEB-1044');
+    const o = s.order('SO-1044');
     const b = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [o.id], assign_to: MANAGER })));
     s.pickAll(MANAGER, b.id);
     ok(s.run(MANAGER, 'finish_batch', { batch_id: b.id, reason: '' }));
-    const units = s.order('WEB-1044').lines.flatMap((l) => l.units.map((u) => u.pallet_id));
-    const k = ok(s.run(MANAGER, 'pack', { order_id: o.id, unit_ids: units, box_type: 'Small box' }));
-    const v = s.order('WEB-1044').version;
+    const units = s.order('SO-1044').lines.flatMap((l) => l.units.map((u) => u.pallet_id));
+    const k = ok(s.run(MANAGER, 'pack', { order_id: o.id, unit_ids: units, box_type: 'Master carton' }));
+    const v = s.order('SO-1044').version;
     fails(s.run(OPERATOR, 'hand_off', { order_id: o.id, package_ids: [k] }, { expected_version: v }), 'INVALID_INPUT', /name/);
     ok(s.run(OPERATOR, 'hand_off', { order_id: o.id, package_ids: [k], collected_by: 'Maria Ortiz' }, { expected_version: v }));
-    expect(String(s.db.events[units[0]].at(-1)!.detail?.destination)).toMatch(/^Picked up by Maria Ortiz for Maria Ortiz/);
+    expect(String(s.db.events[units[0]].at(-1)!.detail?.destination)).toMatch(/^Picked up by Maria Ortiz for Hillside Pharmacy/);
   });
 
   it('two pickers never get the same unit, and the receipt makes a retried pick harmless', () => {
     const s = setup();
-    const first = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('WEB-1041').id], assign_to: OPERATOR })));
-    const second = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('WEB-1044').id], assign_to: MANAGER })));
+    const first = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('SO-1041').id], assign_to: OPERATOR })));
+    const second = s.batch(ok(s.run(MANAGER, 'start_batch', { order_ids: [s.order('SO-1044').id], assign_to: MANAGER })));
     const a = new Set(first.stops.flatMap((x) => x.suggested.map((u) => u.pallet_id)));
     expect(second.stops.flatMap((x) => x.suggested.map((u) => u.pallet_id)).some((id) => a.has(id))).toBe(false);
     const stop = nextStops(first).current!;

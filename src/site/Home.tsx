@@ -6,7 +6,7 @@ import { encodeCode128 } from '../device/code128';
 import { CREATOR } from '../brand';
 import { Section, SiteLink, firstName } from './kit';
 import { PRICING } from './prices';
-import { portalHref } from '../config/hosts';
+import { sampleHref } from '../config/hosts';
 import { SeeItWork } from './SeeItWork';
 import { openGroup } from './for/GroupCards';
 import { groupById, groupHref, groupTitle, type GroupId } from './for/groups';
@@ -14,7 +14,7 @@ import './home.css';
 import './pilot.css';
 
 /** The sample warehouse: opens the app with sample data, no account. */
-const SAMPLE_HREF = portalHref('?demo=1#signin');
+const SAMPLE_HREF = sampleHref();
 
 /** The kinds of business shown on the home page, with a short name for the compact row. The rest are on #for. */
 const HOME_GROUPS: { id: GroupId; label: string }[] = [
@@ -48,7 +48,7 @@ export function Home() {
             <div className="site-hero-actions home-actions">
               <a className="site-btn primary" href={SAMPLE_HREF} data-testid="hero-sample">
                 <Icon name="play" />
-                Try the sample warehouse
+                Try the sample warehouse for your business
               </a>
               <SiteLink to="start" className="site-btn ghost">
                 Start your free trial
@@ -126,7 +126,7 @@ export function Home() {
           <div className="site-hero-actions home-actions">
             <a className="site-btn primary" href={SAMPLE_HREF} data-testid="close-sample">
               <Icon name="play" />
-              Try the sample warehouse
+              Try the sample warehouse for your business
             </a>
             <SiteLink to="start" className="site-btn ghost">
               Start your free trial

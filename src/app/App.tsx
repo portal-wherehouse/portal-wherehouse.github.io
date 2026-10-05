@@ -2,6 +2,8 @@ import { WarehouseMenu } from '../features/warehouse/WarehouseMenu';
 import { FirebaseBackend } from '../data/firebase';
 import { QuietLoading, WarehouseLoading } from '../portal/WarehouseLoading';
 import { SampleHints } from '../portal/SampleHints';
+import { SampleSwitcher } from '../portal/SampleSwitcher';
+import { leaveSampleHref } from '../config/hosts';
 import { LiveView } from '../data/LiveView';
 // App shell. Website pages get the site header and footer; everything else is the portal:
 // demo strip, top bar with "Take the tour", navigation, the current screen, and the sheets above it.
@@ -195,8 +197,9 @@ function Portal() {
   return (
     <div className="shell customer-app">
       {backend.mode === 'demo' && <div className="demo-strip" role="note">
-        {!IS_PREVIEW && <a className="demo-exit" href={location.pathname} data-testid="exit-demo"><Icon name="x" />Exit demo</a>}
+        {!IS_PREVIEW && <a className="demo-exit" href={leaveSampleHref()} data-testid="exit-demo"><Icon name="x" />Exit demo</a>}
         <strong>Sample warehouse</strong>
+        <SampleSwitcher />
         <span className="grow">
           {IS_PREVIEW ? 'Hosted preview. ' : ''}Practice data stays in this browser{me && role ? `. You are using the ${ROLE_LABEL[role]} account${multiCompany && companyName ? ` at ${companyName}` : ''}` : ''}.
         </span>

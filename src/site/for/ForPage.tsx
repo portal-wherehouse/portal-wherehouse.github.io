@@ -5,7 +5,8 @@ import { useEffect } from 'react';
 import { Icon } from '../../ui/icons';
 import { CtaBand, FeatureCards, PageHero, Section, SiteLink } from '../kit';
 import { useSite } from '../routing';
-import { portalHref } from '../../config/hosts';
+import { sampleHref } from '../../config/hosts';
+import { industry } from '../../demo/industries';
 import { GroupCards, openGroup } from './GroupCards';
 import { groupById, groupHref, groupTitle } from './groups';
 import { FEATURES, GROUP_PAGES, type Group } from './groupPages';
@@ -13,8 +14,6 @@ import { GroupShowcase, Label } from './GroupShowcase';
 import { Examples } from './Examples';
 import './for.css';
 
-/** The sample warehouse: opens the app with sample data, no account. */
-const SAMPLE_HREF = portalHref('?demo=1#signin');
 
 export function ForPage() {
   const { route } = useSite();
@@ -68,9 +67,9 @@ function GroupPage({ g }: { g: Group }) {
         lede={g.lede}
         art={<HeroLabel g={g} />}
       >
-        <a className="site-btn primary" href={SAMPLE_HREF}>
+        <a className="site-btn primary" href={sampleHref(g.id)}>
           <Icon name="play" />
-          Try the sample warehouse
+          Try the sample warehouse for your {industry(g.id).your}
         </a>
         <SiteLink to="start" className="site-btn ghost">
           Start your free trial
@@ -127,9 +126,9 @@ function GroupPage({ g }: { g: Group }) {
             <p className="site-lede">The sample warehouse already has items, spots and history in it. No account needed. When you’re ready, the free trial starts with a 2-minute survey.</p>
           </div>
           <div className="site-hero-actions">
-            <a className="site-btn primary" href={SAMPLE_HREF} data-testid="group-sample">
+            <a className="site-btn primary" href={sampleHref(g.id)} data-testid="group-sample">
               <Icon name="play" />
-              Try the sample warehouse
+              Try the sample warehouse for your {industry(g.id).your}
             </a>
             <SiteLink to="start" className="site-btn ghost">
               Start your free trial
