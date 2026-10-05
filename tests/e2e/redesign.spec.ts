@@ -25,8 +25,8 @@ test('the owner sees Dashboard, three groups and Help, with Setup folded', async
   await expect(page.locator('.sidebar .dashboard-nav')).toContainText('Dashboard');
   expect(await sidebar(page)).toEqual({
     groups: {
-      'Daily work': ['Receive', 'Put away and move', 'Ship', 'Find', 'Jobs'],
-      Inventory: ['Stock', 'Counts', 'History'],
+      'Daily work': ['Receive', 'Put away and move', 'Ship', 'Find', 'Pick orders', 'Jobs'],
+      Inventory: ['Stock', 'Transfers', 'Counts', 'History'],
       Setup: ['Spots and labels', 'Products and barcodes', 'People', 'Scanners and printers', 'Import and export', 'Settings'],
     },
     foot: ['Help'],
