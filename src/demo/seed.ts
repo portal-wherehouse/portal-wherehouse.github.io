@@ -1,12 +1,15 @@
 import { DEFAULT_SETUP } from '../domain/terms';
+import { warehouseDate } from '../domain/receiving';
+import { addDays } from '../domain/work';
 // Deterministic fictional warehouses (blueprint page 29).
 // Every record is produced by running real commands through the engine, never by writing
 // snapshots directly, so the fixture obeys the same rules the app enforces.
 // All companies, people, jobs, and contents are invented.
 
 import { mulberry32, uuid, generateToken } from '../domain/codes';
-import type { CommandEnvelope, CommandKind, Job, Location, LocationKind, Pallet, User } from '../domain/types';
+import type { CommandEnvelope, CommandKind, Job, Location, LocationKind, Pallet, User, WarehouseSetup } from '../domain/types';
 import { Engine, emptyDb, type Db } from './engine';
+import { DEFAULT_INDUSTRY, industry, sampleSpots, type IndustryId, type IndustrySample, type SampleProduct } from './industries';
 
 export const DEFAULT_SEED = 214;
 export const FIXTURE_SCHEMA_VERSION = 1;
@@ -134,11 +137,11 @@ class Driver {
     return r;
   }
 
-  setupWorkspace(owner: User, name: string, others: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][], facility = { code: 'WH-01', name: 'Main yard' }) {
+  setupWorkspace(owner: User, name: string, others: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][], facility = { code: 'WH-01', name: 'Main yard' }, setup: WarehouseSetup = { ...DEFAULT_SETUP, preset: 'pallets' }) {
     const { workspace } = this.engine.createWorkspace(owner, name, { ...facility, timezone: 'America/Chicago' });
     this.ws = workspace.id;
-    // The sample is a pallet yard that has already answered "What do you store?".
-    for (const w of Object.values(this.db.warehouses)) if (w.workspace_id === this.ws) w.setup = { ...DEFAULT_SETUP, preset: 'pallets' };
+    // The sample has already answered "What do you store?" (a pallet yard unless the business says otherwise).
+    for (const w of Object.values(this.db.warehouses)) if (w.workspace_id === this.ws) w.setup = { ...setup };
     for (const [u, role] of others) this.engine.addMember(this.ws, u, role);
     return workspace;
   }
@@ -345,163 +348,214 @@ export function seedFresh(): Db {
   return db;
 }
 
-/** The public sample is deliberately small; stress fixtures remain available to development tests. */
-export function seedSample():Db{
- const db=emptyDb(),d=new Driver(db,DEFAULT_SEED,dayStart(Date.now(),1,9));const [owner,manager,employee,viewer]=DEMO_USERS;
- d.setupWorkspace(owner,'Sample warehouse',[[manager,'SUPERVISOR'],[employee,'OPERATOR'],[viewer,'VIEWER']]);
- d.addJobs(manager.id,[['JOB-1','Example job 1','Example delivery address'],['JOB-2','Example job 2','Example delivery address']]);
- d.addLocations(owner.id,[['A-01-01','RACK'],['A-01-02','RACK'],['B-01-01','RACK'],['RECEIVING-01','RECEIVING']]);
- for(let i=1;i<=6;i++){
-  let p=d.run(employee.id,'receive',{job_id:d.jobs.get(i<=3?'JOB-1':'JOB-2')!.id,description:`Example pallet ${i}`})!;
-  if(i!==2)p=d.run(employee.id,'place',{location_id:d.locs.get(i<=3?'A-01-01':'A-01-02')!.id},p)!;
-  if(i===1)d.run(employee.id,'move',{location_id:d.locs.get('B-01-01')!.id},p);
-  if(i===5)d.run(employee.id,'apply_hold',{reason:'Example: waiting for a damage check.'},p);
-  if(i===6)d.run(employee.id,'dispatch',{destination:'Example job 2'},p);
- }
- seedOrders(d,owner.id,manager.id,employee.id);
- seedLowStock(d,manager.id,employee.id);
- // A second warehouse in the same account, so Transfers can be tried. Its pallet numbers start at 101,
- // so codes stay distinct from the main yard's while pallets move between the two.
- const main=d.ws;const mainLocs=d.locs;d.jobs=new Map();d.locs=new Map();
- d.setupWorkspace(owner,'Overflow yard',[[manager,'SUPERVISOR'],[employee,'OPERATOR'],[viewer,'VIEWER']],{code:'WH-02',name:'Overflow yard'});
- d.addJobs(manager.id,[['JOB-1','Example job 1','Example delivery address']]);
- d.addLocations(owner.id,[['RECEIVING-01','RECEIVING'],['C-01-01','RACK'],['C-01-02','RACK']]);
- db.counters[d.ws]=100;
- for(let i=1;i<=3;i++){
-  const p=d.run(employee.id,'receive',{job_id:d.jobs.get('JOB-1')!.id,description:`Overflow pallet ${i}`})!;
-  d.run(employee.id,'place',{location_id:d.locs.get(i===3?'C-01-02':'C-01-01')!.id},p);
- }
- // Zip ties are running low in the main yard; the overflow yard has two pallets to send over.
- for(let i=0;i<2;i++){
-  const p=d.run(employee.id,'receive',{description:LOW_ZIP[1],receiving:{product_code:LOW_ZIP[0],quantity:'20',unit:'bags'}})!;
-  d.run(employee.id,'place',{location_id:d.locs.get('C-01-02')!.id},p);
- }
- const overflow=d.ws;d.ws=main;d.locs=mainLocs;
- seedWork(d,owner.id,manager.id,employee.id,viewer.id,overflow);
- return db;
-}
-
-const LOT_PRODUCT = ['SAN-500', 'Hand sanitizer, case of 12'] as const;
 
 /**
- * Lots with expiry dates (two expiring soon, one expired, one later), a scheduled count for the operator, one count
+ * The public sample, tailored to a kind of business (industries.ts). It is deliberately small; stress fixtures remain
+ * available to development tests. Every business gets the same plan, so each one shows every feature: records with a
+ * story, orders to pick, stock running low, lots with expiry dates, counts, moves, an incoming list and transfers.
+ */
+export function seedSample(kind: IndustryId = DEFAULT_INDUSTRY): Db {
+  const s = industry(kind);
+  const at = sampleSpots(s);
+  const db = emptyDb();
+  const d = new Driver(db, DEFAULT_SEED, dayStart(Date.now(), 1, 9));
+  const [owner, manager, employee, viewer] = DEMO_USERS.map((u, i) => ({ ...u, name: s.people[i] }));
+  const crew: [User, 'SUPERVISOR' | 'OPERATOR' | 'VIEWER'][] = [
+    [manager, 'SUPERVISOR'],
+    [employee, 'OPERATOR'],
+    [viewer, 'VIEWER'],
+  ];
+  const setup = { ...s.setup, jobs_on: true };
+  d.setupWorkspace(owner, s.workspace, crew, { code: 'WH-01', name: s.facility }, setup);
+  d.addJobs(manager.id, s.jobs);
+  const [job1, job2] = s.jobs.map(([code]) => code);
+  d.addLocations(owner.id, [
+    [at.a11, 'RACK'],
+    [at.a12, 'RACK'],
+    [at.b11, 'RACK'],
+    [s.receiving, 'RECEIVING'],
+  ]);
+  s.stock.forEach((description, n) => {
+    const i = n + 1;
+    let p = d.run(employee.id, 'receive', { job_id: d.jobs.get(i <= 3 ? job1 : job2)!.id, description })!;
+    if (i !== 2) p = d.run(employee.id, 'place', { location_id: d.locs.get(i <= 3 ? at.a11 : at.a12)!.id }, p)!;
+    if (i === 1) d.run(employee.id, 'move', { location_id: d.locs.get(at.b11)!.id }, p);
+    if (i === 5) d.run(employee.id, 'apply_hold', { reason: s.hold }, p);
+    if (i === 6) d.run(employee.id, 'dispatch', { destination: s.jobs[1][2] }, p);
+  });
+  seedOrders(d, s, owner.id, manager.id, employee.id);
+  seedLowStock(d, s, manager.id, employee.id);
+  seedIncoming(d, s, manager.id);
+  // A second warehouse in the same account, so Transfers can be tried. Its record numbers start at 101,
+  // so codes stay distinct from the main warehouse's while records move between the two.
+  const main = d.ws;
+  const mainLocs = d.locs;
+  d.jobs = new Map();
+  d.locs = new Map();
+  d.setupWorkspace(owner, s.overflow, crew, { code: 'WH-02', name: s.overflow }, setup);
+  d.addJobs(manager.id, [s.jobs[0]]);
+  d.addLocations(owner.id, [
+    [s.receiving, 'RECEIVING'],
+    [at.c11, 'RACK'],
+    [at.c12, 'RACK'],
+  ]);
+  db.counters[d.ws] = 100;
+  s.overflowStock.forEach((description, i) => {
+    const p = d.run(employee.id, 'receive', { job_id: d.jobs.get(job1)!.id, description })!;
+    d.run(employee.id, 'place', { location_id: d.locs.get(i === 2 ? at.c12 : at.c11)!.id }, p);
+  });
+  // The second low product runs short in the main warehouse; the second warehouse has two records to send over.
+  const [, lowB] = s.low;
+  for (let i = 0; i < 2; i++) {
+    const p = d.run(employee.id, 'receive', { description: lowB.description, receiving: { product_code: lowB.code, quantity: '20', unit: lowB.unit } })!;
+    d.run(employee.id, 'place', { location_id: d.locs.get(at.c12)!.id }, p);
+  }
+  d.ws = main;
+  d.locs = mainLocs;
+  seedWork(d, s, owner.id, manager.id, employee.id, viewer.id);
+  return db;
+}
+
+/**
+ * Lots with expiry dates (two expiring soon, one expired, one later), a scheduled count for the employee, one count
  * waiting for a manager's review, three move tasks, a quarantine spot for damaged returns, and the viewer limited to
  * the main warehouse.
  */
-function seedWork(d: Driver, owner: string, manager: string, employee: string, viewer: string, overflow: string) {
-  const day = (offset: number) => new Date(dayStart(Date.now(), -offset, 12)).toISOString().slice(0, 10);
+function seedWork(d: Driver, s: IndustrySample, owner: string, manager: string, employee: string, viewer: string) {
+  const at = sampleSpots(s);
+  // Dates are days in the warehouse's own time zone, the way the screens work out "today" (warehouseDate), so a
+  // count due today says so even just after midnight UTC.
+  const tz = Object.values(d.db.warehouses).find((w) => w.workspace_id === d.ws)?.timezone || 'UTC';
+  const today = warehouseDate(tz, new Date(Date.now()));
+  const day = (offset: number) => addDays(today, offset);
   d.run(manager, 'set_lots', { on: true });
-  d.addLocations(owner, [['QUARANTINE-01', 'QUARANTINE']]);
-  // Numbered from P-000401, so the next pallet received in the sample is still P-000007.
+  d.addLocations(owner, [[s.quarantine, 'QUARANTINE']]);
+  // Numbered from P-000401, so the next record received in the sample is still P-000007.
   const next = d.db.counters[d.ws];
   d.db.counters[d.ws] = 400;
-  d.run(manager, 'save_product', { code: LOT_PRODUCT[0], description: LOT_PRODUCT[1], unit: 'cases', create: true });
+  d.run(manager, 'save_product', { code: s.lot.code, description: s.lot.description, unit: s.lot.unit, create: true });
   const lots: [string, number, string][] = [
-    ['L-2405', -5, 'A-02-01'],
-    ['L-2409', 9, 'A-02-01'],
-    ['L-2410', 24, 'B-01-01'],
-    ['L-2502', 140, 'B-01-01'],
+    ['L-2405', -5, at.a21],
+    ['L-2409', 9, at.a21],
+    ['L-2410', 24, at.b11],
+    ['L-2502', 140, at.b11],
   ];
   for (const [lot, days, spot] of lots) {
     d.tick(1, 3);
-    const p = d.run(employee, 'receive', { description: LOT_PRODUCT[1], receiving: { product_code: LOT_PRODUCT[0], quantity: '12', unit: 'cases', lot, expires_on: day(days) } })!;
+    const p = d.run(employee, 'receive', { description: s.lot.description, receiving: { product_code: s.lot.code, quantity: '12', unit: s.lot.unit, lot, expires_on: day(days) } })!;
     d.run(employee, 'place', { location_id: d.locs.get(spot)!.id }, p);
   }
   d.db.counters[d.ws] = next;
   const pallet = (code: string) => Object.values(d.db.pallets).find((p) => p.workspace_id === d.ws && p.code === code)!;
-  // A count of zone B for the operator, every week, due today.
+  const zoneB = s.zones[1];
+  // A count of zone B for the employee, every week, due today.
   d.tick(1, 3);
-  d.run(manager, 'schedule_count', { scope: 'zone', zone: 'B', assigned_to: employee, due_on: day(0), repeat: 'weekly', note: 'Weekly check of zone B.' });
-  // A count of A-01-02 the operator already sent: one pallet on record there was not found, so it waits for review.
+  d.run(manager, 'schedule_count', { scope: 'zone', zone: zoneB, assigned_to: employee, due_on: day(0), repeat: 'weekly', note: `Weekly check of zone ${zoneB}.` });
+  // A count of one spot the employee already sent: one record there was not found, so it waits for review.
   d.tick(1, 3);
-  const spot = d.locs.get('A-01-02')!;
+  const spot = d.locs.get(at.a12)!;
   d.run(manager, 'schedule_count', { scope: 'spot', location_id: spot.id, assigned_to: employee, due_on: day(0), repeat: 'none' });
-  const sent = Object.values(d.db.counts).find((c) => c.name === 'A-01-02')!;
+  const sent = Object.values(d.db.counts).find((c) => c.workspace_id === d.ws && c.name === at.a12)!;
   const here = Object.values(d.db.pallets).filter((p) => p.workspace_id === d.ws && p.state === 'STORED' && p.current_location_id === spot.id).sort((a, b) => a.code.localeCompare(b.code));
   d.tick(5, 10);
   d.runAt(employee, 'submit_count', { count_id: sent.id, spots: [{ location_id: spot.id, pallet_ids: here.slice(1).map((p) => p.id), unknown: [] }] }, sent.version);
-  // Moves for the crew: put away the pallet waiting for a spot, and two moves.
+  // Moves for the crew: put away the record waiting for a spot, and two moves.
   d.tick(1, 3);
   d.run(manager, 'queue_moves', {
     lines: [
-      { pallet_id: pallet('P-000002').id, to_location_id: d.locs.get('A-01-01')!.id },
-      { pallet_id: pallet('P-000003').id, to_location_id: d.locs.get('B-02-01')!.id },
+      { pallet_id: pallet('P-000002').id, to_location_id: d.locs.get(at.a11)!.id },
+      { pallet_id: pallet('P-000003').id, to_location_id: d.locs.get(at.b21)!.id },
     ],
     assigned_to: employee,
   });
   d.tick(1, 3);
-  d.run(manager, 'queue_moves', { lines: [{ pallet_id: pallet('P-000401').id, to_location_id: d.locs.get('QUARANTINE-01')!.id }], note: 'Expired lot. Keep it away from picking.' });
+  d.run(manager, 'queue_moves', { lines: [{ pallet_id: pallet('P-000401').id, to_location_id: d.locs.get(s.quarantine)!.id }], note: 'Expired lot. Keep it away from picking.' });
   // The viewer works in the main warehouse only.
   d.tick(1, 3);
   d.run(owner, 'set_access', { user_id: viewer, workspace_ids: [d.ws] });
-  void overflow;
 }
 
-const LOW_BAT = ['BAT-AA', 'AA batteries, case of 24'] as const;
-const LOW_ZIP = ['ZIP-100', 'Zip ties, bag of 100'] as const;
-
 /** Two products below their minimum (Running low), one with enough, and a quantity change in the history. */
-function seedLowStock(d: Driver, manager: string, employee: string) {
-  // Numbered from P-000301, so the next pallet received in the sample is still P-000007.
+function seedLowStock(d: Driver, s: IndustrySample, manager: string, employee: string) {
+  const at = sampleSpots(s);
+  const [lowA, lowB] = s.low;
+  // Numbered from P-000301, so the next record received in the sample is still P-000007.
   const next = d.db.counters[d.ws];
   d.db.counters[d.ws] = 300;
-  d.run(manager, 'save_product', { code: LOW_BAT[0], description: LOW_BAT[1], unit: 'cases', create: true, min_qty: 4, reorder_qty: 6 });
-  d.run(manager, 'save_product', { code: LOW_ZIP[0], description: LOW_ZIP[1], unit: 'bags', create: true, min_qty: 4 });
-  d.run(manager, 'save_product', { code: 'TAPE-48', description: 'Packing tape, 6 rolls', unit: 'each', min_qty: 2 });
+  d.run(manager, 'save_product', { code: lowA.code, description: lowA.description, unit: lowA.unit, create: true, min_qty: 4, reorder_qty: 6 });
+  d.run(manager, 'save_product', { code: lowB.code, description: lowB.description, unit: lowB.unit, create: true, min_qty: 4 });
+  d.run(manager, 'save_product', { code: s.products[1].code, description: s.products[1].description, unit: s.unit, min_qty: 2 });
   d.tick(1, 3);
-  const bat = d.run(employee, 'receive', { description: LOW_BAT[1], receiving: { product_code: LOW_BAT[0], quantity: '10', unit: 'cases' } })!;
-  const placed = d.run(employee, 'place', { location_id: d.locs.get('A-01-02')!.id }, bat)!;
+  const a = d.run(employee, 'receive', { description: lowA.description, receiving: { product_code: lowA.code, quantity: '10', unit: lowA.unit } })!;
+  const placed = d.run(employee, 'place', { location_id: d.locs.get(at.a12)!.id }, a)!;
   d.tick(1, 3);
-  d.run(employee, 'adjust_qty', { reason: 'used', amount: 3, note: 'Example: taken for the shop floor.' }, placed);
+  d.run(employee, 'adjust_qty', { reason: 'used', amount: 3, note: lowA.used }, placed);
   for (let i = 0; i < 2; i++) {
     d.tick(1, 3);
-    const p = d.run(employee, 'receive', { description: LOW_ZIP[1], receiving: { product_code: LOW_ZIP[0], quantity: '20', unit: 'bags' } })!;
-    d.run(employee, 'place', { location_id: d.locs.get('B-01-01')!.id }, p);
+    const p = d.run(employee, 'receive', { description: lowB.description, receiving: { product_code: lowB.code, quantity: '20', unit: lowB.unit } })!;
+    d.run(employee, 'place', { location_id: d.locs.get(at.b11)!.id }, p);
   }
   d.db.counters[d.ws] = next;
 }
 
-/** Stock with product codes on four more spots, two staging spots, and four customer orders waiting to be picked. */
-const ORDER_PRODUCTS: [code: string, description: string, spots: [string, number][]][] = [
-  ['GLV-12', 'Work gloves, box of 12', [['A-02-01', 3]]],
-  ['TAPE-48', 'Packing tape, 6 rolls', [['A-02-02', 3], ['B-02-02', 1]]],
-  ['CBL-C2', 'USB-C cable, 2 m', [['B-02-01', 2]]],
-  ['CBL-C1', 'USB-C cable, 1 m', [['B-02-02', 2]]],
-  ['LMP-20', 'LED work light', [['B-02-01', 2]]],
-];
-
-function seedOrders(d: Driver, owner: string, manager: string, employee: string) {
-  d.run(owner, 'set_orders', { on: true, cart_size: 4, box_types: ['Small box', 'Medium box', 'Large box', 'Mailer'], subs: 'ask' });
-  d.addLocations(owner, [['A-02-01', 'RACK'], ['A-02-02', 'RACK'], ['B-02-01', 'RACK'], ['B-02-02', 'RACK'], ['STAGING-01', 'STAGING'], ['STAGING-02', 'STAGING']]);
-  // Order stock is numbered from P-000201, so the next pallet received in the sample is still P-000007.
+/** Stock with product codes on four more spots, two staging spots, and four orders waiting to be picked. */
+function seedOrders(d: Driver, s: IndustrySample, owner: string, manager: string, employee: string) {
+  const at = sampleSpots(s);
+  const [p1, p2, p3, p4, p5] = s.products;
+  const stock: [SampleProduct, [string, number][]][] = [
+    [p1, [[at.a21, 3]]],
+    [p2, [[at.a22, 3], [at.b22, 1]]],
+    [p3, [[at.b21, 2]]],
+    [p4, [[at.b22, 2]]],
+    [p5, [[at.b21, 2]]],
+  ];
+  d.run(owner, 'set_orders', { on: true, cart_size: 4, box_types: s.boxes, subs: 'ask' });
+  d.addLocations(owner, [
+    [at.a21, 'RACK'],
+    [at.a22, 'RACK'],
+    [at.b21, 'RACK'],
+    [at.b22, 'RACK'],
+    [s.staging[0], 'STAGING'],
+    [s.staging[1], 'STAGING'],
+  ]);
+  // Order stock is numbered from P-000201, so the next record received in the sample is still P-000007.
   const next = d.db.counters[d.ws];
   d.db.counters[d.ws] = 200;
-  for (const [code, description, spots] of ORDER_PRODUCTS) {
-    d.run(manager, 'save_product', { code, description, unit: 'each', create: true });
+  for (const [{ code, description }, spots] of stock) {
+    d.run(manager, 'save_product', { code, description, unit: s.unit, create: true });
     for (const [spot, n] of spots)
       for (let i = 0; i < n; i++) {
         d.tick(1, 3);
-        const p = d.run(employee, 'receive', { description, receiving: { product_code: code, quantity: '1', unit: 'each' } })!;
+        const p = d.run(employee, 'receive', { description, receiving: { product_code: code, quantity: '1', unit: s.unit } })!;
         d.run(employee, 'place', { location_id: d.locs.get(spot)!.id }, p);
       }
   }
   d.db.counters[d.ws] = next;
   const due = (days: number, hour: number) => new Date(dayStart(Date.now(), -days, hour)).toISOString();
-  const orders: [string, string, 'ship' | 'pickup', string, boolean, [string, number][]][] = [
-    ['WEB-1041', 'Lakeside Dental', 'ship', due(0, 15), false, [['GLV-12', 2], ['TAPE-48', 1]]],
-    ['WEB-1042', 'Jordan Lee', 'pickup', due(0, 12), true, [['CBL-C2', 1], ['LMP-20', 1]]],
-    ['WEB-1043', 'Northside Print Shop', 'ship', due(1, 15), true, [['TAPE-48', 2], ['CBL-C2', 1]]],
-    ['WEB-1044', 'Maria Ortiz', 'pickup', due(1, 10), false, [['GLV-12', 1], ['LMP-20', 1]]],
+  const plan: ['ship' | 'pickup', string, boolean, [SampleProduct, number][]][] = [
+    ['ship', due(0, 15), false, [[p1, 2], [p2, 1]]],
+    ['pickup', due(0, 12), true, [[p3, 1], [p5, 1]]],
+    ['ship', due(1, 15), true, [[p2, 2], [p3, 1]]],
+    ['pickup', due(1, 10), false, [[p1, 1], [p5, 1]]],
   ];
-  for (const [ref, name, method, due_at, allow_subs, lines] of orders) {
+  plan.forEach(([method, due_at, allow_subs, lines], i) => {
+    const o = s.orders[i];
     d.tick(2, 6);
     d.run(manager, 'create_order', {
-      external_ref: ref,
-      customer: { name, phone: '', email: '', address: method === 'ship' ? 'Example street address' : '' },
+      external_ref: o.ref,
+      customer: { name: o.customer, phone: '', email: '', address: method === 'ship' ? o.address : '' },
       method,
       due_at,
       allow_subs,
-      lines: lines.map(([product_code, qty]) => ({ product_code, qty })),
+      lines: lines.map(([p, qty]) => ({ product_code: p.code, qty })),
     });
-  }
+  });
+}
+
+/** A supplier's delivery list on Incoming: expected, not stock until it is received. */
+function seedIncoming(d: Driver, s: IndustrySample, manager: string) {
+  const job = s.jobs[0][0];
+  const rows = s.incoming.rows.map((r) => ({ description: r.description, quantity: r.quantity, unit: r.unit, job_code: r.job ? job : '' }));
+  d.tick(5, 20);
+  d.run(manager, 'import_batch', { import_kind: 'shipments', checksum: `sample-${s.id}-incoming`, rows, name: s.incoming.name, file_name: 'delivery-list.csv' });
 }

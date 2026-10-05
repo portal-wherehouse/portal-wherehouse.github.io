@@ -60,20 +60,20 @@ test('with jobs off, saved, history, dispatch and hints never ask for a job that
 
 test('retired pallets drop out of Find unless asked for',async({page})=>{
  await signInAs(page,'supervisor');await page.goto('/?demo=1#find');
- await page.locator('#find-q').fill('Example pallet 4');
- await page.locator('.result',{hasText:'Example pallet 4'}).click();
+ await page.locator('#find-q').fill('Laundry detergent, 40 cases');
+ await page.locator('.result',{hasText:'Laundry detergent, 40 cases'}).click();
  await page.getByRole('button',{name:'Retire pallet'}).click();
  await page.locator('#act-reason').fill('Sold off the floor.');
  await page.locator('.sheet').getByRole('button',{name:'Retire',exact:true}).click();
  await expect(page.locator('.sheet')).toHaveCount(0);
  await page.goto('/?demo=1#find');
- await page.locator('#find-q').fill('Example pallet');
- await expect(page.locator('.result',{hasText:'Example pallet 3'})).toBeVisible();
- await expect(page.locator('.result',{hasText:'Example pallet 4'})).toHaveCount(0);
+ await page.locator('#find-q').fill('cases');
+ await expect(page.locator('.result',{hasText:'Paper plates, 60 cases'})).toBeVisible();
+ await expect(page.locator('.result',{hasText:'Laundry detergent, 40 cases'})).toHaveCount(0);
  await page.getByLabel('Include retired and archived').check();
- await expect(page.locator('.result',{hasText:'Example pallet 4'})).toBeVisible();
+ await expect(page.locator('.result',{hasText:'Laundry detergent, 40 cases'})).toBeVisible();
  await page.getByLabel('Include retired and archived').uncheck();
  await page.getByRole('group',{name:'Filter by state'}).getByRole('button',{name:'Retired'}).click();
- await expect(page.locator('.result',{hasText:'Example pallet 4'})).toBeVisible();
- await expect(page.locator('.result',{hasText:'Example pallet 3'})).toHaveCount(0);
+ await expect(page.locator('.result',{hasText:'Laundry detergent, 40 cases'})).toBeVisible();
+ await expect(page.locator('.result',{hasText:'Paper plates, 60 cases'})).toHaveCount(0);
 });

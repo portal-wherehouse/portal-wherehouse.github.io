@@ -35,6 +35,17 @@ html:has(.customer-app, .auth-shell), html:has(.customer-app, .auth-shell) body 
 .customer-app .demo-strip .demo-exit:hover {background:#1b4573;}
 .customer-app .demo-strip .demo-exit:focus-visible {outline:2px solid #24568e;outline-offset:2px;}
 .customer-app .demo-strip .demo-exit svg {width:16px;height:16px;flex:none;}
+/* The sample's kind of business: a compact dropdown in the strip, its own row on a phone. */
+.customer-app .demo-strip {flex-wrap:wrap;row-gap:6px;}
+.customer-app .demo-kind {display:inline-flex;align-items:center;gap:8px;min-width:0;color:#3d536d;font:500 12.5px/1.2 var(--font-body);}
+.customer-app .demo-kind-select {position:relative;display:inline-flex;align-items:center;min-width:0;}
+.customer-app .demo-kind select {appearance:none;-webkit-appearance:none;min-height:36px;max-width:100%;padding:0 32px 0 12px;border:1px solid #bfd0e4;border-radius:8px;background:#fff;color:#1d3f66;font:600 13.5px/1 var(--font-body);cursor:pointer;text-overflow:ellipsis;transition:border-color .15s ease,box-shadow .15s ease;}
+.customer-app .demo-kind select:hover {border-color:#24568e;}
+.customer-app .demo-kind select:focus-visible {outline:2px solid #24568e;outline-offset:2px;}
+.customer-app .demo-kind select:disabled {opacity:.6;cursor:progress;}
+.customer-app .demo-kind-select svg {position:absolute;right:10px;width:14px;height:14px;pointer-events:none;color:#24568e;}
+@media(max-width:520px){.customer-app .demo-strip{gap:8px;}.customer-app .demo-strip .demo-exit{padding:0 14px;font-size:14px;}.customer-app .demo-kind{order:10;flex-basis:100%;}.customer-app .demo-kind-select{flex:1;}.customer-app .demo-kind select{width:100%;}}
+@media(max-width:420px){.customer-app .demo-strip .sample-signin{display:none;}}
 .customer-app .door-side {background:#f5f8fc;color:var(--ink);border-right:1px solid var(--line);}
 .customer-app .door-side::before,.customer-app .door-side::after {display:none;}
 .customer-app .door-title {font:550 38px/1.15 var(--font-body);letter-spacing:-1px;text-transform:none;}
@@ -162,3 +173,12 @@ html:has(.customer-app, .auth-shell), html:has(.customer-app, .auth-shell) body 
 .work-cards{display:grid;gap:12px;}.work-card{border-left-color:var(--accent)!important;background:var(--accent-soft,var(--surface));}.work-card .attention-count{color:var(--accent);border-color:var(--line);background:var(--surface);}
 .reason-chips{display:flex;flex-wrap:wrap;gap:6px;}.reason-chips .chip{white-space:normal;text-align:left;}.reason-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft,var(--surface));}.return-choice{max-width:100%;}
 .m-access{margin-top:2px;}.m-access svg{width:14px;height:14px;vertical-align:-2px;}
+
+/* Add warehouse in the sample: a friendly note that it is a demo, and the way to a real warehouse. */
+.demo-only{text-align:center;justify-items:center;}
+.demo-only p{margin:0;max-width:420px;line-height:1.55;color:var(--ink-2);}
+.demo-only .btn{width:100%;max-width:360px;justify-content:center;}
+.demo-only-mark{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:var(--accent-soft);color:var(--accent);animation:demo-only-pop .35s cubic-bezier(.2,1.4,.4,1) both;}
+.demo-only-mark svg{width:28px;height:28px;}
+@keyframes demo-only-pop{from{transform:scale(.6);opacity:0;}to{transform:none;opacity:1;}}
+@media (prefers-reduced-motion: reduce){.demo-only-mark{animation:none;}}

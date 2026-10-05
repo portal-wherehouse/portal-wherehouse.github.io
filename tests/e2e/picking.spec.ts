@@ -62,15 +62,15 @@ test('pick a batch, pack, stage and hand off with the camera, which stays on thr
   }
   await expect(flash(page)).toContainText('B-0001 done. 4 orders ready to pack.');
 
-  // Pack Lakeside Dental's tote: scan the tote, each item, then choose the box.
+  // Pack the Corner Market tote: scan the tote, each item, then choose the box.
   await tab(page, /^Pack/);
   await scan('T-02', 'Scan each item (0 of 3)');
   for (let n = 1; n <= 3; n++) await scan(await nextLabel(page), n === 3 ? 'Choose the box' : `Scan each item (${n} of 3)`);
   expect(await over(page)).toBeLessThanOrEqual(0);
-  await page.locator('.box-buttons').getByRole('button', { name: 'Medium box' }).click();
+  await page.locator('.box-buttons').getByRole('button', { name: 'Mixed pallet' }).click();
   await expect(page.getByTestId('packed-package')).toContainText('K-000001');
   await page.getByRole('button', { name: 'Print 4x6 label' }).click();
-  await expect(page.locator('#print-root').getByTestId('package-label')).toContainText('Lakeside Dental');
+  await expect(page.locator('#print-root').getByTestId('package-label')).toContainText('Corner Market, store 12');
   await expect(page.locator('#print-root').getByTestId('package-label')).toContainText('Package 1 of 1');
 
   // Stage: the package, then a staging spot. One scan of the spot saves.
@@ -112,7 +112,7 @@ test('pick and pack with a keyboard-wedge scanner, using cart letters only', asy
   await expect(prompt(page)).toHaveText('Scan the item');
   // A wrong item does not count, and says what the stop needs.
   await wedgeScan(page, 'P-000204');
-  await expect(flash(page)).toContainText('This stop needs Work gloves, box of 12');
+  await expect(flash(page)).toContainText('This stop needs Paper towels, case of 12 rolls');
   await expect(page.getByTestId('pick-take')).toHaveText('Take 2');
   // A spot scan of the right spot confirms where you are.
   await wedgeScan(page, 'A-02-01');
@@ -127,13 +127,13 @@ test('pick and pack with a keyboard-wedge scanner, using cart letters only', asy
   // Scanning an item from a tote opens its order, no tote scan needed.
   await wedgeScan(page, 'P-000208');
   await expect(prompt(page)).toHaveText('Scan each item (1 of 2)');
-  await expect(page.locator('.flow-prompt-sub')).toContainText('Jordan Lee');
+  await expect(page.locator('.flow-prompt-sub')).toContainText('Northgate Grocery');
   // An item from another order stays out of this box.
   await wedgeScan(page, 'P-000201');
   await expect(flash(page)).toContainText('belongs to O-000001');
   await wedgeScan(page, 'P-000212');
   await expect(prompt(page)).toHaveText('Choose the box');
-  await page.locator('.box-buttons').getByRole('button', { name: 'Small box' }).click();
+  await page.locator('.box-buttons').getByRole('button', { name: 'Master carton' }).click();
   await expect(page.getByTestId('packed-package')).toContainText('K-000001');
   expect(errors).toEqual([]);
 });
@@ -147,16 +147,16 @@ test('short picks, substitutes and the manager board', async ({ page }) => {
   await tab(page, /^Pick/);
   await page.getByTestId('start-batch').click();
   await page.getByRole('button', { name: 'Use letters only' }).click();
-  // First stop: A-02-01, two gloves for tote B. One is not there.
+  // First stop: A-02-01, two cases of paper towels for tote B. One is not there.
   await typeCode(page, 'P-000201');
   await expect(flash(page)).toContainText('P-000201 is in tote B. Take 1 more.');
   await page.getByTestId('cant-pick').click();
   await page.getByRole('button', { name: 'Not at the spot' }).click();
   await expect(flash(page)).toContainText('Recorded short');
-  // Walk on to Jordan Lee's cable (tote A, substitutes allowed) and offer the 1 m cable instead.
+  // Walk on to Northgate Grocery's 16 oz dish soap (tote A, substitutes allowed) and offer the 24 oz instead.
   for (let i = 0; i < 20; i++) {
     const take = await page.getByTestId('pick-stop').innerText();
-    if (/USB-C cable, 2 m/.test(take) && /O-000002/.test(take)) break;
+    if (/Dish soap 16 oz, case of 12/.test(take) && /O-000002/.test(take)) break;
     const unit = await nextLabel(page);
     if (!unit.startsWith('P-')) {
       await page.getByTestId('cant-pick').click();
@@ -170,12 +170,12 @@ test('short picks, substitutes and the manager board', async ({ page }) => {
   await expect(flash(page)).toContainText('A manager will review the substitute');
   // The board lists it for review; approving clears it.
   await tab(page, /^Orders/);
-  await expect(page.getByTestId('subs-waiting')).toContainText('USB-C cable, 1 m');
+  await expect(page.getByTestId('subs-waiting')).toContainText('Dish soap 24 oz, case of 9');
   await expect(page.getByTestId('batch-row')).toContainText('Demo Manager');
   await page.getByTestId('subs-waiting').getByRole('button', { name: 'Approve' }).click();
   await expect(page.getByTestId('subs-waiting')).toHaveCount(0);
   // The order shows the substitute and the short.
-  await page.getByTestId('order-list').locator('.order-row', { hasText: 'Lakeside Dental' }).click();
+  await page.getByTestId('order-list').locator('.order-row', { hasText: 'Corner Market, store 12' }).click();
   await expect(page.locator('#main')).toContainText('short');
 });
 

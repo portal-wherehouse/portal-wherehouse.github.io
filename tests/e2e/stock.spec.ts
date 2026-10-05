@@ -35,18 +35,18 @@ test('products show what is on hand against a minimum', async ({ page }) => {
   await page.goto('/?demo=1#products');
   await portalReady(page);
   const row = (name: string) => page.locator('[data-testid="product-list"] .import-row', { hasText: name });
-  await expect(row('AA batteries').getByTestId('stock-chip')).toHaveText('Low: 1 of 4 pallets');
-  await expect(row('Packing tape').getByTestId('stock-chip')).toHaveText('4 pallets · min 2');
-  await expect(row('Work gloves').getByTestId('stock-chip')).toHaveText('3 pallets on hand');
+  await expect(row('Stretch wrap').getByTestId('stock-chip')).toHaveText('Low: 1 of 4 pallets');
+  await expect(row('Bath tissue').getByTestId('stock-chip')).toHaveText('4 pallets · min 2');
+  await expect(row('Paper towels').getByTestId('stock-chip')).toHaveText('3 pallets on hand');
   await expect(page.getByText('2 products are running low')).toBeVisible();
 
-  await row('Work gloves').getByRole('button', { name: /Edit/ }).click();
+  await row('Paper towels').getByRole('button', { name: /Edit/ }).click();
   await page.locator('#prod-min').fill('2.5');
   await expect(page.getByText('Use whole numbers when counting pallets')).toBeVisible();
   await page.locator('#prod-min').fill('5');
   await page.locator('#prod-reorder').fill('6');
   await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(row('Work gloves').getByTestId('stock-chip')).toHaveText('Low: 3 of 5 pallets');
+  await expect(row('Paper towels').getByTestId('stock-chip')).toHaveText('Low: 3 of 5 pallets');
   await expect(page.getByText('3 products are running low')).toBeVisible();
   await shot(page, 'products');
   await noSideScroll(page);
@@ -63,8 +63,8 @@ test('running low: note a reorder, then bring stock over from the Overflow yard'
   await expect(card.locator('.attention-count')).toHaveText('2');
   await card.click();
   await expect(page.getByRole('tab', { name: /Running low/ })).toHaveAttribute('aria-selected', 'true');
-  const bat = page.getByTestId('low-row').filter({ hasText: 'AA batteries' });
-  const zip = page.getByTestId('low-row').filter({ hasText: 'Zip ties' });
+  const bat = page.getByTestId('low-row').filter({ hasText: 'Stretch wrap' });
+  const zip = page.getByTestId('low-row').filter({ hasText: 'Shipping labels' });
   await expect(bat).toContainText('1');
   await expect(bat).toContainText('of 4 pallets');
   await expect(bat).toContainText('Bring in 6 pallets (the reorder quantity).');
@@ -84,7 +84,7 @@ test('running low: note a reorder, then bring stock over from the Overflow yard'
   await expect(page.locator('.warehouse-name-button')).toHaveText('Overflow yard');
   await expect(page.getByRole('heading', { name: 'New transfer' })).toBeVisible();
   await expect(page.locator('#tr-dest option:checked')).toHaveText('Main yard');
-  await expect(page.getByText('2 pallets of product ZIP-100 picked, oldest first.')).toBeVisible();
+  await expect(page.getByText('2 pallets of product LBL-46 picked, oldest first.')).toBeVisible();
   await expect(page.locator('.tr-picked li')).toHaveCount(2);
   await shot(page, 'restock-transfer');
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -96,7 +96,7 @@ test('running low: note a reorder, then bring stock over from the Overflow yard'
   await page.getByRole('menu', { name: 'Warehouse menu' }).getByRole('menuitem', { name: /Sample warehouse|Main yard/ }).click();
   await page.goto('/?demo=1#reconcile?q=low');
   await expect(page.getByTestId('low-row')).toHaveCount(1);
-  await expect(page.getByTestId('low-row')).toContainText('AA batteries');
+  await expect(page.getByTestId('low-row')).toContainText('Stretch wrap');
   expect(errors).toEqual([]);
 });
 
@@ -109,8 +109,8 @@ test('stock reports, each with a CSV download', async ({ page }) => {
   await page.locator('.page-tabs').getByRole('button', { name: 'Reports' }).click();
   await expect(page.getByRole('heading', { name: 'Stock reports' })).toBeVisible();
   const product = page.getByTestId('report-product');
-  await expect(product.getByRole('row', { name: /AA batteries/ })).toContainText('Running low');
-  await expect(product.getByRole('row', { name: /Packing tape/ })).toContainText('OK');
+  await expect(product.getByRole('row', { name: /Stretch wrap/ })).toContainText('Running low');
+  await expect(product.getByRole('row', { name: /Bath tissue/ })).toContainText('OK');
   const download = page.waitForEvent('download');
   await product.getByRole('button', { name: 'Download CSV' }).click();
   const file = await download;

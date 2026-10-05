@@ -12,6 +12,7 @@ import { MeasurementsSetting } from "../settings/Settings";
 import { OrdersSetting } from "../orders/OrdersSetting";
 import { SetupSetting } from "../settings/SetupSetting";
 import type { Warehouse } from "../../domain/types";
+import { leaveSampleHref } from "../../config/hosts";
 
 export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
   const app = useApp(),
@@ -24,7 +25,8 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
   const [open, setOpen] = useState(false),
     [settings, setSettings] = useState(false),
     [upgrade, setUpgrade] = useState(false),
-    [adding, setAdding] = useState(false);
+    [adding, setAdding] = useState(false),
+    [demoOnly, setDemoOnly] = useState(false);
   const [others, setOthers] = useState<
       { id: string; name: string; available: boolean }[]
     >([]),
@@ -228,13 +230,14 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
               className="warehouse-menu-item warehouse-add"
               onClick={() => {
                 close();
-                if (!multi) setUpgrade(true);
+                if (!cloud) setDemoOnly(true);
+                else if (!multi) setUpgrade(true);
                 else setAdding(true);
               }}
             >
               <Icon name="plus" />
               <span>
-                Add warehouse{!multi && <small>Contact to upgrade</small>}
+                Add warehouse{cloud && !multi && <small>Contact to upgrade</small>}
               </span>
             </button>
           </div>
@@ -267,8 +270,36 @@ export function WarehouseMenu({ warehouse }: { warehouse: Warehouse }) {
         </Sheet>
       )}
       {adding && <AddWarehouse onClose={() => setAdding(false)} />}
+      {demoOnly && <DemoOnly onClose={() => setDemoOnly(false)} />}
       </div>, document.body)}
     </>
+  );
+}
+
+/** In the sample, Add warehouse explains that it is a demo and points to setting up a real warehouse. */
+function DemoOnly({ onClose }: { onClose: () => void }) {
+  return (
+    <Sheet title="Oops! This is just a demo button" onClose={onClose}>
+      <div className="stack demo-only" data-testid="demo-only">
+        <span className="demo-only-mark" aria-hidden="true">
+          <Icon name="building" />
+        </span>
+        <p>
+          Adding a warehouse works in your own account, not in the sample. If
+          you want to add your warehouse, create your warehouse: setup takes a
+          few minutes and starts with a free trial.
+        </p>
+        <a className="btn primary big" href={leaveSampleHref("#start")}>
+          Create your warehouse
+        </a>
+        <a className="btn" href={leaveSampleHref()}>
+          Go to the homepage
+        </a>
+        <button className="btn ghost" onClick={onClose}>
+          Keep exploring the sample
+        </button>
+      </div>
+    </Sheet>
   );
 }
 

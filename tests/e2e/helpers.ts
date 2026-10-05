@@ -19,6 +19,15 @@ export async function signInAs(page: Page, role: DemoRole) {
   }, `user-${role}`);
 }
 
+/**
+ * The sample's front door asks for the kind of business first ("Try the sample warehouse for your…"); pick one so
+ * the three ways in show. The warehouse sample is the one the other specs' data comes from.
+ */
+export async function pickSample(page: Page, kind = 'warehouses') {
+  await page.locator(`.sd-kind[data-kind="${kind}"]`).click();
+  await expect(page.locator('.sample-choice')).toHaveCount(3);
+}
+
 /** Collect uncaught page errors and console errors, to assert none happened. */
 export function watchErrors(page: Page): string[] {
   const errors: string[] = [];

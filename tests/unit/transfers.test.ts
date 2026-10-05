@@ -175,7 +175,7 @@ describe('transfer commands', () => {
     expect(moved.transfer).toBeNull();
     // The job with the same code is kept at the destination.
     expect(s.db.jobs[moved.job_id].workspace_id).toBe(s.overflow);
-    expect(s.db.jobs[moved.job_id].code).toBe('JOB-1');
+    expect(s.db.jobs[moved.job_id].code).toBe('ACCT-HF');
     // Its label follows, so scanning it at the destination finds the same record.
     const token = s.engine.activeLabel(p1.id)!.token;
     expect(s.engine.resolve(OPERATOR, s.overflow, makeLabelPayload('P', token))).toMatchObject({ type: 'pallet', pallet: { id: p1.id } });

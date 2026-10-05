@@ -83,7 +83,8 @@ test('home page cards open a "Wherehouse for" page with an example showcase and 
   await expect(page).toHaveTitle(/^Wherehouse for lumberyards and building supply · /);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   const group = page.getByTestId('group-page');
-  await expect(group.getByRole('link', { name: 'Try the sample warehouse' }).first()).toHaveAttribute('href', '?demo=1#signin');
+  // The sample opens already set up for this kind of business.
+  await expect(group.getByRole('link', { name: 'Try the sample warehouse for your lumberyard' }).first()).toHaveAttribute('href', '?demo=1&kind=lumberyards#signin');
   await expect(group.getByRole('button', { name: 'Start your free trial' }).first()).toBeVisible();
   // The showcase: four steps that can be clicked, labeled as an example.
   const show = page.getByTestId('group-showcase');

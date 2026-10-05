@@ -6,7 +6,7 @@ import { encodeCode128 } from '../device/code128';
 import { Section, SiteLink } from './kit';
 import { PRICING } from './prices';
 import { useSite } from './routing';
-import { portalHref } from '../config/hosts';
+import { sampleHref } from '../config/hosts';
 import { SeeItWork } from './SeeItWork';
 import { Examples, Founding } from './HomeStories';
 import { GroupCards } from './for/GroupCards';
@@ -27,7 +27,7 @@ function scrollToDemo() {
 }
 
 /** The sample warehouse: opens the app with sample data, no account. */
-const SAMPLE_HREF = portalHref('?demo=1#signin');
+const SAMPLE_HREF = sampleHref();
 
 // The page shows the product working first (hero, animation, kinds of business, examples, founding customers)
 // and only then asks visitors to set up their own warehouse.
@@ -49,7 +49,7 @@ export function Home() {
             <div className="site-hero-actions home-actions">
               <a className="site-btn primary" href={SAMPLE_HREF} data-testid="hero-sample">
                 <Icon name="play" />
-                Try the sample warehouse
+                Try the sample warehouse for your business
               </a>
               <SiteLink to="start" className="site-btn ghost">
                 Start your free trial

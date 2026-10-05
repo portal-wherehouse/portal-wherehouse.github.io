@@ -59,3 +59,17 @@ test('app. opens the portal and sends website pages to the website', async ({ pa
   await expect(page).toHaveURL(`${SITE}/#pricing`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Start with what you have.');
 });
+
+test('a group page opens its own sample on app., and Exit demo goes to the website home page, not app. sign-in', async ({ page }) => {
+  await page.goto(`${SITE}/#for/parts`);
+  await expect(page.getByTestId('group-sample')).toHaveAttribute('href', `${APP}/?demo=1&kind=parts#signin`);
+  await page.getByTestId('group-sample').click();
+  await expect(page).toHaveURL(`${APP}/?demo=1&kind=parts#signin`);
+  await expect(page.locator('.sd-picked')).toContainText('parts room');
+  await page.getByRole('button', { name: 'View a management dashboard' }).click();
+  await expect(page.getByTestId('sample-kind')).toHaveValue('parts');
+  await expect(page.getByTestId('exit-demo')).toHaveAttribute('href', `${SITE}/`);
+  await page.getByTestId('exit-demo').click();
+  await expect(page).toHaveURL(`${SITE}/`);
+  await expect(page.locator('.home-hero')).toBeVisible();
+});

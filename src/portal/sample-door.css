@@ -470,3 +470,289 @@
     font-size: 17px;
   }
 }
+
+/* ---------------------------------------------------------------- for your… */
+
+.sd-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sd-for {
+  margin: 0;
+  font: 700 clamp(22px, 6vw, 36px) / 1.1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: #c9cfd6;
+}
+.sd-for > span[aria-hidden] {
+  display: flex;
+  flex-direction: column;
+}
+.sd-typed {
+  color: #f2b705;
+  white-space: nowrap;
+  min-height: 1.1em;
+}
+.sd-typed.picked {
+  animation: sd-glow 0.7s ease-out both;
+}
+@keyframes sd-glow {
+  from {
+    color: #fff;
+    text-shadow: 0 0 18px rgba(242, 183, 5, 0.9);
+  }
+}
+.sd-caret {
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  margin-left: 3px;
+  vertical-align: -0.08em;
+  background: #f2b705;
+  animation: sd-blink 1s steps(1) infinite;
+}
+@keyframes sd-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.sd-sub {
+  margin: -4px 0 4px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #4f5862;
+}
+.sd-main h2:focus {
+  outline: none;
+}
+
+/* the kinds of business: one list, each row lifts and shows its accent on hover */
+.sd-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.sd-kinds > li {
+  display: flex;
+  min-width: 0;
+}
+.sd-kind {
+  --tone: #1f5fd6;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 11px 14px;
+  text-align: left;
+  border-radius: 14px;
+  border: 1.5px solid #e2e5df;
+  background: #fff;
+  color: #14171a;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(20, 23, 26, 0.05);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+.sd-kind::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--tone);
+  transform: scaleY(0);
+  transition: transform 0.22s ease;
+}
+.sd-kind:hover,
+.sd-kind:focus-visible {
+  transform: translateX(4px);
+  border-color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 4%, #fff);
+  box-shadow: 0 10px 24px rgba(20, 23, 26, 0.1);
+  outline: none;
+}
+.sd-kind:hover::before,
+.sd-kind:focus-visible::before,
+.sd-kind[aria-pressed='true']::before {
+  transform: none;
+}
+.sd-kind:active {
+  transform: translateX(2px) scale(0.985);
+}
+.sd-kind[aria-pressed='true'] {
+  border-color: var(--tone);
+}
+.sd-kind-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 12%, #fff);
+  transition:
+    transform 0.3s cubic-bezier(0.3, 1.6, 0.5, 1),
+    background 0.18s ease,
+    color 0.18s ease;
+}
+.sd-kind-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.sd-kind:hover .sd-kind-icon,
+.sd-kind:focus-visible .sd-kind-icon {
+  transform: rotate(-8deg) scale(1.08);
+  background: var(--tone);
+  color: #fff;
+}
+.sd-kind-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.sd-kind-text strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+.sd-kind-text small {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: #4f5862;
+}
+.sd-kind-go {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--tone);
+  background: #f1f2ee;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+.sd-kind-go svg {
+  width: 16px;
+  height: 16px;
+}
+.sd-kind:hover .sd-kind-go,
+.sd-kind:focus-visible .sd-kind-go {
+  background: var(--tone);
+  color: #fff;
+  transform: translateX(3px);
+}
+@media (max-width: 400px) {
+  .sd-kind {
+    gap: 12px;
+    padding: 10px 12px;
+  }
+  .sd-kind-icon {
+    width: 38px;
+    height: 38px;
+  }
+  .sd-kind-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+  .sd-kind-go {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* While picking on a phone or tablet, the list comes right after the title: the rack waits for the next step. */
+@media (max-width: 959px) {
+  .sample-door.picking .sd-rack,
+  .sample-door.picking .sd-steps {
+    display: none;
+  }
+}
+
+/* the business picked, with a way back to the list */
+.sd-picked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid #e2e5df;
+}
+.sd-picked-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 12%, #fff);
+}
+.sd-picked-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.sd-picked-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.sd-picked-text small {
+  font-size: 13px;
+  color: #4f5862;
+}
+.sd-picked-text strong {
+  font-size: 17px;
+  line-height: 1.25;
+}
+.sd-picked-text strong::first-letter {
+  text-transform: uppercase;
+}
+.sd-change {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1.5px solid #d4d8d1;
+  background: #f5f6f2;
+  color: #14171a;
+  font: 600 14px/1 var(--font-body);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.sd-change:hover,
+.sd-change:focus-visible {
+  border-color: #14171a;
+  background: #fff;
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-typed.picked,
+  .sd-caret {
+    animation: none;
+  }
+  .sd-kind,
+  .sd-kind::before,
+  .sd-kind-icon,
+  .sd-kind-go {
+    transition: none;
+  }
+}

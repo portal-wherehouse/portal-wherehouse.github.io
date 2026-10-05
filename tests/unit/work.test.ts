@@ -130,7 +130,7 @@ describe('scheduled and assigned counts', () => {
     const s = setup();
     const c = s.count('Zone B');
     const b1 = s.spot('B-01-01');
-    // P-000003 is on A-01-01 in the records but was found on B-01-01; one sanitizer pallet on B-01-01 was not found.
+    // P-000003 is on A-01-01 in the records but was found on B-01-01; one granola bar pallet on B-01-01 was not found.
     const onB1 = s.at('B-01-01');
     const gone = onB1.find((p) => p.code.startsWith('P-0004'))!;
     const spots = c.location_ids.map((id) => ({
@@ -230,13 +230,13 @@ describe('lots and expiry dates', () => {
     const rows = Object.values(s.db.pallets)
       .filter((p) => p.workspace_id === s.ws)
       .map((pallet) => ({ pallet, job: undefined, location: null, lastLocation: null }));
-    expect(searchRows(rows, { q: 'SAN-500' }).items.map((r) => r.pallet.receiving?.lot)).toEqual(['L-2405', 'L-2409', 'L-2410', 'L-2502']);
-    expect(pickableStock(s.engine, s.ws, 'SAN-500', new Set()).map((p) => p.receiving?.lot)).toEqual(['L-2405', 'L-2409', 'L-2410', 'L-2502']);
+    expect(searchRows(rows, { q: 'GB-24' }).items.map((r) => r.pallet.receiving?.lot)).toEqual(['L-2405', 'L-2409', 'L-2410', 'L-2502']);
+    expect(pickableStock(s.engine, s.ws, 'GB-24', new Set()).map((p) => p.receiving?.lot)).toEqual(['L-2405', 'L-2409', 'L-2410', 'L-2502']);
   });
 
   it('a lot and expiry date are saved on receive, and a real date is required', () => {
     const s = setup();
-    const r = ok(s.run(OPERATOR, 'receive', { description: 'Sanitizer', receiving: { product_code: 'SAN-500', lot: 'L-9', expires_on: '2027-03-01' } }));
+    const r = ok(s.run(OPERATOR, 'receive', { description: 'Sanitizer', receiving: { product_code: 'GB-24', lot: 'L-9', expires_on: '2027-03-01' } }));
     expect(r.current_state!.receiving).toMatchObject({ lot: 'L-9', expires_on: '2027-03-01' });
     expect(s.run(OPERATOR, 'receive', { description: 'Sanitizer', receiving: { expires_on: '2027-02-30' } })).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
   });

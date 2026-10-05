@@ -1,6 +1,7 @@
 // Practice shift: the blueprint's example shift (page 6) as a checklist that ticks itself off
 // as you actually do each step in the app. Hidden while the portal walkthrough is running.
 
+import { industry, sampleSpots } from '../../demo/industries';
 import { useEffect, useMemo, useState } from 'react';
 import { roleAllows } from '../../domain/transitions';
 import type { EventType, PalletEvent } from '../../domain/types';
@@ -72,9 +73,10 @@ export function Tour() {
   if (!tourOpen || !state || guideStep !== null) return null;
   const p = state.pallet;
   const code = p?.code ?? 'your new pallet';
-  const jobCode = backend.sampleMode ? 'JOB-1' : 'J-214';
-  const jobName = backend.sampleMode ? 'Example job 1' : 'School renovation';
-  const rackCode = backend.sampleMode ? 'A-01-01' : 'A-03-02';
+  const sample = backend.sampleMode ? industry(backend.industry) : null;
+  const jobCode = sample ? sample.jobs[0][0] : 'J-214';
+  const jobName = sample ? sample.jobs[0][1] : 'School renovation';
+  const rackCode = sample ? sampleSpots(sample).a11 : 'A-03-02';
   const steps: Step[] = [
     { title: 'Receive a delivery', how: `Open Receive, choose job ${jobCode} (${jobName}), describe it, and save. You get a brand-new code.`, go: { name: 'receive' }, done: !!p },
     { title: `Place ${code} on a rack`, how: `Tap “Place now”, or open Move: scan the pallet, then a rack. Try rack ${rackCode}.`, go: p ? { name: 'move', id: p.id } : { name: 'move' }, done: state.placed >= 0 },

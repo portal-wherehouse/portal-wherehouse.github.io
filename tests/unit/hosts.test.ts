@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appLanding, classifyHost, crossHostUrl, portalLink, redirectFor } from '../../src/config/hosts';
+import { appLanding, classifyHost, crossHostUrl, leaveSampleUrl, portalLink, redirectFor } from '../../src/config/hosts';
 import { SIGNUP_HOSTNAMES } from '../../src/config/registration';
 
 const at = (hostname: string, hash = '', search = '', pathname = '/') => ({ hostname, pathname, search, hash });
@@ -136,5 +136,23 @@ describe('portalLink', () => {
   it('stays relative elsewhere', () => {
     for (const h of ['portal-wherehouse.github.io', 'wherehouse.pages.dev', 'localhost', 'app.example.com'])
       expect(portalLink('?demo=1#signin', h)).toBe('?demo=1#signin');
+  });
+});
+
+describe('leaveSampleUrl (Exit demo and the demo-only buttons)', () => {
+  it('goes to the website home page on its apex, never the app host sign-in', () => {
+    expect(leaveSampleUrl(at('app.example.com'))).toBe('https://example.com/');
+    expect(leaveSampleUrl(at('example.com'))).toBe('https://example.com/');
+    expect(leaveSampleUrl(at('app.example.co.uk'))).toBe('https://example.co.uk/');
+  });
+
+  it('opens #start where it signs people in', () => {
+    expect(leaveSampleUrl(at('app.example.com'), '#start')).toBe('https://app.example.com/#start');
+    expect(leaveSampleUrl(at('app.example.com'), '#pricing')).toBe('https://example.com/#pricing');
+  });
+
+  it('stays on the same path with no ?demo on a single host', () => {
+    expect(leaveSampleUrl(at('portal-wherehouse.github.io'))).toBe('/');
+    expect(leaveSampleUrl(at('localhost', '', '', '/app/'), '#start')).toBe('/app/#start');
   });
 });

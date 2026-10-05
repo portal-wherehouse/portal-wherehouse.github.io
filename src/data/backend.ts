@@ -10,6 +10,7 @@ import { canonicalJson, hashString, uuid } from '../domain/codes';
 import { PALLET_STATES, type CommandEnvelope, type CommandKind, type CommandResult, type Pallet } from '../domain/types';
 import { Engine, type Db, DB_SCHEMA_VERSION } from '../demo/engine';
 import { seedFixture, seedSample, type FixtureName } from '../demo/seed';
+import { DEFAULT_INDUSTRY, industryFromSearch, isIndustry, type IndustryId } from '../demo/industries';
 import { Outbox, type OutboxEntry, type OutboxStorage } from './outbox';
 
 export type NetworkMode = 'online' | 'offline';
@@ -43,6 +44,8 @@ const OUTBOX_KEY = 'outbox';
 interface Meta {
   fixture: FixtureName;
   created_at: string;
+  /** The sample's kind of business (demo/industries.ts); the warehouse sample when missing. */
+  industry?: IndustryId;
   /** Set when the data came from a backup file (Data and storage screen). */
   restored_from?: { exported_at: string; restored_at: string };
 }
@@ -82,22 +85,25 @@ export class Backend {
   }
 
   private async init() {
+    // A sample link for another kind of business (?kind=lumberyards) starts that business's sample.
+    const asked = this.sampleMode && typeof location !== 'undefined' ? industryFromSearch(location.search) : null;
     try {
-      this.store = createStore(this.sampleMode?'wherehouse-sample-v5':'pallet-locator-demo', 'kv');
+      this.store = createStore(this.sampleMode?'wherehouse-sample-v6':'pallet-locator-demo', 'kv');
       const [db, meta, pending] = await Promise.all([get<Db>(DB_KEY, this.store), get<Meta>(META_KEY, this.store), get<PendingSend[]>(PENDING_KEY, this.store)]);
-      if (db && meta && db.schema === DB_SCHEMA_VERSION) {
+      if (db && meta && db.schema === DB_SCHEMA_VERSION && (!asked || (meta.industry ?? DEFAULT_INDUSTRY) === asked)) {
         this.db = db;
         this.meta = meta;
         this.pending = pending ?? [];
       } else {
-        await this.seed('tiny');
+        await this.seed('tiny', asked ?? meta?.industry);
       }
     } catch (err) {
       this.storageOk = false;
       this.storageError = err instanceof Error ? err.message : 'Storage unavailable';
       this.store = null;
-      this.db = seedFixture('tiny');
-      this.meta = { fixture: 'tiny', created_at: new Date().toISOString() };
+      const industry = asked ?? DEFAULT_INDUSTRY;
+      this.db = this.sampleMode ? seedSample(industry) : seedFixture('tiny');
+      this.meta = { fixture: 'tiny', created_at: new Date().toISOString(), ...(this.sampleMode ? { industry } : {}) };
     }
     for(const u of Object.values(this.db.users)){if(u.name==='Demo Supervisor')u.name='Demo Manager';if(u.email.endsWith('@northfield.example'))u.email=u.email.replace('@northfield.example','@sample.example').replace('supervisor@','manager@');}
     for(const ws of Object.values(this.db.workspaces)){if(ws.name === 'Northfield Builders')ws.name='Sample warehouse';if(ws.name === 'Harborline Supply')ws.name='Second sample warehouse';}
@@ -364,9 +370,15 @@ export class Backend {
     return r;
   }
 
-  async seed(fixture: FixtureName) {
-    this.db = this.sampleMode&&fixture==='tiny'?seedSample():seedFixture(fixture);
-    this.meta = { fixture, created_at: new Date().toISOString() };
+  /** The sample's kind of business. */
+  get industry(): IndustryId {
+    const kind = this.meta?.industry;
+    return isIndustry(kind) ? kind : DEFAULT_INDUSTRY;
+  }
+
+  async seed(fixture: FixtureName, industry: IndustryId = this.industry) {
+    this.db = this.sampleMode&&fixture==='tiny'?seedSample(industry):seedFixture(fixture);
+    this.meta = { fixture, created_at: new Date().toISOString(), ...(this.sampleMode ? { industry } : {}) };
     this.engine = new Engine(this.db);
     this.pending = [];
     this.cache = null;
@@ -383,8 +395,8 @@ export class Backend {
   }
 
   /** Reset touches only this demo's own storage, never anything else. */
-  async reset(fixture: FixtureName) {
-    await this.seed(fixture);
+  async reset(fixture: FixtureName, industry?: IndustryId) {
+    await this.seed(fixture, industry);
     if (this.outbox) await this.outbox.clearAll();
     this.bump(true, 'reset');
   }
@@ -433,6 +445,7 @@ export class Backend {
         fixture: check.snapshot.fixture === 'scenario' ? 'scenario' : 'tiny',
         created_at: check.snapshot.source_created_at || now,
         restored_from: { exported_at: check.snapshot.exported_at, restored_at: now },
+        ...(this.sampleMode ? { industry: this.industry } : {}),
       };
       let persisted = false;
       if (this.store) {
