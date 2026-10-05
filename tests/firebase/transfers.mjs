@@ -121,6 +121,9 @@ export async function testTransfers({ client, ok, issueKey, adminDb }) {
   const draftId = (await must(send(worker, A, 'create_transfer', { to_workspace_id: B, lines: loose.map(line) }))).target_id;
   let draftAt = await readAt(boss, A, 'transfers', draftId);
   assert.equal((await send(worker, A, 'pick_transfer', { transfer_id: draftId }, { expected_version: draftAt.version })).code, 'FORBIDDEN');
+  // Picking is on by default now; an owner who turned it off gets a clear refusal.
+  await must(send(boss, A, 'set_orders', { on: false, cart_size: 4, box_types: ['Pallet wrap'], subs: 'never' }));
+  draftAt = await readAt(boss, A, 'transfers', draftId);
   const ordersOff = await send(boss, A, 'pick_transfer', { transfer_id: draftId }, { expected_version: draftAt.version });
   assert.equal(ordersOff.code, 'INVALID_STATE');
   assert.match(ordersOff.message, /Orders and picking is off/);
