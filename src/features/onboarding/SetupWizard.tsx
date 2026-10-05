@@ -621,13 +621,13 @@ function ZoneBuild({ zone, planned, counting }: { zone: OnboardingZone; planned?
 function RackDiagram() {
   const bays = [0, 1, 2];
   const levels = [0, 1, 2];
-  const x0 = 46;
+  const x0 = 60;
   const bw = 92;
   const lh = 46;
   const top = 26;
   return (
     <figure className="rack-diagram" data-testid="rack-diagram">
-      <svg viewBox="0 0 380 220" role="img" aria-label="One aisle of racks seen from the front: bays are the sections between uprights, levels are the beam heights. Bay 2, level 3 of aisle 1 in zone A is spot A-01-02-3.">
+      <svg viewBox="0 0 400 220" role="img" aria-label="One aisle of racks seen from the front: bays are the sections between uprights, levels are the beam heights. Bay 2, level 3 of aisle 1 in zone A is spot A-01-02-3.">
         {bays.map((b) =>
           levels.map((l) => {
             const x = x0 + b * bw;
@@ -790,7 +790,7 @@ function CrewStep({ busy, save }: StepProps) {
   return (
     <>
       <StepHead icon="people" title="Add your crew" why="Each person signs in with their own email, so every move shows who made it. You can skip this and add people later." />
-      <Hint icon="user">Managers can change setup, people and settings. Operators receive, move and ship. Viewers can only look things up. Up to 10 people are included.</Hint>
+      <Hint icon="user">Managers can change setup, people and settings. Operators receive, move and ship. Viewers can only look up stock. Up to 10 people are included.</Hint>
       <div className="row">
         <button className="btn" onClick={() => go('people')}>
           <Icon name="people" /> Add people

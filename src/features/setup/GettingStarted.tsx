@@ -33,6 +33,8 @@ export interface ChecklistStep {
   id: string;
   title: string;
   hint: string;
+  /** A short example or tip shown under a step that is not done yet. */
+  tip?: string;
   done: boolean;
   action: string;
   run: (open: (o: Opener) => void) => void;
@@ -61,12 +63,12 @@ export function useChecklistSteps(): { steps: ChecklistStep[]; skipped: boolean;
   const total = counts ? Object.values(counts).reduce((sum, n) => sum + n, 0) : facts.pallets;
   const things = setup.things.toLowerCase();
   const steps: ChecklistStep[] = [
-    { id: 'survey', title: 'Answer the setup survey', hint: 'Questions about your space work out your zones, spots, labels and printer.', done: setup.preset !== null, action: 'Start', run: (open) => open('survey') },
-    { id: 'spots', title: 'Create your zones and spots', hint: facts.spots ? `${facts.spots} spot${facts.spots === 1 ? '' : 's'} so far.` : 'Build a whole rack or shelf unit at once.', done: facts.spots > 0, action: 'Build a rack', run: (open) => open('builder') },
-    { id: 'labels', title: 'Print and hang spot labels', hint: 'One QR label on every spot.', done: flag(labelsKey) || total > 0, action: 'Print labels', run: () => (setFlag(labelsKey), go('labels' as RouteName)) },
-    { id: 'items', title: `Add your first ${things}`, hint: 'Receive one, or import a spreadsheet.', done: total > 0, action: 'Receive', run: () => go('receive') },
-    { id: 'crew', title: 'Add your crew', hint: 'They sign in with the email you add.', done: facts.crew > 1, action: 'Add people', run: () => go('people') },
-    { id: 'move', title: 'Try a move', hint: 'Scan a pallet, then scan the spot you put it in.', done: facts.moved, action: 'Move', run: () => go('move') },
+    { id: 'survey', tip: 'About five minutes. Have a rough count of your racks, shelves and floor areas handy. You can retake it later.', title: 'Answer the setup survey', hint: 'Questions about your space work out your zones, spots, labels and printer.', done: setup.preset !== null, action: 'Start', run: (open) => open('survey') },
+    { id: 'spots', tip: 'Example: 2 aisles x 10 bays x 4 levels makes 80 spots, coded A-01-01-1 to A-02-10-4. A zone is one area, like racking or bulk floor.', title: 'Create your zones and spots', hint: facts.spots ? `${facts.spots} spot${facts.spots === 1 ? '' : 's'} so far.` : 'Build a whole rack or shelf unit at once.', done: facts.spots > 0, action: 'Build a rack', run: (open) => open('builder') },
+    { id: 'labels', tip: 'Choose your printer first. Shelves suit Avery 5160 sheets or 2 x 1 in labels; racks and floor spots suit 4 x 6 in labels.', title: 'Print and hang spot labels', hint: 'One QR label on every spot.', done: flag(labelsKey) || total > 0, action: 'Print labels', run: () => (setFlag(labelsKey), go('labels' as RouteName)) },
+    { id: 'items', tip: 'Receiving prints a label for each one. A spreadsheet import suits a warehouse that is already full.', title: `Add your first ${things}`, hint: 'Receive one, or import a spreadsheet.', done: total > 0, action: 'Receive', run: () => go('receive') },
+    { id: 'crew', tip: 'Operators receive, move and ship. Managers can also change setup. Up to 10 people are included.', title: 'Add your crew', hint: 'They sign in with the email you add.', done: facts.crew > 1, action: 'Add people', run: () => go('people') },
+    { id: 'move', tip: 'This checks that your labels scan. Any phone camera or scanner gun works.', title: 'Try a move', hint: 'Scan a pallet, then scan the spot you put it in.', done: facts.moved, action: 'Move', run: () => go('move') },
   ];
   return { steps, skipped: flag(skipKey), skip: () => (setFlag(skipKey), bump((n) => n + 1)) };
 }
@@ -113,6 +115,7 @@ export function GettingStarted() {
             <span className="ck-text">
               <strong>{s.title}</strong>
               <small>{s.hint}</small>
+              {!s.done && s.tip && <small className="ck-tip">{s.tip}</small>}
             </span>
             {!s.done && (
               <button type="button" className={`btn${s === next ? ' primary' : ''} small`} onClick={() => s.run(setOpen)}>
