@@ -95,12 +95,35 @@ test('a newer deploy shows New version ready, and Reload loads it', async ({ pag
   await page.route('**/version.json*', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ build: 'newer-build' }) }));
   await signInAs(page, 'owner');
   await page.goto('/#overview');
+  // The automatic reload on opening happens first (see the next test).
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('wh.autoUpdate')).catch(() => null)).toBe('newer-build');
   await portalReady(page);
   const prompt = page.locator('.toasts').getByRole('status').filter({ hasText: 'New version ready' });
   await expect(prompt).toBeVisible();
+  await page.waitForTimeout(1000);
   await page.evaluate(() => ((window as unknown as { __before: boolean }).__before = true));
   await prompt.getByRole('button', { name: 'Reload' }).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __before?: boolean }).__before ?? false)).toBe(false);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __before?: boolean }).__before ?? false).catch(() => true)).toBe(false);
+  await portalReady(page);
+});
+
+test('a newer deploy loads by itself: once on opening, then on the next change of screen', async ({ page }) => {
+  await page.route('**/version.json*', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ build: 'newer-build' }) }));
+  await signInAs(page, 'owner');
+  await page.goto('/#overview');
+  // Found just after opening: the app reloads once on its own, then shows the prompt instead of reloading again.
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('wh.autoUpdate')).catch(() => null)).toBe('newer-build');
+  await portalReady(page);
+  const prompt = page.locator('.toasts').getByRole('status').filter({ hasText: 'New version ready' });
+  await expect(prompt).toBeVisible();
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => ((window as unknown as { __before: boolean }).__before = true));
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => (window as unknown as { __before?: boolean }).__before ?? false)).toBe(true);
+  // A later deploy waits for the next screen.
+  await page.evaluate(() => sessionStorage.removeItem('wh.autoUpdate'));
+  await page.locator('.sidebar').getByRole('button', { name: 'Find', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __before?: boolean }).__before ?? false).catch(() => true)).toBe(false);
   await portalReady(page);
 });
 

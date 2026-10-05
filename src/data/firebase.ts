@@ -2382,6 +2382,20 @@ export function cloudMessage(err: unknown): string {
     return "Too many attempts. Wait a little before trying again.";
   if (code.includes("weak-password"))
     return "Use a stronger password with at least 8 characters.";
+  if (code.includes("unauthorized-domain"))
+    return "Google sign-in is not set up for this website address yet. Ask your Wherehouse contact.";
+  // Direct client sign-up is closed (secure-signup.cjs): a new Google account cannot be created here.
+  if (code.includes("admin-restricted-operation"))
+    return "This Google account has no Wherehouse account yet. Choose Create account and sign up with this email instead.";
+  if (code.includes("operation-not-allowed"))
+    return "This way of signing in is not turned on yet. Ask your Wherehouse contact.";
+  if (
+    code.includes("popup-closed-by-user") ||
+    code.includes("cancelled-popup-request")
+  )
+    return "The Google window closed before sign-in finished. Try again.";
+  if (code.includes("popup-blocked"))
+    return "The browser blocked the Google window. Allow pop-ups for this site and try again.";
   if (code.includes("network-request-failed"))
     return "Could not connect. Check your internet connection.";
   return err instanceof Error

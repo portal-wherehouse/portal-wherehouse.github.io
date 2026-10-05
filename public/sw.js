@@ -2,7 +2,8 @@
 // Data never passes through this cache; it lives in IndexedDB.
 // Each build stamps its id below, so a deploy always brings a new service worker. The new one waits while
 // Wherehouse is open, so an update never lands mid-scan or while queued moves are pending (page 38), until
-// every Wherehouse tab closes or the person presses Reload on "New version ready" (src/device/pwa.ts).
+// every Wherehouse tab closes, the person presses Reload on "New version ready", or the app finds a quiet
+// moment to load it by itself: in the background, on the next screen, or when idle (src/device/pwa.ts).
 // Pages always come from the network when online, so a reload shows the newest version either way.
 const BUILD = '__BUILD_ID__';
 const CACHE = `wherehouse-shell-${BUILD}`;
