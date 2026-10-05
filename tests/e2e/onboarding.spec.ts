@@ -108,6 +108,7 @@ test('on a phone, the locked tabs explain themselves too, and setup asks for a c
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/?demo=1#signin');
+  await pickSample(page);
   await page.getByTestId('practice-setup').click();
   const tabs = page.locator('.bottom-nav');
   await expect(tabs.getByRole('button', { name: 'Find' })).toHaveAttribute('aria-disabled', 'true');
